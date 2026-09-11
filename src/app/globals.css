@@ -1,0 +1,440 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  ── Design tokens ──────────────────────────────────────────
+  One palette for the whole site, taken from the landing page design:
+  a warm near-black (oklch hue 70), warm off-white text, and a single
+  amber accent. Every page reads from these — change them here and the
+  landing, portfolio, booking flow and about page all move together.
+*/
+
+@theme inline {
+
+    --font-heading: var(--font-serif);
+
+    --font-sans: var(--font-sans);
+
+    --font-serif: var(--font-serif);
+
+    --font-mono: var(--font-mono);
+
+    --color-accent-warm: var(--sc-accent);
+
+    --color-accent-ink: var(--sc-accent-ink);
+
+    --color-fg-muted: var(--sc-fg-muted);
+
+    --color-fg-dim: var(--sc-fg-dim);
+
+    --color-fg-faint: var(--sc-fg-faint);
+
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    --color-sidebar-border: var(--sidebar-border);
+
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+
+    --color-sidebar-accent: var(--sidebar-accent);
+
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+
+    --color-sidebar-primary: var(--sidebar-primary);
+
+    --color-sidebar-foreground: var(--sidebar-foreground);
+
+    --color-sidebar: var(--sidebar);
+
+    --color-chart-5: var(--chart-5);
+
+    --color-chart-4: var(--chart-4);
+
+    --color-chart-3: var(--chart-3);
+
+    --color-chart-2: var(--chart-2);
+
+    --color-chart-1: var(--chart-1);
+
+    --color-ring: var(--ring);
+
+    --color-input: var(--input);
+
+    --color-border: var(--border);
+
+    --color-destructive: var(--destructive);
+
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-accent: var(--accent);
+
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-muted: var(--muted);
+
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-secondary: var(--secondary);
+
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-primary: var(--primary);
+
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-popover: var(--popover);
+
+    --color-card-foreground: var(--card-foreground);
+
+    --color-card: var(--card);
+
+    --color-foreground: var(--foreground);
+
+    --color-background: var(--background);
+
+    --radius-sm: calc(var(--radius) * 0.6);
+
+    --radius-md: calc(var(--radius) * 0.8);
+
+    --radius-lg: var(--radius);
+
+    --radius-xl: calc(var(--radius) * 1.4);
+
+    --radius-2xl: calc(var(--radius) * 1.8);
+
+    --radius-3xl: calc(var(--radius) * 2.2);
+
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    /* Display face, as a script stack rather than a per-locale swap.
+       Instrument Serif carries no Cyrillic, so the browser falls through to the
+       Cyrillic face for those glyphs on its own — /ru gets a real display serif
+       with no JS, no locale detection and no font swap after hydration. */
+    --font-serif: var(--font-serif-latin), var(--font-serif-cyrillic), Georgia, serif;
+
+    /* Signature accent: muted slate blue. ONE accent for the whole site —
+       the eyebrow labels, the focus brackets, the primary button, focus rings.
+       Nowhere else. */
+    --sc-accent: oklch(0.4942 0.039 247.29);
+    --sc-accent-ink: oklch(0.98 0.005 95);
+
+    /* sRGB mirror of --sc-accent. three.js can't parse oklch(), so
+       CameraScene reads this instead of hardcoding a hex — the old version
+       hardcoded 0xBC0024 (crimson) under a comment claiming it matched the
+       CSS accent, which is where the red lens ring came from.
+       KEEP THESE TWO IN SYNC. */
+    --sc-accent-hex: #506477;
+
+    --sc-accent-hover: oklch(0.62 0.055 247.29);
+
+    /* Cool neutral text ramp, brightest to faintest. */
+    --sc-fg-muted: oklch(0.65 0.012 230);
+    --sc-fg-dim: oklch(0.55 0.012 230);
+    --sc-fg-faint: oklch(0.45 0.012 230);
+
+    /* Deep charcoal page background. */
+    --background: oklch(0.16 0.008 230);
+
+    --foreground: oklch(0.95 0.006 110);
+
+    /* Dark gray surfaces. */
+    --card: oklch(0.20 0.009 230);
+    --card-foreground: oklch(0.95 0.006 110);
+
+    --popover: oklch(0.20 0.009 230);
+    --popover-foreground: oklch(0.95 0.006 110);
+
+    /* Primary actions use the slate-blue accent. */
+    --primary: oklch(0.4942 0.039 247.29);
+    --primary-foreground: oklch(0.98 0.005 95);
+
+    /* Slightly lighter charcoal for secondary UI. */
+    --secondary: oklch(0.23 0.009 230);
+    --secondary-foreground: oklch(0.95 0.006 110);
+
+    --muted: oklch(0.23 0.009 230);
+    --muted-foreground: oklch(0.65 0.012 230);
+
+    /* Subtle cool-gray accent surface. */
+    --accent: oklch(0.27 0.012 230);
+    --accent-foreground: oklch(0.95 0.006 110);
+
+    --destructive: oklch(0.62 0.20 25);
+
+    /* Cool, understated borders and inputs. */
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 15%);
+
+    --ring: oklch(0.4942 0.039 247.29 / 55%);
+
+    /* Charts follow the same monochrome + slate-blue language. */
+    --chart-1: oklch(0.4942 0.039 247.29);
+    --chart-2: oklch(0.65 0.012 230);
+    --chart-3: oklch(0.55 0.012 230);
+    --chart-4: oklch(0.40 0.010 230);
+    --chart-5: oklch(0.27 0.009 230);
+
+    --radius: 0.625rem;
+
+    /* Sidebar. */
+    --sidebar: oklch(0.18 0.009 230);
+    --sidebar-foreground: oklch(0.95 0.006 110);
+
+    --sidebar-primary: oklch(0.4942 0.039 247.29);
+    --sidebar-primary-foreground: oklch(0.98 0.005 95);
+
+    --sidebar-accent: oklch(0.27 0.012 230);
+    --sidebar-accent-foreground: oklch(0.95 0.006 110);
+
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.4942 0.039 247.29 / 55%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    }
+  ::selection {
+    background: var(--sc-accent);
+    color: var(--sc-accent-ink);
+    }
+}
+
+/* Scroll hint on the landing hero. */
+@keyframes scDrift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(7px); }
+}
+.sc-drift {
+  animation: scDrift 1.6s ease-in-out infinite alternate;
+}
+
+/*
+  Star drift. Two groups, opposite directions, slow enough that nobody
+  consciously sees them move. These used to be 420 additive three.js points,
+  which meant no stars in any scene without WebGL running.
+*/
+@keyframes scStarA {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-1.2%, 0.8%, 0); }
+}
+@keyframes scStarB {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(1%, -0.6%, 0); }
+}
+.sc-star-a { animation: scStarA 42s ease-in-out infinite alternate; }
+.sc-star-b { animation: scStarB 58s ease-in-out infinite alternate; }
+
+/*
+  Bottom-nav perimeter loading trace.
+
+  The rects it applies to carry pathLength="100", so the perimeter is
+  renormalised to 100 units and the dash pattern below is read as a percentage
+  of it — 16% lit, 84% dark — regardless of how wide the nav actually is.
+
+  dasharray sums to exactly 100 (one full perimeter), and the offset travels a
+  full 100 per cycle, so the loop is seamless: frame 0 and frame 100% are
+  identical. Offset DECREASES, which walks the dash forward along the rect's own
+  path direction — clockwise from the top-left corner.
+*/
+@keyframes scNavTrace {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0; }
+}
+.sc-nav-trace {
+  stroke-dasharray: 16 84;
+  animation: scNavTrace 2.6s linear infinite;
+}
+
+/*
+  The global reduced-motion rule below collapses animation-duration to 0.01ms,
+  which would leave the segment frozen at one corner rather than removing it.
+  Hide it outright instead — a static glowing stub is worse than nothing.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .sc-nav-trace {
+    display: none;
+  }
+}
+
+/*
+  Spotify-style stage container.
+  Fixed 24px padding on small screens, 32px on large.
+  No max-width cap — content fills the screen with just
+  a small consistent margin on each side.
+*/
+@layer utilities {
+  .stage {
+    width: 100%;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  @media (min-width: 1024px) {
+    .stage {
+      padding-left: 32px;
+      padding-right: 32px;
+    }
+  }
+}
+/*
+  ── Mobile polish ──────────────────────────────────────────
+  This app is mobile-first; these fix touch-specific problems that don't
+  show up on desktop.
+*/
+
+/* Momentum scrolling on the horizontal shelves, and stop the browser from
+   hijacking a sideways swipe as a back-navigation gesture. */
+@layer utilities {
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
+
+/* Kill the grey flash iOS/Android paint over tapped elements — every
+   interactive element already has its own active: state. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Never let a wide image or long unbroken string force horizontal scroll.
+   `clip`, not `hidden`: overflow-x:hidden makes the element a scroll container,
+   and a scroll container between the viewport and a `position: sticky` element
+   stops it sticking — which is exactly what pinned the landing page's camera
+   for one screen and then let it scroll away. `clip` cuts the overflow without
+   creating a scroll container. The `hidden` line before it is the fallback for
+   browsers older than Safari 16 / Chrome 90. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Fonts at 16px+ in form fields, otherwise iOS Safari zooms the viewport on
+   focus and the user has to pinch back out. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/*
+  ── Viewport height on mobile ──────────────────────────────
+  The URL bar collapses as you scroll and the viewport grows by ~9%. Two
+  heights matter and they do different jobs:
+
+    svh  the height with browser chrome SHOWN. Never changes while scrolling,
+         so every scroll LENGTH on the landing page is expressed in it — a
+         dynamic section height would resize the document mid-scroll and make
+         the scroll position lurch.
+    dvh  the height right now. Anything pinned to the bottom of the screen must
+         use this or it floats above the real bottom edge once the bar goes.
+
+  .sc-dvh is the pinned child of every landing scene. It was h-svh, which is
+  why the scroll cue and the frame counter hung in mid-air over a band of bare
+  background the moment the URL bar slid away.
+
+  --sc-dvh is written by ScrollStage from visualViewport; it is only a fallback
+  for browsers without the native unit (iOS < 15.4).
+*/
+.sc-dvh {
+  height: var(--sc-dvh, 100vh);
+}
+
+@supports (height: 100dvh) {
+  .sc-dvh {
+    height: 100dvh;
+  }
+}
+
+/* iOS repaints fixed layers continuously while the URL bar animates. Keeping
+   the ambient layer's paint to itself stops that touching the rest of the
+   page. Not `contain: strict` — size containment on a fixed inset-0 element is
+   a trap waiting for someone to change how it is sized. */
+.sc-atmosphere {
+  contain: layout paint style;
+}
+
+/*
+  ── Brand-coloured wordmarks ───────────────────────────────
+  Paints a gradient THROUGH the letters, so "Instagram" runs yellow → orange →
+  pink → magenta → indigo across its nine characters and "Telegram" runs light
+  to deep blue across its eight. The gradient comes from --sc-brand-gradient,
+  set per link, so this file holds the mechanism and the component holds the
+  brands.
+
+  -webkit-text-fill-color, NOT color: transparent. `color` stays a real,
+  readable brand colour, which means (a) a browser without background-clip:text
+  renders solid pink or blue instead of nothing at all, (b) text-decoration and
+  ::selection have something to draw with, and (c) copying the text still hands
+  over letters rather than an invisible string.
+
+  The stops are the real Instagram and Telegram hues with the DARK ends lifted.
+  Instagram's own tail (#8134AF, #515BD4) measures 2.7:1 and 3.4:1 against this
+  background — under WCAG AA at any size, and this is 11px uppercase mono. The
+  lifted versions clear 4.9:1 while staying unmistakably the same gradient; the
+  yellow and orange ends are untouched because they were already fine.
+*/
+.sc-brand-text {
+  background-image: var(--sc-brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: filter 0.2s ease;
+}
+
+/* The other links in the row go muted -> white on hover. These cannot: their
+   colour is a painted background, and `color` no longer reaches the glyphs. */
+.sc-brand-text:hover {
+  filter: brightness(1.12) saturate(1.08);
+}
+
+/* Windows high-contrast mode replaces the palette wholesale and drops
+   background images — without this the letters would vanish. */
+@media (forced-colors: active) {
+  .sc-brand-text {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    filter: none;
+  }
+}
+
+/*
+  ── Reduced motion ─────────────────────────────────────────
+  Honour the OS-level setting for users who get motion sickness from
+  transforms and parallax. Transitions collapse to near-instant rather than
+  being removed, so state changes are still perceptible.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+  ── Focus visibility ───────────────────────────────────────
+  Keyboard users need to see where they are. This only shows on keyboard
+  focus, not on mouse or touch, so it doesn't intrude on normal use.
+*/
+:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
