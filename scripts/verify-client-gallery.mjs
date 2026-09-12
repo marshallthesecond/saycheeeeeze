@@ -1,23 +1,16 @@
-// scripts/verify-client-gallery.mjs
-//
-// Walks the ENTIRE private client gallery journey and checks the security
-// property at each step, instead of clicking through and hoping.
+// Walks the entire private client gallery journey and checks the security
+// property at each step, rather than clicking through and hoping.
 //
 //   npm run dev                                     # in another terminal
 //   node --env-file=.env.local scripts/verify-client-gallery.mjs sara-grad THECODE
 //
 // Optional: --base http://localhost:3000
 //
-// Nothing is written anywhere. The passkey and the signed tokens are never
-// printed — a test that leaks the thing it is testing is worse than no test.
+// Writes nothing. The passkey and the signed tokens are never printed — a test
+// that leaks the thing it tests is worse than no test.
 //
-// ── What this actually proves ────────────────────────────────
-// Verifying pieces one at a time is not the same as verifying the journey, and
-// this path changed a lot during the migration: client galleries became
-// always-signed, covers got their own signed ladder, downloads moved to
-// download.jpg, and the gate's contact buttons were malformed until recently.
-// Every check below is something that can be true on its own while the journey
-// is still broken.
+// Every check below can be true on its own while the journey is still broken,
+// which is why they run in sequence:
 //
 //   0  the locked page leaks no photo URL             (the gate is a real gate)
 //   1  the photos endpoint refuses a cookieless call  (the whole point)
@@ -28,7 +21,7 @@
 //   6  the SAME url without the token is refused      (signing is load-bearing)
 //   7  the public zone refuses the same path          (edge rule is load-bearing)
 //   8  download.jpg loads and really is a JPEG        (the delivery file exists)
-//   9  the cover is signed and loads                  (the hero, added late)
+//   9  the cover is signed and loads                  (the hero)
 //  10  signedUntil is a sane deadline                 (the re-sign loop has a clock)
 //
 // Steps 6 and 7 are the ones that matter. If either fails, a client's photos
@@ -36,7 +29,7 @@
 
 import process from "node:process";
 
-// ── args ─────────────────────────────────────────────────────
+// args
 // Parsed in one pass so that a value belonging to a flag can never be mistaken
 // for a positional argument — which is exactly how a passkey ends up being
 // read as a base URL.
@@ -107,7 +100,7 @@ function finish() {
 
 console.log(`\nClient gallery journey — ${SLUG} @ ${BASE}\n`);
 
-// ── 0. the locked page must not ship the photos it is hiding ─
+// 0. the locked page must not ship the photos it is hiding
 // A gate that renders the real page and hides it with CSS is not a gate. This
 // looks for the private zone's hostname anywhere in the server-rendered HTML.
 {
@@ -132,7 +125,7 @@ console.log(`\nClient gallery journey — ${SLUG} @ ${BASE}\n`);
   }
 }
 
-// ── 1. the endpoint must refuse an anonymous caller ──────────
+// 1. the endpoint must refuse an anonymous caller
 {
   const { status } = await probe(`${BASE}/api/galleries/${encodeURIComponent(SLUG)}/photos`);
   if (status === 401) ok("1  photos endpoint refuses a cookieless call", "401");
@@ -144,7 +137,7 @@ console.log(`\nClient gallery journey — ${SLUG} @ ${BASE}\n`);
   else bad("1  photos endpoint", `expected 401, got ${status}`);
 }
 
-// ── 2. a wrong passkey must be refused ───────────────────────
+// 2. a wrong passkey must be refused
 {
   const { status } = await probe(`${BASE}/api/galleries/unlock`, {
     method: "POST",
@@ -161,7 +154,7 @@ console.log(`\nClient gallery journey — ${SLUG} @ ${BASE}\n`);
   else bad("2  wrong passkey", `expected 401, got ${status}`);
 }
 
-// ── 3. the right passkey mints a cookie ──────────────────────
+// 3. the right passkey mints a cookie
 let cookie = null;
 {
   const { status, res, error } = await probe(`${BASE}/api/galleries/unlock`, {
@@ -189,7 +182,7 @@ let cookie = null;
   else bad("3b cookie is NOT httpOnly", "page scripts can read the access token");
 }
 
-// ── 4. with the cookie, photos come back ─────────────────────
+// 4. with the cookie, photos come back
 let payload = null;
 {
   const { status, res } = await probe(
@@ -216,14 +209,14 @@ if (!ladder?.base || !ladder.widths?.length) {
   const widest = ladder.widths[ladder.widths.length - 1];
   const signed = `${ladder.base}/${widest}.avif${ladder.query}`;
 
-  // ── 5. the signed derivative loads ─────────────────────────
+  // 5. the signed derivative loads
   {
     const { status, error } = await probe(signed);
     if (status === 200) ok("5  signed derivative loads", `${widest}.avif`);
     else bad("5  signed derivative", `${error ?? `got ${status}`} — ${redact(signed)}`);
   }
 
-  // ── 6. the same file WITHOUT the token must be refused ─────
+  // 6. the same file WITHOUT the token must be refused
   {
     const { status } = await probe(`${ladder.base}/${widest}.avif`);
     if (status === 403 || status === 401) ok("6  same file unsigned is refused", `${status}`);
@@ -232,7 +225,7 @@ if (!ladder?.base || !ladder.widths?.length) {
     else bad("6  same file unsigned", `expected 403, got ${status}`);
   }
 
-  // ── 7. the public zone must refuse it too ──────────────────
+  // 7. the public zone must refuse it too
   if (PUBLIC_ZONE) {
     const path = ladder.base.replace(/^https?:\/\/[^/]+/, "");
     const { status } = await probe(`${PUBLIC_ZONE}${path}/${widest}.avif`);
@@ -243,7 +236,7 @@ if (!ladder?.base || !ladder.widths?.length) {
     skip("7  public zone", "NEXT_PUBLIC_BUNNY_PULL_ZONE not set");
   }
 
-  // ── 8. the delivery JPEG exists and really is a JPEG ───────
+  // 8. the delivery JPEG exists and really is a JPEG
   {
     const url = `${ladder.base}/download.jpg${ladder.query}`;
     const { status, res } = await probe(url);
@@ -254,7 +247,7 @@ if (!ladder?.base || !ladder.widths?.length) {
   }
 }
 
-// ── 9. the cover is signed and loads ─────────────────────────
+// 9. the cover is signed and loads
 {
   const cl = payload.coverLadder;
   if (cl?.base && cl.widths?.length) {
@@ -269,7 +262,7 @@ if (!ladder?.base || !ladder.widths?.length) {
   }
 }
 
-// ── 10. the refresh loop has a deadline to work from ─────────
+// 10. the refresh loop has a deadline to work from
 {
   const until = payload.signedUntil;
   const now = Math.floor(Date.now() / 1000);

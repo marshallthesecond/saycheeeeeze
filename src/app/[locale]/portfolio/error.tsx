@@ -1,9 +1,7 @@
 "use client";
 
-// src/app/portfolio/error.tsx
-//
-// Catches anything the Portfolio route throws (most likely Bunny being
-// unreachable) and offers a retry rather than showing a blank crash page.
+// Catches anything the Portfolio route throws — usually Bunny being
+// unreachable — and offers a retry instead of a blank crash page.
 
 import Link from "next/link";
 import { ImageOff, RotateCw } from "lucide-react";

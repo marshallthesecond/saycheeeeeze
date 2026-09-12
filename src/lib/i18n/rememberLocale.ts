@@ -1,5 +1,3 @@
-// src/lib/i18n/rememberLocale.ts
-//
 // Writes the NEXT_LOCALE cookie that middleware reads when someone lands on a
 // bare "/" — so a returning Russian visitor doesn't get bounced to English by
 // their browser's Accept-Language header.

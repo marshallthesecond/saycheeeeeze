@@ -1,26 +1,21 @@
 "use client";
 
-// src/app/[locale]/landing/LandingPage.tsx
-//
-// Seven scenes. Attention → recognition → relief → orientation → desire →
-// trust → action. Roughly twelve screens of scroll, about a minute.
+// Seven scenes: attention → recognition → relief → orientation → desire →
+// trust → action. Around twelve screens of scroll, about a minute.
 //
 //   1  hook      the camera hands over a photograph and gets out of the way
 //   2  idea      you bring the idea, I handle the light
 //   3  before    the ten seconds before the frame        ← the whole argument
 //   4  reasons   graduation / model tests / portrait
 //   5  work      eight frames, hard cuts, no copy         ← desire
-//   6  who       Shamshod, three years, two client quotes
+//   6  who       the photographer, and two client quotes
 //   7  book      two doors: the booking engine, or Telegram
 //
-// The 3D appears in 1, 3 and 7 only. Take it out and all seven scenes still
-// read — the argument is carried by photographs and short sentences.
+// The 3D appears in 1, 3 and 7 only. Take it out and all seven still read —
+// the argument is carried by photographs and short sentences.
 //
-// ─────────────────────────────────────────────────────────────
-// REPLACING THE PLACEHOLDER IMAGES
-//
-// Every image on this page is `null` until you drop a file in. Nothing else
-// needs to change: the layout, type and choreography are already final.
+// Every image is `null` until a file is dropped in; the layout, type and
+// choreography are already final, so nothing else changes:
 //
 //   scene 2/1  HERO      → /public/landing/story/hero.jpg      (4:5 or taller)
 //   scene 3    STORY     → /public/landing/story/before.jpg + after.jpg
@@ -28,9 +23,7 @@
 //   scene 5    FACES     → /public/landing/faces/face-01…08.jpg  (vertical only)
 //   scene 6    SELF      → /public/landing/story/me.jpg
 //
-// Bunny CDN URLs work too — *.b-cdn.net is already whitelisted in
-// next.config.ts.
-// ─────────────────────────────────────────────────────────────
+// Bunny URLs work too; *.b-cdn.net is already allowed in next.config.ts.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -55,7 +48,7 @@ import type { CameraPhase, ScreenRect } from "./CameraScene";
 // photograph, not the canvas.
 const CameraScene = dynamic(() => import("./CameraScene"), { ssr: false });
 
-// ── Content ─────────────────────────────────────────────────
+// Content
 
 // Single source of truth for the four one-off images. These were previously
 // declared and then ignored — every scene called bunnyUrl() inline instead —
@@ -87,7 +80,7 @@ const REASONS = [
 
 const TELEGRAM_URL = "https://t.me/saycheeeeeze"; // TODO: confirm the handle
 
-// ── Scenes ──────────────────────────────────────────────────
+// Scenes
 
 const SCENES = [
   { id: "hook", pinned: 90 },
@@ -199,7 +192,7 @@ function Brackets({
   return <FocusFrame state={state} target={target} reduceMotion={reduceMotion} />;
 }
 
-// ── Chrome ──────────────────────────────────────────────────
+// Chrome
 
 function Chrome({ active, total }: { active: number; total: number }) {
   return (
@@ -229,13 +222,10 @@ function Chrome({ active, total }: { active: number; total: number }) {
   );
 }
 
-// ── Shared pieces ───────────────────────────────────────────
+// Shared pieces
 
-/**
- * Reveal on entry: 520ms, 60ms stagger, capped at four elements. Staggering is
- * per scene — the old version indexed across the whole document, so groups
- * landed arbitrarily.
- */
+/** Reveal on entry: 520ms, 60ms stagger, capped at four elements. Staggered
+ *  per scene rather than across the document, or groups land arbitrarily. */
 function useReveal(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = ref.current;
@@ -303,13 +293,11 @@ function Scene({
       style={{ minHeight: `${100 + pinned}svh` }}
     >
       {pinned > 0 ? (
-        // dvh, and only dvh. The pinned child *is* the screen, so it has to be
-        // exactly as tall as the screen is right now. It was svh, which is the
-        // height with the browser chrome showing — so the moment the URL bar
-        // slid away the child stayed short, and everything anchored to its
-        // bottom edge (the scroll cue, the frame counter) hung in mid-air above
-        // a band of bare background. `sc-dvh` carries a JS fallback for
-        // browsers without the unit.
+        // dvh, and only dvh: the pinned child is the screen, so it has to be
+        // exactly as tall as the screen is right now. With svh it stays short
+        // once the URL bar slides away, and everything anchored to its bottom
+        // edge hangs in mid-air over bare background. `sc-dvh` carries a JS
+        // fallback for browsers without the unit.
         <div className="sc-dvh sticky top-0 overflow-hidden">{children}</div>
       ) : (
         <div className="relative min-h-svh">{children}</div>
@@ -320,10 +308,10 @@ function Scene({
 
 /** The bands. Nothing is ever placed outside them.
  *
- *  The text band is bottom-anchored rather than a fixed 54%–86% slot: the
- *  densest block on the page (scene 1) needs about 250px, which is more than
- *  32% of a 667px phone. Anchored to the bottom it grows upward into the image
- *  band instead of overflowing off-screen, and the scrim keeps it legible. */
+ *  The text band is bottom-anchored rather than a fixed slot: the densest
+ *  block (scene 1) needs about 250px, more than 32% of a 667px phone. Anchored
+ *  to the bottom it grows upward into the image band rather than off-screen,
+ *  and the scrim keeps it legible. */
 const BAND = {
   image: "top-[13%] h-[41%]",
   text: "bottom-[14%]",
@@ -377,7 +365,7 @@ function Scrim() {
   );
 }
 
-// ── 1 · Hook ────────────────────────────────────────────────
+// 1 · Hook
 
 function Hook({ t }: { t: (k: string) => string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -440,32 +428,25 @@ function Hook({ t }: { t: (k: string) => string }) {
  * The photograph that leaves the camera's screen.
  *
  * It starts on the projected rect of the LCD — written into `screenRectRef` by
- * CameraScene every frame — and grows to fill the viewport, then holds through
- * scene 2 and finally shrinks to a small inset as scene 2 exits: the frame
- * pulling back to show it was one frame out of many.
+ * CameraScene every frame — grows to fill the viewport, holds through scene 2,
+ * then shrinks to a small inset as scene 2 exits: the frame pulling back to
+ * show it was one frame out of many. A DOM image throughout, never a WebGL
+ * texture, because the photograph has to be sharper than the object that made
+ * it.
  *
- * It's a DOM image throughout, never a WebGL texture. That's the whole point:
- * the photograph has to be sharper than the object that made it.
+ * Three rules keep the hand-off landing, and breaking any one of them makes
+ * the photograph appear beside the camera rather than on it:
  *
- * ── Why the hand-off used to miss ───────────────────────────
- *
- * Three things, compounding:
- *
- *  1. It faded in from p = 0.44 and started growing at p = 0.46. By the time
- *     it was opaque enough to see it had already travelled a tenth of the way
- *     to full screen, so it was never observed sitting *on* the LCD — it was
- *     first seen already off it.
- *  2. At p = 0.44 the body is only about 150° round. The screen is a good 30°
- *     off-axis and foreshortened, and the rect being reported was the bounding
- *     box of that turned quad, which is wider than the screen and centred
- *     somewhere else. See the projection rewrite in CameraScene.
- *  3. It read `screenRectRef.current` live throughout the growth, so its
- *     origin kept moving while it moved — the camera was still rotating
- *     underneath it.
- *
- * Now: it appears while the back is square-on and stays welded to the LCD
- * (including its roll) until the growth starts, the growth latches the rect it
- * left from, and the two ranges no longer overlap.
+ *  1. It must be visible while the back is still square-on. Fading in and
+ *     growing in overlapping ranges means it is first seen already off the
+ *     LCD, having travelled while too faint to notice.
+ *  2. It stays welded to the reported rect, roll included, until the growth
+ *     starts. Part-way through the turn the screen is well off-axis, and a
+ *     bounding box of that turned quad is wider than the screen and centred
+ *     somewhere else.
+ *  3. The growth latches the rect it left from. Reading screenRectRef live
+ *     throughout means the origin keeps moving while the photograph does,
+ *     because the camera is still rotating underneath it.
  */
 
 /** The back is considered square-on above this dot product — about 25° off. */
@@ -570,7 +551,7 @@ function HeroPhoto({
   );
 }
 
-// ── 2 · Idea ────────────────────────────────────────────────
+// 2 · Idea
 
 function Idea({ t }: { t: (k: string) => string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -588,7 +569,7 @@ function Idea({ t }: { t: (k: string) => string }) {
   );
 }
 
-// ── 3 · The ten seconds before ──────────────────────────────
+// 3 · The ten seconds before
 
 function Before({ t }: { t: (k: string) => string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -660,7 +641,7 @@ function Before({ t }: { t: (k: string) => string }) {
   );
 }
 
-// ── 4 · Three reasons people call ───────────────────────────
+// 4 · Three reasons people call
 
 function Reasons({
   t,
@@ -729,7 +710,7 @@ function Reasons({
   );
 }
 
-// ── 5 · The work ────────────────────────────────────────────
+// 5 · The work
 
 function Work({ t, portfolioHref }: { t: (k: string) => string; portfolioHref: string }) {
   const [i, setI] = useState(0);
@@ -822,7 +803,7 @@ function Work({ t, portfolioHref }: { t: (k: string) => string; portfolioHref: s
   );
 }
 
-// ── 6 · Who's behind the camera ─────────────────────────────
+// 6 · Who's behind the camera
 
 function Who({ t }: { t: (k: string) => string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -877,7 +858,7 @@ function Who({ t }: { t: (k: string) => string }) {
   );
 }
 
-// ── 7 · Book ────────────────────────────────────────────────
+// 7 · Book
 
 function Book({ t, bookHref }: { t: (k: string) => string; bookHref: string }) {
   const ref = useRef<HTMLDivElement>(null);

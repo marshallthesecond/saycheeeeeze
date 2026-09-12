@@ -1,14 +1,11 @@
 "use client";
 
-// src/lib/bio/useSessionBio.ts
+// Owns two rules: one variant per browser session, dealt from the deck, and
+// one typing animation per browser session.
 //
-// Owns the two rules:
-//   1. one variant per browser session (dealt from the deck)
-//   2. one typing animation per browser session
-//
-// Everything runs inside an effect, so the server and the first client render
-// agree (both produce no variant) and there is no hydration mismatch. The draw
-// happens after mount.
+// Everything runs inside an effect so the server and the first client render
+// agree — both produce no variant — and the draw happens after mount. No
+// hydration mismatch.
 
 import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/src/lib/i18n/config";
@@ -44,8 +41,8 @@ export function useSessionBio(locale: Locale) {
       const existing = readSession(bios.length);
 
       if (existing) {
-        // Same session: keep the variant, and only animate if the first play
-        // never finished (e.g. they navigated away mid-type).
+        // Same session: keep the variant, animate only if the first play
+        // never finished — they navigated away mid-type.
         setState({ text: bios[existing.index] ?? bios[0]!, animate: !existing.typed });
         return;
       }
@@ -60,8 +57,8 @@ export function useSessionBio(locale: Locale) {
     return () => {
       cancelled = true;
     };
-    // Locale is the only dependency: switching language re-reads the SAME index
-    // from the new file, so the visitor keeps their variant, now translated.
+    // Locale is the only dependency: switching language re-reads the same
+    // index from the new file, so the visitor keeps their variant, translated.
   }, [locale]);
 
   const markTyped = useCallback(() => {

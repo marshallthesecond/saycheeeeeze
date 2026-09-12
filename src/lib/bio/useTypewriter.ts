@@ -1,15 +1,12 @@
 "use client";
 
-// src/lib/bio/useTypewriter.ts
-//
 // Reveals `text` one character at a time.
 //
-// Driven by requestAnimationFrame against elapsed time rather than
-// setInterval(fn, 1000 / cps). Two reasons: setInterval drifts under load, and
-// browsers throttle it hard in background tabs — you'd come back to a tab that
-// is still slowly typing a paragraph from thirty seconds ago. Deriving the
-// character count from the real elapsed time means the animation is always in
-// the right place, whatever the frame rate did.
+// requestAnimationFrame against elapsed time, not setInterval(fn, 1000 / cps):
+// setInterval drifts under load and browsers throttle it hard in background
+// tabs, so you'd return to a tab still slowly typing a paragraph from thirty
+// seconds ago. Deriving the character count from real elapsed time keeps the
+// animation in the right place whatever the frame rate did.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,14 +19,14 @@ interface Options {
 }
 
 export function useTypewriter(text: string, { enabled, cps = 65, onDone }: Options) {
-  // Array.from, not split(""): split("") breaks on surrogate pairs, and Uzbek
-  // and Russian text can carry combining marks that would tear mid-character.
+  // Array.from, not split(""), which breaks on surrogate pairs — and Uzbek and
+  // Russian text can carry combining marks that would tear mid-character.
   const chars = useMemo(() => Array.from(text), [text]);
 
   const [count, setCount] = useState(0);
 
-  // Kept in a ref so a caller passing an inline arrow doesn't restart the
-  // animation on every render.
+  // In a ref, so a caller passing an inline arrow doesn't restart the
+  // animation every render.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 

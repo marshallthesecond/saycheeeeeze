@@ -1,19 +1,14 @@
 "use client";
 
-// src/app/[locale]/galleries/[slug]/GalleryGate.tsx
+// The door, and also the expired notice — same screen, different copy.
 //
-// The door. Also the expired notice, because both are the same screen with
-// different copy and neither is worth its own file.
+// Borrows nothing new: same near-black background, white pill for the primary
+// action, white/[0.07] for the secondary, same tap targets as the 404 and the
+// portfolio error page. Someone who lands here should still feel like they're
+// on the site, not at a login wall bolted onto it.
 //
-// Design notes, such as they are: this borrows nothing new. Same near-black
-// background, same white pill for the primary action, same white/[0.07] for
-// the secondary, same 12rem minimum tap target as the 404 and the portfolio
-// error page. A client who lands here should feel like they're still on the
-// site, not at a login wall bolted onto it.
-//
-// The copy does one job: tell someone who doesn't have a code how to get one.
-// That is the only genuinely useful thing this screen can say, so it gets a
-// button rather than a sentence.
+// The copy does one job: tell someone without a code how to get one. That gets
+// a button rather than a sentence.
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
@@ -42,10 +37,9 @@ export default function GalleryGate({
   const router = useRouter();
   const { t, locale } = useT();
 
-  // Same fallback trick AlbumView uses: ship English until the key exists in
-  // the dictionary, never ship "gallery.unlock" to a user. Every key below now
-  // resolves in all three languages; the fallback stays as a net for the next
-  // string somebody adds.
+  // Same fallback AlbumView uses: English until the key exists, never a raw
+  // "gallery.unlock" on screen. All three languages resolve today; this stays
+  // as a net for the next string somebody adds.
   const tx = useCallback(
     (key: string, fallback: string, vars?: Record<string, string | number>) => {
       const value = t(key, vars);
@@ -77,8 +71,8 @@ export default function GalleryGate({
       });
 
       if (res.ok) {
-        // The cookie is set. Re-render the server component, which will now
-        // take the unlocked branch.
+        // Cookie is set; re-render the server component, which now takes the
+        // unlocked branch.
         router.refresh();
         return;
       }

@@ -1,24 +1,15 @@
-// src/lib/availability.ts
+// When a session can be booked.
 //
-// Rewritten for the session model. What changed and why:
+// Hours are per weekday, because Thursday runs to 23:00 and nothing else does.
+// One session per day, so a day has two states and there is no interval
+// arithmetic. Price comes from the package, not from the hour.
 //
-//   • ONE global workingHours -> per-weekday hours. The old shape could not
-//     express "Thursday runs to 23:00, every other day stops at 18:00".
-//
-//   • Per-hour pricing is gone. defaultPrice, priceOverrides and
-//     getPriceForDate() are deleted; price comes from the package.
-//
-//   • Interval subtraction is gone. One session per day means a day has two
-//     states, so subtract(), overlaps(), longestFreeHours and the "partial"
-//     day status all went with it. ~120 lines removed.
-//
-//   • Everything is pinned to Tashkent, including the server. The old code had
-//     the client using todayInTashkent() while canBook() defaulted to
-//     new Date() — which is UTC on Vercel. Between 00:00 and 05:00 Tashkent the
-//     server was a calendar day behind the browser, so lead time was silently
-//     one day shorter than the calendar had shown.
+// Every date is pinned to Tashkent INCLUDING on the server. Defaulting to
+// new Date() there means UTC on Vercel, which between 00:00 and 05:00 Tashkent
+// puts the server a calendar day behind the browser and silently shortens lead
+// time by a day.
 
-// ─── Config ───────────────────────────────────────────────
+// Config
 
 export interface DayHours {
   /** "HH:MM", 24h. */
@@ -75,7 +66,7 @@ export type DayStatus =
   | "booked"   // confirmed
   | "closed";  // day off, blacked out, or outside the lead/advance window
 
-// ─── Tashkent time ────────────────────────────────────────
+// Tashkent time
 //
 // Everything about this business happens in one timezone, but the code runs in
 // two others: the server in UTC, the browser in whatever the visitor's device
@@ -107,7 +98,7 @@ export function nowInTashkent(): Date {
   return new Date(get("year"), get("month") - 1, get("day"), hour, get("minute"), get("second"));
 }
 
-// ─── Date helpers ─────────────────────────────────────────
+// Date helpers
 
 /** Formats a Date as YYYY-MM-DD from its LOCAL fields (not UTC). */
 export function toISODate(d: Date): string {
@@ -142,7 +133,7 @@ export function latestBookableDate(cfg: AvailabilityConfig, today = todayInTashk
   return d;
 }
 
-// ─── Time helpers ─────────────────────────────────────────
+// Time helpers
 
 /** "14:30" -> 870. NaN for anything unparseable. */
 export function toMinutes(hhmm: string): number {
@@ -172,7 +163,7 @@ export function hoursForDate(date: Date, cfg: AvailabilityConfig): DayHours | nu
   return cfg.weeklyHours[date.getDay()] ?? null;
 }
 
-// ─── Day status ───────────────────────────────────────────
+// Day status
 
 export interface DayInfo {
   status: DayStatus;
@@ -212,7 +203,7 @@ export function toTakenMap(days: TakenDay[]): Map<string, "pending" | "confirmed
   return m;
 }
 
-// ─── Start times ──────────────────────────────────────────
+// Start times
 
 export interface StartTime {
   time: string;                     // "HH:MM"
@@ -280,7 +271,7 @@ export function groupStartTimes(slots: StartTime[]) {
   };
 }
 
-// ─── Validation ───────────────────────────────────────────
+// Validation
 
 export type BookCheck = { ok: true } | { ok: false; reason: string; code: BookErrorCode };
 

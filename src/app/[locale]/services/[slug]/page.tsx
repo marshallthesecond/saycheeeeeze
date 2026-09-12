@@ -42,7 +42,6 @@ import {
 } from './ServiceAudience';
 import StickyHeader from '@/src/components/common/StickyHeader';
 
-// ── Icon resolver — plain string → component, no serialization issues
 /** The horizontal examples rail under the packages. */
 const RAIL_SIZES = '(max-width: 768px) 45vw, 224px';
 
@@ -63,17 +62,16 @@ export async function generateMetadata({
   const service = getServiceBySlug(slug);
   if (!service) return { title: 'Service not found' };
 
-  // The metadata is the page too. A Russian search result whose title and
-  // description are in English is the same bug as an English heading on a
-  // Russian page, except it happens before anyone has even arrived.
+  // Metadata is part of the page. A Russian search result with an English
+  // title is the same bug as an English heading, except it happens before
+  // anyone has arrived.
   const title = pickLocale(service.title, locale);
   const tagline = pickLocale(service.tagline, locale);
   const description = pickLocale(service.description, locale);
 
-  // Social scrapers do not read srcset, so this has to be ONE plain URL — and
-  // it must not be the Optimizer's, which is about to stop existing. The
-  // delivery JPEG is the right choice over a WebP rung: it is a real JPEG, so
-  // every scraper accepts it, and it is a fraction of the original.
+  // Social scrapers don't read srcset, so this has to be one plain URL, and
+  // not the Optimizer's. The delivery JPEG over a WebP rung: a real JPEG that
+  // every scraper accepts, at a fraction of the original.
   const cover = (await getPhotosByPaths([service.coverPath]))[service.coverPath];
   const ogImage = cover && hasLadder(cover.ladder)
     ? downloadSrc(cover.ladder)
@@ -82,10 +80,9 @@ export async function generateMetadata({
   return {
     title,
     description,
-    // What a student actually types. The root layout carries site-wide terms;
-    // these are the ones specific to this service, and for graduation they are
-    // the three languages the search happens in — a WIUT student searches in
-    // English, their parent in Russian, and plenty of both in Uzbek.
+    // What a student actually types. The root layout carries the site-wide
+    // terms; these are this service's, in all three languages — the student
+    // searches in English, their parent in Russian, plenty of both in Uzbek.
     ...(service.keywords?.length ? { keywords: service.keywords } : {}),
     openGraph: {
       title: `${title} · saycheeeeeze`,
@@ -105,27 +102,23 @@ export async function generateMetadata({
 const RAIL_COUNT = 8;
 
 /**
- * The photographs shown under "Best picks".
+ * The photographs shown under "Best picks", in order of preference:
  *
- * What this replaces: every Nth photo of the entire portfolio, which produced
- * the SAME eight images on all sixteen service pages — so a graduation page
- * offered an espresso machine as evidence. Examples either argue for the
- * service they sit under or they argue against it; there is no neutral.
+ *   1. galleryPaths     — curated frame by frame, order preserved
+ *   2. galleryCategory  — everything from one Bunny folder
+ *   3. an even spread of the portfolio
  *
- * It also skips hidden photos, which the old version did not. `hidden` means a
- * category you excluded from your own portfolio in portfolio-exclude.json, and
- * showing those here was quietly overriding that decision.
+ * Examples either argue for the service they sit under or against it; there is
+ * no neutral, which is why an even spread of the whole portfolio is the last
+ * resort rather than the default — it once put an espresso machine on the
+ * graduation page.
  *
- * Order of preference:
- *   1. galleryPaths  — curated frame by frame, order preserved
- *   2. galleryCategory — everything from one Bunny folder
- *   3. an even spread of the portfolio, as before
+ * Hidden photos are skipped. `hidden` means a category excluded from the
+ * portfolio in portfolio-exclude.json, and showing them here would override
+ * that decision.
  *
- * Falling back rather than rendering nothing is deliberate: a service with no
- * dedicated work yet still needs something on the page, and generic-but-good is
- * better than an empty rail. It is a placeholder, not a destination — a service
- * that stays on the fallback is a service whose page has nothing of its own to
- * show, which is worth noticing rather than hiding.
+ * The fallback is a placeholder, not a destination: a service still on it is a
+ * service whose page has nothing of its own to show, which is worth noticing.
  */
 async function pickExamples(
   service: ServiceData,
@@ -174,34 +167,27 @@ export default async function ServicePage({
 
   const Icon = iconMap[service.iconName] ?? Camera;
 
-  // Real photos for the "best picks" rail. Fashion/portrait services borrow
-  // from the matching albums; anything without a match falls back to the
-  // service cover so the rail is never empty or duplicated across pages.
-  // Whole photo records, not URL strings. getAllPhotoSrcs() returned
-  // bunnyUrl() results, which meant this rail was the last place on the site
-  // still asking the Optimizer to resize eight full-size originals per page.
+  // Whole photo records, not URL strings — as bunnyUrl() results this rail
+  // was the last place still asking the Optimizer to resize eight full-size
+  // originals per page. Services without matching albums fall back to the
+  // service cover so the rail is never empty.
   const albumPool = await getPortfolioPhotos();
 
-  // The hero was a shared file in public/ — img1.png through img5.JPG, one of
-  // them 39.6 MB, resized by Next on every cold request. It is a storage path
-  // now, so it goes through the same ladder as everything else.
+  // A storage path, so the hero goes through the same ladder as everything
+  // else rather than being a 39 MB file in public/ resized on every cold
+  // request.
   const cover = (await getPhotosByPaths([service.coverPath]))[service.coverPath];
   const galleryPicks = await pickExamples(service, albumPool, cover);
 
-  // packageGroups wins where both exist; everything else keeps the flat list,
-  // wrapped in a single unnamed group so the render path below is the same one.
-  //
-  // Localised text is resolved HERE, on the server, where `locale` already is.
-  // The client islands then receive plain strings and never have to know about
-  // languages — which also keeps the dictionaries out of the client bundle.
+  // packageGroups wins where both exist; a flat list is wrapped in one unnamed
+  // group so the render path below is the same either way.
   const L = (value: Localized) => pickLocale(value, locale);
 
-  // ── Everything the visitor READS, resolved once, here ──────
-  // The service's own copy used to be plain English strings, so /ru was a
-  // translated shell around an English page: English title, English tagline,
-  // English FAQs, "1 hour" in the middle of a Russian price list. It is
-  // Localized now, and this is the one place that turns it into text — the
-  // client islands still receive plain strings and never learn about locales.
+  // Every string the visitor reads, resolved once, here on the server where
+  // `locale` already is. The client islands receive plain strings and never
+  // learn about locales, which also keeps the dictionaries out of their
+  // bundle. Miss one and /ru becomes a translated shell around an English
+  // page — English FAQs, "1 hour" in the middle of a Russian price list.
   const title = L(service.title);
   const tagline = L(service.tagline);
   const description = L(service.description);
@@ -247,10 +233,9 @@ export default async function ServicePage({
     })),
   }));
 
-  // Built with an explicit loop rather than Object.entries().map(): entries
-  // types its values as `unknown` here, and the annotation needed to talk it
-  // out of that then conflicts with its own signature. Keys are strings and the
-  // Record already says what the values are, so this needs neither.
+  // An explicit loop rather than Object.entries().map(): entries types its
+  // values as `unknown` here, and the annotation that fixes that conflicts
+  // with its own signature.
   let audience: ResolvedAudience | undefined;
   if (service.audience) {
     const rawGroups = service.audience.groups;
@@ -274,10 +259,9 @@ export default async function ServicePage({
     };
   }
 
-  // The FAQs are already written and already on the page; the schema is the
-  // free half. Answered questions are what Google shows for "how much is a
-  // graduation photoshoot in Tashkent", and without this markup a page that
-  // answers it exactly is invisible to that result.
+  // The FAQs are already written and on the page; the schema is the free
+  // half. Without it, a page that answers "how much is a graduation photoshoot
+  // in Tashkent" exactly is invisible to the result that asks it.
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -289,9 +273,9 @@ export default async function ServicePage({
   };
 
   return (
-    // Everything inside stays a SERVER component — a client provider can take
+    // Everything inside stays a server component: a client provider can take
     // server-rendered children as a prop. Only <AudienceText> and the islands
-    // that read the context are client-side.
+    // reading the context are client-side.
     <AudienceProvider>
     <div className="min-h-screen bg-background text-white relative overflow-x-clip">
       {/* eslint-disable-next-line react/no-danger */}
@@ -301,9 +285,7 @@ export default async function ServicePage({
       />
 
       {service.hero ? (
-        // No photograph. A drawn mortarboard on a gradient built from the
-        // service's own accent — see ServiceHero for why this beats a stand-in
-        // frame, and for the one condition under which it should be removed.
+        // No photograph — see ServiceHero for why, and for when to drop it.
         <ServiceHero
           title={title}
           tagline={tagline}
@@ -314,17 +296,16 @@ export default async function ServicePage({
           accent={service.accentColor}
         />
       ) : (
-        // Spotify-style hero: full-bleed cover photo that melts straight into
-        // the page via the service's own accent — no rounded card, no visible
-        // seam. The image IS the header. A JS comment, not a JSX one: a ternary
-        // branch holds ONE expression, and {/* … */} is itself an expression.
+        // Full-bleed cover photo melting into the page via the service's own
+        // accent: no rounded card, no seam, the image is the header. A JS
+        // comment rather than a JSX one because a ternary branch holds one
+        // expression and {/* … */} is itself an expression.
         <div
-        // 62vh was over half a phone screen before a single word of the page
-        // appeared. A hero has to establish what this is and then get out of
-        // the way; at 44vh it still fills the top of the screen while leaving
-        // the first section visible above the fold, which is what actually
-        // makes someone scroll. Desktop keeps more height because there is
-        // more of it to spend.
+        // A hero has to say what this is and then get out of the way. At 44vh
+        // it fills the top of the screen while leaving the first section
+        // visible above the fold, which is what makes someone scroll; 62vh was
+        // over half a phone screen before a single word appeared. Desktop
+        // keeps more height because there's more of it to spend.
         className="relative w-full h-[44vh] min-h-70 max-h-95 sm:h-[52vh] sm:max-h-130"
         style={blurStyle(cover?.thumbhash)}
       >

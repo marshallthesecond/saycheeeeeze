@@ -1,36 +1,21 @@
-// scripts/probe-colour.mjs
-//
-// Answers one question that has been open since the ladder was built:
-//
-//   what colour space are the originals in, and does the delivery JPEG
-//   still say so?
+// What colour space are the originals in, and does the delivery JPEG still say
+// so? Read-only: downloads a sample from Bunny Storage, reads metadata, writes
+// nothing.
 //
 //   node --env-file=.env.local scripts/probe-colour.mjs [--limit 8] [--gallery slug]
 //
-// Read-only. Downloads a sample from Bunny Storage, reads metadata, writes
-// nothing anywhere.
-//
-// ── Why this matters ─────────────────────────────────────────
-// sharp strips metadata unless you ask it not to, and nothing in the worker
-// asks. So every derivative — the AVIF/WebP rungs, share.jpg and download.jpg —
-// is written with NO ICC profile attached.
-//
-// For the rungs that is harmless: they are built from a master that goes
-// through .toColourspace("srgb"), so the pixels really are sRGB and every
-// viewer's assumption is correct.
-//
-// download.jpg is the exception. It is encoded straight off the original, with
-// no colourspace conversion, and then written with no profile. If the originals
-// are sRGB that is fine — the assumption matches the pixels. If they are
-// AdobeRGB or ProPhoto, the file carries wide-gamut pixel values while telling
-// every viewer they are sRGB, and the result is the muted, flat-looking print a
+// sharp strips metadata unless asked not to, and nothing in the worker asks, so
+// every derivative is written with no ICC profile. Harmless for the rungs —
+// they come from a master that goes through .toColourspace("srgb"), so the
+// pixels really are sRGB. download.jpg is the exception: encoded straight off
+// the original with no conversion and then written with no profile. If the
+// originals are AdobeRGB or ProPhoto it carries wide-gamut pixel values while
+// telling every viewer they are sRGB, which is the muted, flat-looking print a
 // client blames on the photographer.
 //
-// Nobody notices this on a screen full of web derivatives. They notice it when
-// a client prints one. So: measure, then decide, rather than "fixing" a
-// pipeline that might not be broken.
+// Nobody sees this in web derivatives. They see it when a client prints one.
+// Hence measuring before "fixing" a pipeline that may not be broken.
 //
-// ── Reading the output ───────────────────────────────────────
 //   space=srgb, profile=none            → nothing to do
 //   space=srgb, profile=sRGB            → nothing to do
 //   space=rgb16 / cmyk                  → look closer
@@ -90,20 +75,16 @@ function utf16be(buf) {
 }
 
 /**
- * The ICC profile's own description, which is the only thing that actually
- * names the space.
+ * The ICC profile's own description, the only thing that actually names the
+ * space. sharp's metadata().space is libvips' interpretation rather than the
+ * profile — a Display P3 JPEG reports space=srgb while carrying P3 primaries —
+ * and telling those apart is the entire point of this script.
  *
- * sharp's `metadata().space` is libvips' interpretation, NOT the profile: a
- * Display P3 JPEG reports space=srgb while carrying P3 primaries. Reading the
- * profile is the only way to tell them apart, and telling them apart is the
- * entire point of this script.
- *
- * The tag table has to be walked properly. Searching the raw bytes for "desc"
- * finds the tag TABLE ENTRY, whose next twelve bytes are an offset and a size
- * rather than the string — the first version of this returned "cprt" for every
- * profile ever made. So: header is 128 bytes, tag count at 128, then 12-byte
- * entries of signature/offset/size. The data is either a v2 'desc' (ASCII) or a
- * v4 'mluc' (UTF-16BE records); both appear in the wild.
+ * The tag table has to be walked properly: searching the raw bytes for "desc"
+ * finds the table ENTRY, whose next twelve bytes are an offset and a size
+ * rather than the string. So header is 128 bytes, tag count at 128, then
+ * 12-byte signature/offset/size entries. The data is either a v2 'desc'
+ * (ASCII) or a v4 'mluc' (UTF-16BE records); both appear in the wild.
  */
 function profileName(icc) {
   try {

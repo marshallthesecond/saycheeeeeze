@@ -1,5 +1,3 @@
-// src/lib/bio/variants/uz.ts
-//
 // O'zbekcha variantlar. Yangi variantlarni massiv OXIRIGA qo'shing.
 //
 // Qoidalar: 2-3 gap, ~280 belgidan oshmasin, ism + "fotograf" + "Toshkent".

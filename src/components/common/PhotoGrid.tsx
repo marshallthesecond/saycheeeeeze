@@ -1,25 +1,13 @@
-// src/components/common/PhotoGrid.tsx
+// Masonry grid that preserves reading order: real columns filled shortest-first
+// in source order. CSS columns fill top-to-bottom instead, which puts photo 1
+// above photo 4 — scrambled, for a client scrolling their own shoot.
 //
-// Masonry grid that preserves reading order.
+// Aspect ratios come from the stored width/height on each `photos` row, so the
+// packing is correct on the FIRST render, server-side, before any image byte is
+// requested. No re-flow, no layout shift.
 //
-// The old version used CSS columns, which fill top-to-bottom per column —
-// photo 1 sits above photo 4, not next to photo 2. For a portfolio nobody
-// notices. For a client scrolling through their own shoot in the order it
-// happened, it reads as scrambled.
-//
-// So: real columns, filled shortest-first in source order.
-//
-// ── Where aspect ratios come from ────────────────────────────
-// Preferably from the database. Every `photos` row has stored width and height
-// (sync-bunny.ts probes them at ingest), and those now travel to the client on
-// the photo object. That means the column packing is CORRECT ON FIRST RENDER,
-// server-side, before a single image byte has been requested — no reserved-space
-// guess, no re-flow as photos arrive, no cumulative layout shift.
-//
-// The old behaviour is kept as a fallback for photos whose dimensions could not
-// be probed: assume 3:2 portrait, then correct it from the image's own
-// naturalWidth/naturalHeight once it loads. That path used to run for EVERY
-// photo, which is why the grid visibly settled as you scrolled.
+// Photos whose dimensions could not be probed fall back to assuming 3:2 and
+// correcting from naturalWidth/naturalHeight on load.
 
 "use client";
 
@@ -65,13 +53,10 @@ const LONG_PRESS_MS = 450;
 const ASSUMED_RATIO = 1.5; // height / width, only when nothing better is known
 
 /**
- * height / width for one photo, in order of trustworthiness:
- *   1. stored intrinsic dimensions  — known before any request is made
- *   2. measured from the loaded image — the old behaviour, now a fallback
- *   3. the 3:2 assumption
+ * height / width, in order of trustworthiness: stored dimensions, then measured
+ * from the loaded image, then the 3:2 assumption.
  *
- * Guarded against a zero or missing width because a divide by zero here
- * produces Infinity, and one Infinity poisons the column heights so badly that
+ * Guarded against a zero width — one Infinity poisons the column heights and
  * every subsequent photo lands in the same column.
  */
 function ratioOf(photo: Photo, measured: Record<string, number>): number {

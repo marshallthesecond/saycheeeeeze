@@ -1,9 +1,4 @@
-// src/app/[locale]/page.tsx — the landing page.
-//
-// A scroll-driven story: ten screens of copy passing over a 3D camera that
-// assembles, fires, and comes apart as you scroll. The heavy part
-// (three.js) loads client-side only; everything the crawler needs is plain
-// server-rendered markup inside <LandingPage />.
+// The site root. Renders the About page — see the note in HomePage below.
 
 import type { Metadata } from "next";
 import LandingPage from "./landing/LandingPage";
@@ -21,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  // The scroll-driven 3D landing lives in ./landing/LandingPage and is not
-  // wired up for launch. To switch back: re-add the import and return it here.
+  // ./landing/LandingPage is a scroll-driven three.js piece, not wired up for
+  // launch. Return it here instead to switch back.
   return <AboutPage />;
 }

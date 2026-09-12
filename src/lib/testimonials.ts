@@ -1,22 +1,8 @@
-// src/lib/testimonials.ts
+// TODO(marshall): THESE ARE PLACEHOLDERS. Replace with real quotes or set the
+// array to [] before going live — the quotes block drops itself when empty.
+// Invented testimonials are dishonest and easy to spot.
 //
-// Social proof. Someone deciding whether to book has nothing else to go on —
-// no reviews, no client names, no sense of what working together is like. Even
-// a handful of short, specific quotes changes that more than any amount of
-// design polish.
-//
-// The homepage (scene 6, "Who's behind the camera") shows the FIRST TWO, so the
-// order matters: put the two that speak to portrait, graduation and model
-// clients at the top. The rest are still used by the service pages.
-//
-// REPLACE THESE PLACEHOLDERS with real quotes before going live. Fabricated
-// testimonials are both dishonest and easy to spot. If you don't have any yet,
-// message three recent clients and ask — most will say yes, and it takes them
-// two minutes. Until then, set `testimonials` to an empty array: scene 6 drops
-// the quotes block on its own and the layout still holds.
-//
-// What makes a quote worth keeping: a specific detail, an admission, or a
-// number. "Great photos, highly recommend" proves nothing.
+// Order matters: the homepage shows the first two.
 
 export interface Testimonial {
   /** The quote itself — shorter and more specific is better than long praise. */

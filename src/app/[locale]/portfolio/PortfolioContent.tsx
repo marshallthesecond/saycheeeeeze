@@ -18,15 +18,13 @@ import { useT } from "@/src/lib/i18n/LanguageProvider";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 
-// How many photos sit above the Albums shelf. Heights are natural, so this
-// can't be an exact "half a screen" — 6 lands close to 50vh both on a phone
-// (3 columns, ~2 rows of portraits) and on a laptop (4–5 wider columns,
-// ~1.5 rows). Raise it to push the albums further down the page.
+// How many photos sit above the Albums shelf. Heights are natural so this
+// can't be an exact half-screen; 6 lands close to 50vh on a phone and on a
+// laptop alike. Raise it to push the albums further down.
 const PHOTOS_BEFORE_ALBUMS = 6;
 
-// Two doors into the same picker. `mode` decides which galleries it lists.
-// Labels are dictionary KEYS, not text — these used to be hardcoded English
-// and shipped untranslated to /ru and /uz.
+// Two doors into the same picker; `mode` decides which galleries it lists.
+// Labels are dictionary keys, not text.
 const CLIENT_GALLERY_ENTRIES = [
   {
     mode: "public" as const,
@@ -42,7 +40,7 @@ const CLIENT_GALLERY_ENTRIES = [
   },
 ];
 
-// Days since the epoch, in Tashkent — the same integer on the server and in
+// Days since the epoch, in Tashkent: the same integer on the server and in
 // every visitor's browser, whatever timezone they're in.
 function daySeed(): number {
   const iso = new Intl.DateTimeFormat("en-CA", {
@@ -83,18 +81,17 @@ export default function PortfolioContent({
   galleries: GalleryListing[];
 }) {
   const { t, locale } = useT();
-  // The grid is shuffled so the portfolio doesn't always lead with the same
-  // photos. The seed is the calendar day, NOT Math.random(): the server and
-  // the browser both have to arrive at the same order or React throws away
-  // the server-rendered HTML and re-renders the whole grid on hydration. The
-  // order therefore holds steady for a day and rotates at midnight.
+  // Shuffled so the portfolio doesn't always lead with the same photos. The
+  // seed is the calendar day rather than Math.random() because server and
+  // browser must reach the same order — otherwise React discards the
+  // server-rendered HTML on hydration. The order rotates at midnight.
   const shuffled = useMemo(() => shuffleWithSeed(allPhotos, daySeed()), [allPhotos]);
   const [filter, setFilter]     = useState<string>("All");
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [picker, setPicker] = useState<"public" | "private" | null>(null);
 
-  // Filter pills are derived from whatever top-level folders actually exist
-  // in Bunny Storage — no hardcoded category list to keep in sync.
+  // Pills derived from the top-level folders that exist in Bunny Storage, so
+  // there's no hardcoded category list to keep in sync.
   const filters = useMemo(
     () => ["All", ...Array.from(new Set(allPhotos.filter((p) => !p.hidden).map((p) => p.category))).sort()],
     [allPhotos]
@@ -109,15 +106,13 @@ export default function PortfolioContent({
   );
 
   const visibleData = filter === "All" ? shuffled : shuffled.filter((p) => p.category === filter);
-  // Spread, not { src, alt }. Narrowing here would throw away ladder,
-  // thumbhash and dimensions and put the portfolio straight back onto the
-  // Optimizer — the exact mistake that made this page the last one to migrate.
+  // Spread, not { src, alt }: narrowing here would drop ladder, thumbhash and
+  // dimensions and put the portfolio back onto the Optimizer.
   const photos: Photo[] = visibleData.map((p) => ({ ...p, alt: p.alt }));
 
-  // The grid is rendered in two halves so the Albums shelf can sit inside it
-  // rather than after it. Lightbox indices stay global: the lower grid adds
-  // the upper grid's length back on, so `photos[index]` is always the photo
-  // that was actually clicked.
+  // Two halves, so the Albums shelf can sit inside the grid rather than after
+  // it. Lightbox indices stay global — the lower grid adds the upper grid's
+  // length back on, so `photos[index]` is always the photo that was clicked.
   const photosAboveAlbums = photos.slice(0, PHOTOS_BEFORE_ALBUMS);
   const photosBelowAlbums = photos.slice(PHOTOS_BEFORE_ALBUMS);
 
@@ -240,7 +235,7 @@ export default function PortfolioContent({
         </div>
       </section>
 
-      {/* ── Photo grid, upper half — full bleed, Pixieset style ── */}
+      {/* Photo grid, upper half — full bleed, Pixieset style */}
       <section className="relative z-10 pb-8">
         {allPhotos.length === 0 ? (
           <div className="px-6 py-20 text-center flex flex-col items-center gap-3">
@@ -302,7 +297,7 @@ export default function PortfolioContent({
         ))}
       </Shelf>
 
-      {/* ── Photo grid, the rest ── */}
+      {/* Photo grid, the rest */}
       {photosBelowAlbums.length > 0 && (
         <section className="relative z-10 pb-10">
           <PhotoGrid

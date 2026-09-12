@@ -1,19 +1,14 @@
-// scripts/verify-private-zone.mjs
-//
-// Proves the Bunny half of the setup is actually configured, rather than
-// looking configured. Run it after any change to either pull zone:
+// Proves the Bunny half of the setup is actually configured rather than
+// looking configured. Run after any change to either pull zone:
 //
 //   node --env-file=.env.local scripts/verify-private-zone.mjs clients/sara-grad/IMG_1432.jpg
 //
-// (Node 20+ for --env-file. On older Node: `node -r dotenv/config scripts/…`)
+// Five requests, each checked. Test 3 is the one that matters — if it fails,
+// everything else in the system is decoration.
 //
-// It makes five requests and checks each one. The important one is test 3 —
-// if that fails, everything else in the system is decoration.
-//
-// This deliberately duplicates the signing logic from src/lib/bunny-sign.ts
-// rather than importing it. A test that shares its implementation with the
-// thing it tests can only tell you they agree with each other, not that either
-// is right. If these two ever disagree, that disagreement is the finding.
+// The signing logic is duplicated from src/lib/bunny-sign.ts on purpose. A
+// test sharing its implementation with the thing it tests can only show the
+// two agree, not that either is right; a disagreement here is the finding.
 
 import { createHmac } from "node:crypto";
 

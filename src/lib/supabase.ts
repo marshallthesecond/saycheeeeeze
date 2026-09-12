@@ -1,29 +1,18 @@
-// src/lib/supabase.ts
+// Both Supabase clients. Server-only: nothing here reaches the browser.
 //
-// Both clients live here and the whole module is server-only. Nothing in this
-// app reads Supabase from the browser — album data is fetched during render,
-// so there is no reason for either key to reach the client bundle.
-//
-//   supabaseRead()  — anon/publishable key, subject to RLS. Every page read
-//                     goes through this, so a wrong query still can't reach
-//                     an unpublished gallery.
-//   supabaseAdmin() — service role/secret key, bypasses RLS. Seed and sync
-//                     only. Never import from anything that renders.
+//   supabaseRead()   anon key, RLS applies. Every page read.
+//   supabaseAdmin()  service key, bypasses RLS. Seed, sync and bookings only.
 
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-// Supabase renamed these keys. Older projects and older docs say ANON_KEY and
-// SERVICE_ROLE_KEY; the current dashboard says PUBLISHABLE and SECRET. Accept
-// either so it doesn't matter which one you copied.
+// Supabase renamed these keys; accept either spelling.
 //
-// Read inside the functions, never at module scope: scripts load .env.local
-// with dotenv, and ES imports are hoisted above every statement in the file
-// that imports this one, so a module-scope read always runs first and always
+// Read inside the functions, never at module scope. Scripts load .env.local
+// with dotenv, and imports are hoisted above it, so a module-scope read always
 // sees undefined.
-
 function readEnv() {
   return {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -35,7 +24,7 @@ function readEnv() {
   };
 }
 
-/** Names the vars that ARE set, so the error tells you what you actually have. */
+/** Names the vars that ARE set, so the error says what you actually have. */
 function present(): string {
   const found = Object.keys(process.env)
     .filter((k) => k.includes("SUPABASE"))
@@ -43,8 +32,6 @@ function present(): string {
   return found.length ? found.join(", ") : "none";
 }
 
-// No sessions, no token refresh, no URL parsing — this is a stateless server
-// process reading public rows, not a browser holding a login.
 const CLIENT_OPTIONS = {
   auth: {
     persistSession: false,
@@ -56,7 +43,7 @@ const CLIENT_OPTIONS = {
 let readClient: SupabaseClient<Database> | null = null;
 let adminClient: SupabaseClient<Database> | null = null;
 
-/** Anon-key client. RLS applies. Use this for anything a visitor will see. */
+/** Anon-key client. RLS applies. Use for anything a visitor will see. */
 export function supabaseRead(): SupabaseClient<Database> {
   const { url, anon } = readEnv();
 
@@ -73,11 +60,8 @@ export function supabaseRead(): SupabaseClient<Database> {
   return readClient;
 }
 
-/**
- * Service-role client. Bypasses RLS — it can read and write anything.
- * Seed and sync only. Lazy, so a build without the key still succeeds as long
- * as nothing calls it.
- */
+/** Service-role client. Bypasses RLS entirely. Lazy, so a build without the
+ *  key still succeeds as long as nothing calls it. */
 export function supabaseAdmin(): SupabaseClient<Database> {
   const { url, service } = readEnv();
 

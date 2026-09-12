@@ -1,16 +1,12 @@
-// src/app/portfolio/loading.tsx
-//
-// Shown automatically while the server component fetches the full image list
-// from Bunny. A shaped skeleton reads as "loading" — a blank screen reads as
-// "broken", which matters most on the slow mobile connections this app targets.
+// Shown while the server component fetches the image list. A shaped skeleton
+// reads as "loading"; a blank screen reads as "broken".
 
 import { NavLoadingBeacon } from "@/src/lib/nav-loading";
 
 export default function PortfolioLoading() {
   return (
     <div className="min-h-screen bg-background text-white overflow-x-clip">
-      {/* Runs the bottom-nav perimeter animation for as long as this fallback
-          is mounted. Renders nothing itself. */}
+      {/* Runs the bottom-nav glow while this fallback is mounted. */}
       <NavLoadingBeacon />
 
       <div

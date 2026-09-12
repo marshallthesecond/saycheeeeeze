@@ -1,5 +1,3 @@
-// src/app/about/page.tsx
-//
 // Server shell so this route can export metadata — the interactive content
 // lives in AboutContent.tsx, which is a client component.
 
@@ -20,9 +18,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AboutPage() {
-  // Resolved on the server so the client receives real dimensions, ThumbHashes
-  // and derivative URLs in the first render payload — before a single image is
-  // requested.
+  // Resolved server-side so the client gets real dimensions, ThumbHashes and
+  // derivative URLs in the first render payload.
   const [albums, photoIndex] = await Promise.all([
     getAllAlbums(),
     getPhotosByPaths(ABOUT_PHOTO_PATHS),

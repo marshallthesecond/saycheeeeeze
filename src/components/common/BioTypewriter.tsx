@@ -1,22 +1,16 @@
 "use client";
 
-// src/components/common/BioTypewriter.tsx
 //
-// Drop-in replacement for the static <p>{t("about.bio")}</p> in the hero.
+// The typing bio in the About hero. A 1x1 grid with three stacked layers, which
+// is what stops the animation moving the page:
 //
-// The paragraph is a 1x1 CSS grid with three stacked children, each doing one
-// job. This is what keeps a typing animation from wrecking the layout:
+//   1. measure  the full text, `invisible` — still occupies layout, so the
+//               paragraph is at its final height from the first frame
+//   2. visible  the growing slice and caret, aria-hidden
+//   3. sr-only  the whole bio once, for assistive tech and crawlers
 //
-//   1. measure  — the FULL text, `invisible`. visibility:hidden still occupies
-//                 layout, so the paragraph sits at its final height from the
-//                 first frame and the buttons below never jump as it types.
-//   2. visible  — the growing slice plus the caret. aria-hidden, because a
-//                 screen reader should not narrate a paragraph letter by letter.
-//   3. sr-only  — the whole bio, once, for assistive tech and crawlers.
-//
-// t("about.bio") is still used, as the pre-mount / no-JS / failed-chunk
-// fallback. That key stays in the dictionaries and is worth keeping good: it is
-// what a crawler sees in the server-rendered HTML.
+// t("about.bio") remains the pre-mount / no-JS fallback, and is what a crawler
+// sees in the server-rendered HTML — worth keeping good.
 
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { useSessionBio } from "@/src/lib/bio/useSessionBio";

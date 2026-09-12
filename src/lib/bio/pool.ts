@@ -1,13 +1,10 @@
-// src/lib/bio/pool.ts — CLIENT-side variant loading.
+// Client-side variant loading, deliberately outside the i18n dictionaries.
 //
-// Deliberately NOT part of the i18n dictionaries. The dictionary is handed to
-// LanguageProvider in the [locale] layout, so anything added there ships in the
-// RSC payload of EVERY page. The bio pool is only ever needed on /about, and it
-// grows over time — 100 variants would be ~20KB riding along on every single
-// navigation.
-//
-// Loading it here instead means it becomes its own chunk, fetched once, only on
-// the About page, and only for the active language.
+// The dictionary goes to LanguageProvider in the [locale] layout, so anything
+// added there rides in the RSC payload of every page. The bio pool is only
+// needed on /about and grows over time — 100 variants would be ~20KB on every
+// navigation. Loaded here it becomes its own chunk, fetched once, only on the
+// About page, only for the active language.
 
 import type { Locale } from "@/src/lib/i18n/config";
 import { defaultLocale } from "@/src/lib/i18n/config";
@@ -23,12 +20,12 @@ export function loadBios(locale: Locale): Promise<readonly string[]> {
 }
 
 /**
- * Warns (dev only) if the three files have drifted out of sync.
+ * Dev-only warning when the three files have drifted out of sync.
  *
- * The deck stores an INDEX, not the text, so switching language keeps you on
- * the same variant. That only holds while the arrays are the same length and
- * roughly parallel in position. Nothing breaks if they drift — the index is
- * clamped — but you'd silently get a different bio on language switch.
+ * The deck stores an index rather than the text, so switching language keeps
+ * you on the same variant — but only while the arrays are the same length and
+ * roughly parallel. Drift breaks nothing (the index is clamped); it just
+ * silently hands you a different bio on language switch.
  */
 export async function assertPoolParity(): Promise<void> {
   if (process.env.NODE_ENV === "production") return;

@@ -1,5 +1,3 @@
-// src/lib/bio/variants/en.ts
-//
 // English bio pool. Paste new variants at the END of the array — the deck
 // reshuffles around whatever length it finds, so nothing else needs updating.
 //

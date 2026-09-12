@@ -1,5 +1,3 @@
-// src/lib/sync-bunny.ts
-//
 // Mirrors one gallery's Bunny Storage folder into the `photos` table.
 // Idempotent: safe to run on a loop. Files already in the database keep their
 // dimensions and are not re-downloaded, so a second run over an unchanged

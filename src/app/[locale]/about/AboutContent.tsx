@@ -22,11 +22,9 @@ import { Button } from "@/components/ui/button";
 import { pfps } from "@/src/lib/pfps";
 import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 
-// ─── Data ─────────────────────────────────────────────────
-// Short one-word disciplines — they sit inline in the hero meta bar separated by
-// hairline rules, so anything longer than a word breaks the rhythm. (The old
-// list read "Fashion photography / Street photography / Whatever-looks-nice
-// photography"; the noun is redundant once they're grouped under a photographer.)
+// One word each. They sit inline in the hero meta bar separated by hairline
+// rules, so anything longer breaks the rhythm — and "photography" is redundant
+// once the list is grouped under a photographer.
 const tags = ["Portrait", "Fashion", "Graduation","Commercial"];
 
 // Text-only in the new hero — the meta bar is a typographic strip, so the
@@ -47,21 +45,18 @@ const CARD_SIZES = "(min-width: 1024px) 24vw, 224px";
 const ALBUM_COVER_SIZES = "(max-width: 640px) 40vw, 192px";
 
 /**
- * Built from the photographs that are actually in MY_WORKS, in the order they
- * first appear there.
- *
- * It used to be a hand-written list of all eight categories, six of which —
- * Commercial, Moments, Fashion, Street, Nature — matched no photograph at all
- * and opened an empty grid. A list derived from the data cannot make that
- * claim: add the first Fashion frame and the tab appears, remove the last one
- * and it goes. Reorder by moving entries in about/photos.ts.
+ * Built from the photographs actually in MY_WORKS, in the order they first
+ * appear there. Hand-written, this listed categories that matched no
+ * photograph and opened an empty grid; derived, it can't. Add the first
+ * Fashion frame and the tab appears, remove the last and it goes. Reorder by
+ * moving entries in about/photos.ts.
  */
 const WORKS_FILTERS: WorksFilter[] = [
   "All",
   ...Array.from(new Set(MY_WORKS.map((w) => w.cat))),
 ];
 
-// ─── Page ─────────────────────────────────────────────────
+// Page
 export default function AboutContent({
   albums,
   photoIndex,
@@ -70,12 +65,9 @@ export default function AboutContent({
   /** storage path → the photo record, resolved server-side. */
   photoIndex: Record<string, AlbumPhoto>;
 }) {
-  /**
-   * A storage path becomes a full photo when the database knows it, and a bare
-   * CDN URL when it does not. The fallback is exactly the old behaviour, so a
-   * path pointing at a file that was never uploaded stays as broken as it was
-   * rather than disappearing.
-   */
+  /** A storage path becomes a full photo when the database knows it, and a
+   *  bare CDN URL when it doesn't — so a path pointing at a file that was
+   *  never uploaded stays visibly broken rather than silently disappearing. */
   const pick = useCallback(
     (path: string): AlbumPhoto => photoIndex[path] ?? { src: bunnyUrl(path) },
     [photoIndex],
@@ -93,10 +85,9 @@ export default function AboutContent({
    * The tag's label in the reader's language.
    *
    * t() echoes the key back when it is missing, so an untranslated category
-   * falls back to its own name rather than printing "about.worksCat.Fashion"
-   * onto the page — which matters because this list is derived from the
-   * photographs, and a new category can appear here before anyone has written
-   * a translation for it.
+   * shows its own name instead of "about.worksCat.Fashion". The list is
+   * derived from the photographs, so a new category can appear before anyone
+   * has written a translation for it.
    */
   const worksLabel = useCallback(
     (f: WorksFilter): string => {
@@ -128,12 +119,10 @@ export default function AboutContent({
     ? myWorks
     : myWorks.filter((w) => w.cat === worksFilter);
 
-  // const pfps = getPfps();
-
   return (
     <div className="min-h-screen bg-background text-white overflow-x-clip">
 
-      {/* ── Hero wash: a warm veil at the very top that melts into the page
+      {/* Hero wash: a warm veil at the very top that melts into the page
              background. Much quieter than the old block — the new hero carries
              its weight typographically, so the gradient only needs to keep the
              top of the page from reading as flat black. Does NOT fade on
@@ -151,29 +140,18 @@ export default function AboutContent({
           and the tinted background still fades in as you scroll past the hero */}
       <StickyHeader title="saycheeeeeze" accent="#0e0c09" fadeOver={260} variant="wordmark" />
 
-      {/* ══ HERO ══ */}
+      {/* Hero */}
       <section
         className="relative z-10 px-4 sm:px-8 pb-6 sm:pb-8"
         style={{ paddingTop: "calc(5.25rem + env(safe-area-inset-top))" }}
       >
-        {/* ── Identity row: portrait tile, name block, and (desktop only) CTAs ── */}
+        {/* Identity row: portrait tile, name block, and (desktop only) CTAs */}
         <div className="flex items-center gap-4 sm:gap-6">
 
           <div className="flex items-center gap-4 sm:gap-6">
             <ProfilePhotos images={pfps} interval={4000} />
             {/* name block, CTAs */}
           </div>
-
-          {/* <div className="relative shrink-0 w-18 h-22 sm:w-28 sm:h-34 rounded-2xl overflow-hidden border border-white/8 bg-white/5">
-            <Image
-              src={pfp}
-              alt="Marshall — photographer in Tashkent"
-              fill
-              sizes="(min-width: 640px) 112px, 72px"
-              className="object-cover"
-              priority
-            />
-          </div> */}
 
           <div className="min-w-0 flex-1 flex flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-8">
             <div className="min-w-0">
@@ -196,7 +174,7 @@ export default function AboutContent({
           </div>
         </div>
 
-        {/* ── Meta bar: disciplines left, socials right (desktop only) ── */}
+        {/* Meta bar: disciplines left, socials right (desktop only) */}
         <div className="mt-5 sm:mt-8 flex items-center justify-between gap-6 h-9 lg:h-11 px-3 lg:px-5 rounded-sm border border-white/8 bg-white/4">
           <div className="flex items-center min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden">
             {tags.map((tag, i) => (
@@ -216,7 +194,7 @@ export default function AboutContent({
           </div>
         </div>
 
-        {/* ── Welcome, then bio ── */}
+        {/* Welcome, then bio */}
         {/* Static, and deliberately so: it is the one line that has to be
             readable in the first frame, before the variant chunk resolves and
             before anything starts typing. It is also the only sentence on the
@@ -234,7 +212,7 @@ export default function AboutContent({
             jitters as it types. Sharing the column keeps them one block. */}
         <BioTypewriter className="mt-4 sm:mt-5 mx-auto" />
 
-        {/* ── Mobile CTAs + socials ── */}
+        {/* Mobile CTAs + socials */}
         <div className="lg:hidden mt-0">
           <HeroActions locale={locale} portfolioLabel={t("about.viewPortfolio")} bookLabel={t("about.bookSession")} />
         </div>
@@ -245,7 +223,7 @@ export default function AboutContent({
         </div>
       </section>
 
-      {/* ══ MY BEST PICKS ══ */}
+      {/* My best picks */}
       <Shelf title={t("about.bestPicks")} showAllLabel={t("common.showAll")} showAllHref={`/${locale}/portfolio`} className="mt-6 sm:mt-4 pb-4">
         {bestPicks.map((p, i) => (
           <button
@@ -275,7 +253,7 @@ export default function AboutContent({
         ))}
       </Shelf>
 
-      {/* ══ ALBUMS ══ */}
+      {/* Albums */}
       <Shelf title={t("about.galleries")} className="pb-6 mt-6 sm:mt-12">
         {albums.map((a) => (
           <Link
@@ -315,7 +293,7 @@ export default function AboutContent({
         ))}
       </Shelf>
 
-      {/* ══ TESTIMONIALS ══ */}
+      {/* Testimonials */}
       {testimonials.length > 0 && (
         <Shelf title={t("about.testimonials")} className="pb-6 mt-6 sm:mt-12">
           {testimonials.map((quote, i) => (
@@ -335,7 +313,7 @@ export default function AboutContent({
         </Shelf>
       )}
 
-      {/* ══ OPEN TO ══ */}
+      {/* Open to */}
       <div className="lg:hidden">
         <Shelf title={t("about.openTo")} className="pb-6 mt-6">
           {OPEN_TO.map((o, i) => <OpenToCard key={i} item={o} photo={pick(o.path)} locale={locale} fromLabel={t("about.from")} detailsLabel={t("about.viewDetails")} />)}
@@ -348,28 +326,8 @@ export default function AboutContent({
         </div>
       </section>
 
-      {/* ══ CTA BANNER ══ */}
-      {/*       
-      <section className="relative z-10 mx-4 sm:mx-8 mb-8 sm:mb-15 rounded-2xl overflow-hidden mt-8 min-h-70 lg:min-h-85">
-        <div className="absolute inset-0">
-          <Image src="/img4.JPG" alt="photographer" fill sizes="100vw" className="object-cover object-center" />
-          <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/50 to-transparent" />
-        </div>
-        <div className="relative z-10 p-6 sm:p-10 flex flex-col justify-end h-full min-h-70 lg:min-h-85">
-          <h2 className="text-2xl sm:text-4xl font-bold leading-tight max-w-xs sm:max-w-sm">
-            {t("about.ctaTitle")}
-          </h2>
-          <p className="text-white/60 text-xs sm:text-sm mt-2 max-w-xs">{t("about.ctaSub")}</p>
-          <p className="text-white/50 text-xs mt-3 max-w-sm leading-relaxed hidden sm:block">
-            {t("about.ctaBody")}
-          </p>
-          <Link href={`/${locale}/book`} className="mt-5 self-start bg-white text-black text-xs font-bold px-5 py-2.5 rounded-full hover:bg-white/80 transition">
-            {t("about.ctaButton")} →
-          </Link>
-        </div>
-      </section> */}
 
-      {/* ══ CTA BANNER ══ */}
+      {/* CTA banner */}
       <section className="relative z-10 w-full overflow-hidden mt-8 mb-8 sm:mb-15 min-h-104 sm:min-h-120">
         <div className="absolute inset-0">
           {(() => {
@@ -421,7 +379,7 @@ export default function AboutContent({
       </section>
 
 
-      {/* ══ MY WORKS — full bleed ══ */}
+      {/* My works — full bleed */}
       <section className="relative z-10 pb-32">
         <div className="px-4 sm:px-8 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{t("about.myWorks")}</h2>
@@ -471,9 +429,8 @@ export default function AboutContent({
 
 /**
  * The hero's two calls to action. Rendered twice — beside the name on desktop,
- * below the bio on mobile — so only one is ever in the DOM at a given width.
- * Portfolio is the gold/primary action: the page's job is to get people looking
- * at photographs first, booking second.
+ * below the bio on mobile — so only one is in the DOM at a given width.
+ * Portfolio is the primary action: photographs first, booking second.
  */
 
 const heroActionClasses =
@@ -496,42 +453,16 @@ function HeroActions({ locale, portfolioLabel, bookLabel }: { locale: string; po
   );
 }
 
-// function HeroActions({ locale, portfolioLabel, bookLabel }: { locale: string; portfolioLabel: string; bookLabel: string }) {
-//   return (
-//     <div className="flex items-center gap-3 w-full lg:w-auto">
-//       <Link
-//         href={`/${locale}/portfolio`}
-//         className="flex-1 lg:flex-none flex items-center justify-center h-8 lg:h-11 px-5 lg:px-6 rounded-md border
-//                    bg-black border-white/20 text-accent-ink hover:bg-(--sc-accent-hover) active:scale-[0.98]
-//                    font-mono text-[9.5px] lg:text-xs font-medium uppercase tracking-[0.14em]
-//                    whitespace-nowrap transition"
-//       >
-//         {portfolioLabel}
-//       </Link>
-//       <Link
-//         href={`/${locale}/book`}
-//         className="flex-1 lg:flex-none flex items-center justify-center h-8 lg:h-11 px-5 lg:px-6 rounded-md
-//                    border bg-black border-white/20 text-white hover:bg-white/8 active:scale-[0.98]
-//                    font-mono text-[9.5px] lg:text-xs font-medium uppercase tracking-[0.14em]
-//                    whitespace-nowrap transition"
-//       >
-//         {bookLabel}
-//       </Link>
-//     </div>
-//   );
-// }
-
 /**
  * Gradients for the two links that are somebody else's brand.
  *
- * Real Instagram and Telegram hues, with the dark ends lifted — see
- * .sc-brand-text in globals.css for the contrast measurements and why. The
- * angle is a few degrees off horizontal so the sweep tilts the way Instagram's
- * own mark does; over one short line the vertical component is nearly nothing,
- * which is the point.
+ * Real Instagram and Telegram hues with the dark ends lifted; .sc-brand-text
+ * in globals.css carries the contrast measurements. The angle is a few degrees
+ * off horizontal so the sweep tilts the way Instagram's own mark does — over
+ * one short line the vertical component is nearly nothing, which is the point.
  *
- * Keyed by the label, so a social link with no brand here (Kavyar, Pixieset)
- * keeps the muted-to-white treatment and nothing has to be passed in.
+ * Keyed by label, so a social link with no brand here keeps the
+ * muted-to-white treatment and nothing has to be passed in.
  */
 const BRAND_GRADIENT: Record<string, string> = {
   Instagram:
@@ -576,10 +507,9 @@ function SocialLink({ label, href }: { label: string; href: string }) {
 }
 
 function OpenToCard({ item, photo, locale, fromLabel, detailsLabel }: { item: (typeof OPEN_TO)[number]; photo: AlbumPhoto; locale: string; fromLabel: string; detailsLabel: string }) {
-  // entryPackage(), not packages[0]: `packages` is now optional (a service with
-  // grouped packages has none) and the first entry is not necessarily the
-  // cheapest. This read used to be `.packages[0].price`, a field that no longer
-  // exists — it would have rendered an empty "from" label rather than erroring.
+  // entryPackage(), not packages[0]: `packages` is optional (a service with
+  // grouped packages has none) and the first entry isn't necessarily the
+  // cheapest.
   const entry = (() => {
     const service = getServiceBySlug(item.slug);
     return service ? entryPackage(service) : undefined;

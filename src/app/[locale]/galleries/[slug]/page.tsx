@@ -1,19 +1,11 @@
-// src/app/[locale]/galleries/[slug]/page.tsx
+// One client gallery: locked (the passkey screen), expired (a note and
+// contact details), or open — and open is AlbumView, unchanged. A client
+// gallery is an album with a door in front of it, so reusing AlbumView rather
+// than copying it means the two can't drift.
 //
-// One client gallery. Three things can happen here:
-//
-//   locked   → the passkey screen
-//   expired  → a note and your contact details
-//   open     → the gallery, which is AlbumView, unchanged
-//
-// That last point is the whole design. A client gallery is an album with a
-// door in front of it. Reusing AlbumView rather than copying it means the two
-// can't drift: fix a swipe bug in the lightbox and both get it.
-//
-// force-dynamic because private galleries hand out signed URLs with a deadline
-// baked in. Caching this route at the edge would serve the next visitor a set
-// of tokens that expired hours ago — and, worse, would serve them to someone
-// who never entered the code.
+// force-dynamic because the signed URLs carry a deadline. Caching this route
+// would hand the next visitor expired tokens — and hand them to someone who
+// never entered the code.
 
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
@@ -26,21 +18,15 @@ import GalleryGate from "./GalleryGate";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Module scope, not the component body. Reading the clock during render is
- * impure — harmless on a force-dynamic server component, but it trips the
- * React Compiler lint rule and it reads better out here anyway.
- */
+/** Module scope: reading the clock during render trips the React Compiler
+ *  lint rule, harmless as it is on a force-dynamic route. */
 function hasExpired(expiresAt: string | null): boolean {
   if (!expiresAt) return false;
   return new Date(expiresAt).getTime() <= Date.now();
 }
 
-/**
- * Never indexed, never followed, never summarised in a search result — not
- * even for a public client gallery. "Public" here means "no code required",
- * not "please put my client's graduation photos in Google Images".
- */
+/** Never indexed, not even for a public client gallery — "public" means "no
+ *  code required", not "put the client's photos in Google Images". */
 export async function generateMetadata({
   params,
 }: {
@@ -82,9 +68,8 @@ export default async function ClientGalleryPage({
     );
 
     if (!unlocked) {
-      // Note what is NOT passed down: no photo list, no cover, no description.
-      // The locked page must not contain the thing it is locking, however
-      // hidden it is in the markup.
+      // Note what is not passed down: no photo list, no cover, no description.
+      // The locked page must not contain the thing it is locking.
       return (
         <GalleryGate
           slug={gallery.slug}

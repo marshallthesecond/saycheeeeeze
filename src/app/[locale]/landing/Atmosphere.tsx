@@ -1,19 +1,15 @@
 "use client";
 
-// src/app/[locale]/landing/Atmosphere.tsx
+// The ambient layer: stars, grain, vignette. Fixed for the whole page at z-0,
+// underneath the scene content, so photographs (in the flow at z-10) are never
+// covered by grain or vignette.
 //
-// The ambient layer: stars, grain, vignette. Fixed for the whole page and
-// sitting at z-0, underneath the scene content — which means photographs
-// (in the flow, at z-10) are never covered by grain or vignette. That was the
-// point of moving these out of CameraScene: the old version put the grain on
-// top of everything, including the six photo cards.
-//
-// The stars used to be 420 additively-blended three.js points, which meant no
-// stars in any scene without WebGL running. Now they're SVG circles: present in
-// all seven scenes, free on the GPU, and they survive with 3D switched off.
+// The stars are SVG circles rather than three.js points, which is what lets
+// them appear in all seven scenes, cost nothing on the GPU, and survive with
+// 3D switched off.
 
-// Deterministic positions — a tiny LCG rather than Math.random(), so the
-// server and client render identical markup and hydration stays quiet.
+// Deterministic positions: a tiny LCG rather than Math.random(), so server and
+// client render identical markup and hydration stays quiet.
 function seeded(n: number) {
   let s = 20260817;
   const out: { x: number; y: number; r: number; o: number; g: number }[] = [];
@@ -27,8 +23,8 @@ function seeded(n: number) {
     out.push({
       x,
       y,
-      // Mostly dust, a few slightly larger. Pixels — these are real elements
-      // now, not units in a stretched viewBox.
+      // Mostly dust, a few larger. Pixels: these are real elements, not units
+      // in a stretched viewBox.
       r: t > 0.93 ? 2 : t > 0.7 ? 1.5 : 1,
       o: 0.12 + t * 0.4,
       g: i % 2,

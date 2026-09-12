@@ -6,16 +6,8 @@ export type Locale = (typeof locales)[number];
 /**
  * The language the site speaks when nothing else says otherwise.
  *
- * Russian, not English. The audience is in Tashkent; English was the default
- * only because it was the language the code was written in.
- *
- * This is the FALLBACK, not an override. middleware.ts still resolves a saved
- * NEXT_LOCALE cookie first and the browser's Accept-Language second, so an
- * explicit choice and a real browser preference both still win — an
- * English-speaking visitor with an English browser is not dragged to Russian.
- * What changed is everything downstream of those two: a bare "/" from a browser
- * reporting a language we do not have, every `?? defaultLocale` guard, and the
- * dictionary loaded for an unrecognised locale segment.
+ * A FALLBACK, not an override: proxy.ts still resolves the NEXT_LOCALE cookie
+ * first and Accept-Language second, so an English browser still lands on /en.
  */
 export const defaultLocale: Locale = "ru";
 

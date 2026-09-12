@@ -1,30 +1,25 @@
-// scripts/reseed.ts
-//
 // The Bunny storage zone is the source of truth. This walks it and makes
 // Supabase match: every folder holding images becomes a gallery, every image
 // becomes a photo row, and any folder-backed row with no counterpart in the
 // zone is deleted.
-//
-// Built to be run repeatedly while the zone churns. Nothing here tries to
-// preserve continuity with a previous zone.
 //
 //   npx tsx scripts/reseed.ts                 # walk zone, apply changes
 //   npx tsx scripts/reseed.ts --dry-run       # show the plan, write nothing
 //   npx tsx scripts/reseed.ts --folder=WIUT   # one folder subtree only
 //   npx tsx scripts/reseed.ts --prune-orphans # also delete rows with no folder
 //
-// Fields you edit by hand (title, description, accent_color, location, year,
-// date_label, client_note) are set only when a folder first appears, then left
-// alone. Deleting the folder in Bunny deletes the row and those edits with it.
+// Built to run repeatedly while the zone churns; nothing here preserves
+// continuity with a previous zone. Hand-edited fields (title, description,
+// accent_color, location, year, date_label, client_note) are set only when a
+// folder first appears and then left alone — deleting the folder in Bunny
+// deletes the row and those edits with it.
 
 import { createClient } from "@supabase/supabase-js";
 import { imageSize } from "image-size";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// ---------------------------------------------------------------------------
 // Environment
-// ---------------------------------------------------------------------------
 
 // Next.js loads .env.local automatically; plain tsx does not, and
 // "dotenv/config" only ever reads .env. Parsing it here keeps the script free
@@ -60,9 +55,7 @@ function loadEnvFile(file: string): boolean {
 // .env.local first, matching Next's precedence.
 const ENV_FILES_FOUND = [".env.local", ".env"].filter(loadEnvFile);
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -74,12 +67,11 @@ const API_KEY = process.env.BUNNY_STORAGE_API_KEY;
 // the storage zone's FTP & API Access tab.
 const HOST = process.env.BUNNY_STORAGE_HOST ?? "storage.bunnycdn.com";
 
-// Which folders hold client deliveries rather than portfolio albums. A gallery
-// created under one of these gets kind='client' and is_listed=false, so it
-// never shows up in the public album list. Everything else takes the column
-// defaults, which means kind='album'.
+// Folders holding client deliveries rather than portfolio albums. A gallery
+// under one of these gets kind='client' and is_listed=false, so it never
+// appears in the public album list; everything else takes the column defaults.
 //
-// Confirm the values kind actually accepts before editing "client":
+// Confirm which values kind accepts before editing "client":
 //   select conname, pg_get_constraintdef(oid) from pg_constraint
 //   where conrelid = 'public.galleries'::regclass;
 const CLIENT_FOLDER_PREFIXES = ["clients"];
@@ -106,9 +98,7 @@ interface LiveFile {
   length: number;
 }
 
-// ---------------------------------------------------------------------------
 // Bunny
-// ---------------------------------------------------------------------------
 
 function requireEnv() {
   const missing: string[] = [];
@@ -153,11 +143,8 @@ async function listDir(prefix: string): Promise<
   return res.json();
 }
 
-/**
- * Walks the zone and groups images by the folder that directly contains them.
- * A folder holding only subfolders is a container, not a gallery, so it never
- * ends up in the result.
- */
+/** Walks the zone and groups images by the folder directly containing them. A
+ *  folder holding only subfolders is a container, not a gallery. */
 async function walkZone(
   root: string,
 ): Promise<{ galleries: Map<string, LiveFile[]>; emptyDirs: string[] }> {
@@ -258,9 +245,7 @@ async function pool<T, R>(
   return out;
 }
 
-// ---------------------------------------------------------------------------
 // Naming
-// ---------------------------------------------------------------------------
 
 // Russian and Uzbek Cyrillic. Without this a folder named "Портреты" strips
 // down to nothing and every non-Latin gallery collides on the slug "gallery".
@@ -312,9 +297,7 @@ function isClientFolder(folder: string): boolean {
   });
 }
 
-// ---------------------------------------------------------------------------
 // Main
-// ---------------------------------------------------------------------------
 
 interface Row {
   id: string;
@@ -543,26 +526,17 @@ async function main() {
       const d = dims.get(f.path);
       const width = d?.width ?? p?.width ?? null;
       const height = d?.height ?? p?.height ?? null;
-      // file_name and aspect_ratio are deliberately NOT set here.
+      // file_name and aspect_ratio are deliberately not set here.
       //
-      // Both are GENERATED ALWAYS ... STORED columns (see the galleries_and_
-      // photos migration). Postgres rejects any non-DEFAULT insert into one,
-      // which is what produced:
+      // Both are GENERATED ALWAYS ... STORED columns, and Postgres rejects any
+      // non-DEFAULT insert into one — "cannot insert a non-DEFAULT value into
+      // column file_name" aborts the whole upsert, leaving the photos table
+      // empty while the galleries are created quite happily. Postgres reports
+      // only the first offending column, so both have to go or aspect_ratio
+      // surfaces on the next run.
       //
-      //   cannot insert a non-DEFAULT value into column "file_name"
-      //
-      // ...on every gallery, so the whole upsert was aborting and the photos
-      // table stayed empty while the galleries were created quite happily.
-      //
-      // Postgres reports only the FIRST offending column, so removing
-      // file_name alone would just surface aspect_ratio on the next run.
-      // Both go.
-      //
-      // Nothing is lost by dropping them: file_name is derived from
-      // storage_path and aspect_ratio from width/height, by the database,
-      // on every write. They cannot drift, which is the point of generating
-      // them. sync-bunny.ts already gets this right — this script was the
-      // odd one out.
+      // Nothing is lost: the database derives file_name from storage_path and
+      // aspect_ratio from width/height on every write, so they cannot drift.
       return {
         gallery_id: gallery.id,
         storage_path: f.path,

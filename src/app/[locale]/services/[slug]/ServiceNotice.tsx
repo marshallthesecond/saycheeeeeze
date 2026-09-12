@@ -1,24 +1,18 @@
 'use client';
 
-// src/app/[locale]/services/[slug]/ServiceNotice.tsx
-//
 // The small "?" beside a section heading, and the panel it opens.
 //
-// ── Why this is not just a paragraph on the page ─────────────
-// On the graduation page the notice says "this is my first season, and the
-// pricing says so". That is honest and it is worth saying — but printed inline
-// under the description it is a caveat placed before anyone has decided they
-// want the thing, which is the worst possible moment for one. Behind a question
-// mark next to the prices, it answers the question at the point the question is
-// actually asked: why is this cheaper than I expected?
+// Not a paragraph on the page. The graduation notice says "this is my first
+// season, and the pricing says so" — honest and worth saying, but printed
+// inline under the description it's a caveat placed before anyone has decided
+// they want the thing. Behind a question mark next to the prices it answers
+// the question where the question is actually asked: why is this cheaper than
+// I expected? The note isn't hidden; it sits where the doubt appears.
 //
-// So the note is not hidden. It sits exactly where the doubt appears.
-//
-// ── Shape ────────────────────────────────────────────────────
-// Same panel as GalleryPickerSheet and DownloadSheet — bottom sheet on a phone,
-// centred on a desktop, backdrop tap to close, Escape to close, body scroll
-// locked. A fourth dialog in this app that behaved differently would be a bug
-// with extra steps.
+// Same panel as GalleryPickerSheet and DownloadSheet — bottom sheet on a
+// phone, centred on desktop, backdrop tap and Escape to close, body scroll
+// locked. A fourth dialog that behaved differently would be a bug with extra
+// steps.
 
 import { useEffect, useState } from 'react';
 import { HelpCircle, X } from 'lucide-react';
@@ -57,9 +51,8 @@ export default function ServiceNotice({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        // 44px of tap target around a 16px icon. An icon button sized to its
-        // icon is a coin-flip on a phone, and this one sits next to a heading
-        // where a mis-tap does nothing visible to correct itself.
+        // 44px of tap target around a 16px icon. Sized to the icon it's a
+        // coin-flip on a phone, and a mis-tap here does nothing visible.
         aria-label={triggerLabel}
         title={triggerLabel}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/80 active:bg-white/15"

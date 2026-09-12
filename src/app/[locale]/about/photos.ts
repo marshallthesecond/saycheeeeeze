@@ -1,28 +1,14 @@
-// src/app/[locale]/about/photos.ts
+// The photographs the About page picks out by hand, as storage paths rather
+// than URLs — a path can be looked up in the `photos` table and get its
+// dimensions, ThumbHash and derivative ladder; a bunnyUrl(...) cannot.
 //
-// The photographs the About page picks out by hand, as STORAGE PATHS rather
-// than URLs.
+// No "use client" on purpose: the server page imports it to resolve the paths,
+// the client component for the ordering and categories. One list, two
+// consumers.
 //
-// They used to be written as bunnyUrl('/Portraits/Sara/3M0A1432.png') inline in
-// AboutContent, which meant they bypassed the `photos` table completely: no
-// stored dimensions, no ThumbHash, and no derivative ladder — the only images
-// left on the site still being resized on the fly. A path can be looked up; a
-// URL cannot.
-//
-// Deliberately a plain module with no "use client": the server page imports it
-// to resolve the paths, and the client component imports it for the ordering
-// and categories. One list, two consumers, no duplication.
-//
-// ── Substituted 2026-09-02 ───────────────────────────────────
-// Five entries pointed at files that do not exist in the storage zone —
-// Portraits/3M0A4694.png, two under a Portraits/Shirin/ folder that was never
-// uploaded, and two under WIUT-Fashion-Show-2026/ when the folder is actually
-// called WIUT-Fashion-Show. They had been rendering as broken images.
-//
-// They now point at photographs confirmed present. The specific frames were
-// chosen by gallery rather than by eye — swap any filename below for another in
-// the same gallery and it takes effect with no other change, which is the point
-// of holding paths rather than URLs.
+// Swap any filename for another in the same gallery and it takes effect with
+// no other change. Check it exists in the storage zone first — entries here
+// have pointed at folders that were never uploaded and rendered as broken.
 
 /** Featured strip at the top. Order is the display order. */
 export const BEST_PICKS: string[] = [
@@ -65,11 +51,8 @@ export const MY_WORKS: { path: string; cat: WorksCategory }[] = [
   { path: "Portraits/Radmir/3M0A0568.png", cat: "Portrait" },
 ];
 
-/**
- * The service cards. All storage paths now — the last two were public/
- * download.jpg and public/img4.JPG, which is why this file no longer needs to
- * distinguish local files from Bunny ones.
- */
+/** The service cards. All storage paths, so nothing here has to distinguish
+ *  local files from Bunny ones. */
 export const OPEN_TO: {
   title: string;
   sub: string;

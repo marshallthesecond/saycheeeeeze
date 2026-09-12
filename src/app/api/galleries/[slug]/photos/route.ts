@@ -1,13 +1,10 @@
-// src/app/api/galleries/[slug]/photos/route.ts
+// A freshly signed photo list for a gallery the caller has already unlocked.
+// Signed URLs last six hours, so a tab left open overnight comes back to
+// broken images without this.
 //
-// Hands back a freshly signed photo list for a gallery the caller has already
-// unlocked. Signed URLs last six hours; a client who leaves the tab open
-// overnight would otherwise come back to a page of broken images.
-//
-// This grants nothing the visitor didn't already have — it re-signs what the
-// page they are looking at already showed them. The cookie check is still
-// here, because "they must already have it" is an assumption, and assumptions
-// are how endpoints leak.
+// It grants nothing new — it re-signs what the page already showed them. The
+// cookie check stays regardless: "they must already have it" is an assumption,
+// and assumptions are how endpoints leak.
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -45,11 +42,10 @@ export async function GET(
     await getGalleryContent(gallery);
 
   return NextResponse.json(
-    // coverLadder carries its own signature, so it lapses with everything
-    // else and has to be re-issued here too.
+    // coverLadder carries its own signature and lapses with the rest.
     { photos, cover, coverLadder, signedUntil },
-    // Signed URLs must never be cached by a shared cache — the next visitor
-    // would get someone else's still-valid tokens.
+    // Never let a shared cache hold these — the next visitor would get
+    // someone else's still-valid tokens.
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

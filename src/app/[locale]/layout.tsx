@@ -1,11 +1,9 @@
-// src/app/[locale]/layout.tsx
+// Wraps every localised page. The dictionary is loaded on the server and
+// handed to the client provider, so there is no loading flash and only the
+// active language ships to the browser.
 //
-// Wraps every localised page. Loads the dictionary on the SERVER and hands it
-// to the client provider, so there's no loading flash and only the active
-// language ships to the browser.
-//
-// This sits INSIDE the existing root layout (src/app/layout.tsx) — that one
-// keeps <html>, <body>, fonts and BottomNav; this one only adds locale context.
+// Sits inside the root layout, which owns <html>, <body>, fonts and BottomNav.
+// This one only adds locale context.
 
 import { notFound } from "next/navigation";
 import { locales, isLocale, localeHreflang, type Locale } from "@/src/lib/i18n/config";

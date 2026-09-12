@@ -1,24 +1,15 @@
 "use client";
 
-// src/components/common/NavPerimeterGlow.tsx
 //
-// A short glowing segment that runs clockwise around the outer edge of the
-// bottom nav pill.
+// A glowing segment running clockwise around the bottom nav pill.
 //
-// Sizing is EXPLICIT, in pixels, measured from the host element. That is
-// deliberate rather than fussy: an <svg> is a replaced element, so if its box
-// is left to be derived (insets, percentages, a class that didn't get
-// generated) it silently falls back to the CSS default replaced size of
-// 300x150px. On a ~290x58 navbar that reads as a path hanging off the right
-// edge and looping below the bottom of the screen. Measured px can't do that.
+// Sizing is explicit px measured from the host. An <svg> is a replaced element:
+// leave its box to be derived and it silently falls back to 300x150, which on a
+// 290x58 navbar hangs off the right edge and loops below the screen.
 //
-// Geometry is a generated rounded-rect <path> with pathLength="100", which
-// renormalises the perimeter to 100 units so the dash pattern in globals.css
-// acts as a percentage of it — the navbar is content-sized and its width
-// changes with locale, and the lit segment has to stay the same relative length.
-//
-// The overlay is pointer-events-none and aria-hidden, and being absolutely
-// positioned it is out of flow, so it cannot alter the navbar's layout.
+// The path uses pathLength="100" so the dash pattern in globals.css is a
+// percentage of the perimeter — the navbar is content-sized and its width
+// changes with locale, but the lit segment stays the same relative length.
 
 import { useEffect, useRef, useState } from "react";
 

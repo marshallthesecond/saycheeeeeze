@@ -1,30 +1,20 @@
 "use client";
 
-// src/app/[locale]/book/BookingClient.tsx
+// The booking form: package → date+time → location → details.
 //
-// Rewritten for the session model. The shape of the change:
+// The package is question one because it sets both the price and the duration,
+// and the duration bounds the legal start times. Asking for the date first
+// meant offering a 16:00 slot that stopped fitting the moment a 3h package was
+// picked.
 //
-//   OLD  date → location → session type → contact, with duration picked after
-//        the date and a price derived from hours. Tabs hid the prices behind a
-//        second screen, so you could finish the whole form without ever seeing
-//        one.
-//
-//   NEW  package → date+time → location → details. The package is question one
-//        because it sets the price AND the duration, and duration bounds the
-//        legal start times. Asking for the date first meant we could offer a
-//        16:00 slot that stopped fitting the moment a 3h package was picked.
-//
-// Also fixed here:
-//   • Every string comes from the dictionary. The old form was the one surface
-//     that ignored i18n — a Russian visitor hit "Brand / Product" and
-//     "Botanical Garden" in English.
-//   • Locations and services are IDs, not display labels. Renaming a location
-//     no longer orphans historical bookings.
-//   • Completed steps collapse to a tappable summary instead of vanishing, so
-//     an earlier answer can be reviewed and changed.
-//   • Submit is gated on field VALIDITY, not truthiness. "@ab" used to pass.
-//   • Colours read from the design tokens. The old form used greens
-//     (#2a6045/#4caf7d) and a warm brown bar that belong to no current palette.
+// House rules for anything added here:
+//   • Every string comes from the dictionary. No English leaking into /ru.
+//   • Locations and services are IDs, not display labels, so renaming one
+//     doesn't orphan historical bookings.
+//   • Completed steps collapse to a tappable summary rather than vanishing.
+//   • Submit is gated on field validity, not truthiness — "@ab" is not an
+//     email address.
+//   • Colours come from the design tokens, never hardcoded.
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -34,7 +24,6 @@ import {
 
 import StickyHeader from "@/src/components/common/StickyHeader";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-// import { TELEGRAM_URL } from "@/src/lib/contact";
 import {
   type AvailabilityConfig, type TakenDay, todayInTashkent,
 } from "@/src/lib/availability";
@@ -54,7 +43,7 @@ import {
 } from "@/src/lib/service-format";
 import { CalendarPicker, StartTimePicker } from "./CalendarPicker";
 
-// ─── Types ────────────────────────────────────────────────
+// Types
 
 type StepId = 1 | 2 | 3 | 4;
 
@@ -66,13 +55,10 @@ interface BookingState {
   month: number;
   year: number;
   startTime: string | null;
-  /**
-   * Every place the session covers, in the order they were chosen.
-   *
-   * Was a single id. A graduation session that starts on campus and finishes in
-   * a studio is one booking in two places, and the form had no way to say so —
-   * the second place ended up in the free-text box where nothing could price it.
-   */
+  /** Every place the session covers, in the order chosen. A list rather than
+   *  one id because a graduation that starts on campus and finishes in a
+   *  studio is one booking in two places; as a single id the second place
+   *  ended up in the free-text box where nothing could price it. */
   locationIds: string[];
   locationCustom: string;
   name: string;
@@ -84,7 +70,7 @@ interface BookingState {
 
 const TELEGRAM_RE = /^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/;
 
-// ─── Root ─────────────────────────────────────────────────
+// Root
 
 interface Props {
   packages: SessionPackage[];
@@ -109,10 +95,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   const slugParam = searchParams.get("service");
   const packageParam = searchParams.get("package");
 
-  // Order matters. An explicit `package` is the exact tier the client tapped —
-  // "1 hour, 250 000" — and must beat the service-wide fallback, which only
-  // knows the broad category and is how a 250 000 click used to arrive at a
-  // 400 000 form.
+  // Order matters: an explicit `package` is the exact tier the client tapped
+  // and must beat the service-wide fallback, which only knows the broad
+  // category. Otherwise a 250 000 click arrives at a 400 000 form.
   const presetPackage =
     (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
     (packages.some((p) => p.id === packageParam) ? packageParam : null) ??
@@ -128,8 +113,8 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   const today = useMemo(() => todayInTashkent(), []);
 
   // A campus session is on campus; a ceremony is at the venue. The package
-  // already answered this, so the form should not ask it again — it is
-  // preselected, and still changeable.
+  // answered this already, so it's preselected rather than asked again —
+  // still changeable.
   const presetLocation =
     (presetPackage ? findCatalogItem(presetPackage)?.locationIds[0] : null) ?? null;
 
@@ -165,20 +150,19 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   );
 
   // The tier the client actually clicked on the service page, when there was
-  // one. Two package lists used to exist side by side and disagree; this is the
-  // specific one, and it wins over the generic four.
+  // one. Wins over the generic four.
   const catalogItem = useMemo(
     () => (state.packageId ? findCatalogItem(state.packageId) ?? null : null),
     [state.packageId]
   );
 
   /**
-   * Everything downstream reads THIS, not one of the two sources.
+   * Everything downstream reads this, not either source.
    *
-   * The form has to render a name, a duration, a photo count and a delivery
-   * promise without caring whether they came from a service tier or a generic
-   * session package. Normalising once here is what keeps every step below from
-   * growing its own `catalogItem ? … : pkg ? … : …`.
+   * The form renders a name, a duration, a photo count and a delivery promise
+   * without caring whether they came from a service tier or a generic session
+   * package. Normalising once here keeps every step below from growing its own
+   * `catalogItem ? … : pkg ? … : …`.
    */
   const selected = useMemo(() => {
     if (catalogItem) {
@@ -223,9 +207,8 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
     [state.packageId, state.peopleCount, state.locationIds, packages]
   );
 
-  // ── Per-step completion ───────────────────────────────
-  // A catalogue tier prices the session, not the heads in it, so it has no head
-  // count to be missing.
+  // Per-step completion. A catalogue tier prices the session rather than the
+  // heads in it, so it has no head count to be missing.
   const peopleOk = catalogItem
     ? true
     : pkg
@@ -252,9 +235,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   useEffect(() => { if (step2Done) setOpenStep((s) => (s === 2 ? 3 : s)); }, [step2Done]);
   useEffect(() => { if (step3Done) setOpenStep((s) => (s === 3 ? 4 : s)); }, [step3Done]);
 
-  // Changing the package changes the duration, which can invalidate the chosen
-  // start time. Clear it rather than silently submitting a slot that no longer
-  // fits inside the working day.
+  // A new package means a new duration, which can invalidate the chosen start
+  // time. Clear it rather than submitting a slot that no longer fits inside
+  // the working day.
   useEffect(() => { set("startTime", null); }, [state.packageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
@@ -272,9 +255,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
           isoDate: state.selectedISO,
           startTime: state.startTime,
           locationIds: state.locationIds,
-          // Kept so the existing bookings row shape still works: the first
-          // place is the primary one, the rest travel in locationIds and are
-          // recorded as addons by the route.
+          // Keeps the existing bookings row shape: first place is the primary
+          // one, the rest travel in locationIds and the route records them as
+          // addons.
           locationId: state.locationIds[0] ?? null,
           locationCustom: state.locationCustom.trim() || null,
           name: state.name.trim(),
@@ -372,6 +355,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
           <p className="text-sm text-white/55 mt-3">{t("book.subtitle")}</p>
         </div>
 
+        {/* Deliberately NOT CONTACT.telegram. That handle is the public
+            account on the About page; booking enquiries go to the personal
+            one, so this is hardcoded and must stay that way. */}
         <a
           href={"https://t.me/marshallthethird"}
           target="_blank"
@@ -393,10 +379,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
             summary={selected ? `${selected.name} · ${formatSom(quote?.totalUzs ?? 0, locale)}` : ""}
           >
             {serviceCatalog.length > 0 ? (
-              // The tiers of the service they came from — the same list, the
-              // same prices, the same order they were just reading. Falling
-              // back to the four generic packages here is what made a specific
-              // choice evaporate at the door.
+              // The tiers of the service they came from: same list, same
+              // prices, same order they were just reading. Falling back to the
+              // generic packages here makes a specific choice evaporate.
               <CatalogPicker
                 items={serviceCatalog}
                 selectedId={state.packageId}
@@ -406,13 +391,12 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
                   set("packageId", item.id);
                   set("peopleCount", null);
                   // The package implies where it happens, so switching from a
-                  // campus tier to a ceremony one should move the location with
-                  // it — leaving "WIUT campus" selected under "At the ceremony"
-                  // is the mismatch this whole change exists to remove.
+                  // campus tier to a ceremony one moves the location with it.
                   //
-                  // Only while the client has not chosen for themselves: a
-                  // typed-in place, or a pick that is not simply the previous
-                  // package's default, is an answer and must not be overwritten.
+                  // Only while the client hasn't chosen for themselves: a
+                  // typed-in place, or any pick that isn't simply the previous
+                  // package's default, is an answer and must not be
+                  // overwritten.
                   const previousDefault = catalogItem?.locationIds[0] ?? null;
                   const untouched =
                     state.locationIds.length === 0 ||
@@ -717,10 +701,8 @@ function describeLocations(
   return all.join(" + ");
 }
 
-// ─── Step shell ───────────────────────────────────────────
-// Completed steps collapse to a tappable one-liner rather than disappearing,
-// which is how you review or change an earlier answer. The old form removed
-// later sections from the DOM entirely and had no way back.
+// Step shell. Completed steps collapse to a tappable one-liner rather than
+// disappearing, which is how an earlier answer gets reviewed or changed.
 
 function Step({ n, label, done, open, locked, summary, onToggle, children }: {
   n: number;
@@ -769,7 +751,7 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
   );
 }
 
-// ─── Package picker ───────────────────────────────────────
+// Package picker
 
 function PackagePicker({ packages, selectedId, peopleCount, onSelect, onPeople }: {
   packages: SessionPackage[];
@@ -876,11 +858,10 @@ function countOptions(max: number): number[] {
   return out;
 }
 
-// ─── Catalogue picker ─────────────────────────────────────
-// The service tiers, rendered the way the service page rendered them: price
-// first in a fixed column so the numbers line up, details under the selected
-// one. Somebody who has just chosen "1.5 hours, 400 000" should recognise this
-// screen, not have to re-read it.
+// Catalogue picker. The service tiers rendered the way the service page
+// rendered them — price first in a fixed column so the numbers line up,
+// details under the selected one. Somebody who has just chosen a tier should
+// recognise this screen, not have to re-read it.
 
 function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
   items: CatalogItem[];
@@ -998,20 +979,16 @@ function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
   );
 }
 
-// ─── Location picker ──────────────────────────────────────
+// Location picker
 
 function LocationPicker({
   locationIds, suggested, custom, durationMinutes, onToggle, onCustom,
 }: {
   locationIds: string[];
-  /**
-   * The places this package actually happens in.
-   *
-   * A campus gown session was being offered the ceremony venue, because the
-   * list was one global array and knew nothing about what had been booked.
-   * Showing a client an option their own choice has already ruled out is the
-   * form not listening. The rest are one tap away, not removed.
-   */
+  /** The places this package actually happens in. Showing a client an option
+   *  their own choice has ruled out — a campus gown session offered the
+   *  ceremony venue — is the form not listening. The rest stay one tap away
+   *  rather than being removed. */
   suggested: string[];
   custom: string;
   durationMinutes: number;
@@ -1020,9 +997,8 @@ function LocationPicker({
 }) {
   const { t, locale } = useT();
 
-  // Anything already chosen stays visible even if it is not "suggested" —
-  // hiding a selected option is how a client ends up paying for a place they
-  // can no longer see.
+  // Anything already chosen stays visible even when it isn't suggested;
+  // hiding a selected option is how a client pays for a place they can't see.
   const shortList = suggested.length > 0
     ? [...new Set([...suggested, ...locationIds])]
     : BOOKING_LOCATIONS.map((l) => l.id);
@@ -1130,7 +1106,7 @@ function LocationPicker({
   );
 }
 
-// ─── Sticky bar ───────────────────────────────────────────
+// Sticky bar
 
 function StatusBar({ doneCount, total, priceLabel, canSubmit, submitting, onSubmit }: {
   doneCount: number;
@@ -1176,7 +1152,7 @@ function StatusBar({ doneCount, total, priceLabel, canSubmit, submitting, onSubm
   );
 }
 
-// ─── Confirmation ─────────────────────────────────────────
+// Confirmation
 
 function Confirmation({ reference, botLink, state, packageName, durationLabel, totalUzs, onReset }: {
   reference: string;
@@ -1269,7 +1245,7 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
   );
 }
 
-// ─── Small pieces ─────────────────────────────────────────
+// Small pieces
 
 function Field({ icon, label, hint, invalid, valid, children }: {
   icon: React.ReactNode;
@@ -1324,7 +1300,7 @@ function BookingSkeleton() {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────
+// Helpers
 
 function normaliseTelegram(raw: string): string {
   let v = raw;

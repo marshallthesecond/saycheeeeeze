@@ -1,18 +1,13 @@
 "use client";
 
-// src/app/[locale]/galleries/[slug]/ClientGalleryView.tsx
+// A thin shell around AlbumView that keeps the signed URLs alive.
 //
-// A thin shell around AlbumView that does one thing: keeps the signed URLs
-// alive.
+// They carry a six-hour deadline, so a client who opens their gallery, gets
+// distracted and comes back in the evening would find a page of grey boxes.
+// This checks the clock and quietly fetches a new set before that happens.
 //
-// Signed URLs carry a six-hour deadline. A client who opens their gallery,
-// gets distracted, and comes back in the evening would otherwise find a page
-// of grey boxes and assume you broke something. So: check the clock, and when
-// the deadline is close, quietly fetch a new set.
-//
-// Everything else — the hero, the grid, the lightbox, selection, zip download,
-// the request sheet — is AlbumView. If this file starts growing features,
-// that's the signal that AlbumView needed a prop instead.
+// Everything else is AlbumView. If this file starts growing features, that is
+// the signal AlbumView needed a prop instead.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -30,21 +25,15 @@ interface Props {
   /**
    * Unix seconds at which this page's URLs lapse, or null if they never do.
    *
-   * This used to be paired with an `isPrivate` flag, and the refresh loop was
-   * gated on THAT. It no longer can be: every client gallery is served from
-   * the private zone with signed URLs now, whatever its visibility, so a
-   * "public" client gallery expires exactly like a private one. Gating on
-   * privacy would have left those pages to quietly go blank after six hours
-   * with nothing refreshing them.
-   *
-   * The only thing that matters here is whether there is a deadline, so that is
-   * the only thing this component is told.
+   * Deliberately not paired with an `isPrivate` flag. Every client gallery is
+   * served from the private zone now, whatever its visibility, so a "public"
+   * one expires exactly like a private one — gating the refresh on privacy
+   * would leave those pages to go blank after six hours.
    */
   signedUntil: number | null;
   /** Your line to the client, rendered under the gallery hero. Optional. */
   clientNote: string | null;
-  /** Straight through to AlbumView — this shell owns no download policy, it
-   *  only keeps the signed URLs alive. */
+  /** Straight through to AlbumView; this shell owns no download policy. */
   downloadTiers: DownloadTier[];
   downloadEnabled: boolean;
 }
@@ -77,8 +66,8 @@ export default function ClientGalleryView({
 
       setPhotos(data.photos);
       if (data.cover) setCover(data.cover);
-      // Always assign: a gallery whose hero lost its ladder should stop
-      // rendering stale signed derivative URLs, not keep the old ones.
+      // Always assign: a hero that lost its ladder should stop rendering
+      // stale signed derivative URLs, not keep the old ones.
       setCoverLadder(data.coverLadder ?? undefined);
       setExpiry(data.signedUntil ?? null);
     } catch {
@@ -90,8 +79,8 @@ export default function ClientGalleryView({
     if (expiry === null) return;
 
     const id = window.setInterval(refresh, POLL_INTERVAL_MS);
-    // A phone that's been asleep won't have fired the interval, so catch the
-    // moment the tab comes back too.
+    // A sleeping phone won't have fired the interval, so catch the tab
+    // coming back too.
     document.addEventListener("visibilitychange", refresh);
 
     return () => {
@@ -100,9 +89,8 @@ export default function ClientGalleryView({
     };
   }, [expiry, refresh]);
 
-  // The note used to render as a sibling ABOVE <AlbumView>. Now that the top
-  // bar is fixed, anything before the hero slides underneath it — so the note
-  // is handed to AlbumView, which drops it in below the hero where it reads.
+  // Handed to AlbumView rather than rendered above it: the top bar is fixed,
+  // so anything before the hero slides underneath it.
   return (
     <AlbumView
       album={{ ...album, photos, cover, coverLadder }}

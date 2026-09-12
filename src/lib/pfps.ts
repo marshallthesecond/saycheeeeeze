@@ -1,25 +1,8 @@
-// lib/pfps.ts — server-only. Reads public/pfps at build time.
-// import fs from "node:fs";
-// import path from "node:path";
-
-// const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
-
-// export function getPfps(): string[] {
-//   const dir = path.join(process.cwd(), "public", "pfps");
-
-//   let files: string[] = [];
-//   try {
-//     files = fs.readdirSync(dir);
-//   } catch {
-//     return [];
-//   }
-
-//   return files
-//     .filter((f) => IMAGE_EXT.has(path.extname(f).toLowerCase()))
-//     // "2.jpg" sorts before "10.jpg" thanks to numeric collation
-//     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-//     .map((f) => `/pfps/${f}`);
-// }
+// The portrait photos that cycle in the About hero, in order.
+//
+// A plain list rather than a readdir of public/pfps: this is imported by a
+// client component, so it cannot touch node:fs, and the order matters here in
+// a way a directory listing can't express.
 
 export const pfps = [
   "/pfps/7.jpg",

@@ -1,16 +1,13 @@
-// scripts/ladder-status.mjs
-//
-// Read-only. Answers two questions in about ten requests:
-//
-//   1. Did the rebuild actually write the new /v{rev}/ files?
-//   2. Is the prune removing the old un-versioned ones?
+// Read-only. Answers two questions in about ten requests: did the rebuild
+// write the new /v{rev}/ files, and is the prune removing the old un-versioned
+// ones?
 //
 //   node --env-file=.env.local scripts/ladder-status.mjs
 //   node --env-file=.env.local scripts/ladder-status.mjs --sample 10
 //
-// Safe to run WHILE build-ladder.mjs is working — it only sends HEAD requests
-// and writes nothing, to Bunny or to Supabase. Run it twice a minute apart: if
-// "old layout still present" is falling, the prune is alive and progressing.
+// HEAD requests only, so it's safe to run while build-ladder.mjs is working.
+// Run it twice a minute apart: a falling "old layout still present" means the
+// prune is alive and progressing.
 
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";

@@ -1,4 +1,3 @@
-// src/app/albums/[slug]/page.tsx
 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -9,8 +8,8 @@ export async function generateStaticParams() {
   return (await getAllAlbumSlugs()).map((slug) => ({ slug }));
 }
 
-// Per-album metadata: a shared link shows the album's own cover photo and
-// title rather than the generic site card.
+// Per-album metadata, so a shared link shows that album's cover and title
+// rather than the generic site card.
 export async function generateMetadata({
   params,
 }: {
@@ -51,8 +50,8 @@ export default async function AlbumPage({
   const album = await getAlbumBySlug(slug);
   if (!album) notFound();
 
-  // Resolves the live photo list from the album's Bunny folder (if set),
-  // falling back to the hardcoded `photos` array otherwise.
+  // Live list from the album's Bunny folder if it has one, else the hardcoded
+  // `photos` array.
   const photos = await getAlbumPhotos(album);
 
   return <AlbumView album={{ ...album, photos }} />;

@@ -1,12 +1,7 @@
-// src/app/sitemap.ts
-//
-// Every route exists three times — /en/…, /ru/…, /uz/… — so the sitemap has
-// to list all three and tell search engines they're translations of one
-// another. Without the `alternates.languages` block Google treats them as
-// duplicate pages and picks one arbitrarily, which is how a Russian search
-// ends up showing the English page.
-//
-// Next.js serves this at /sitemap.xml automatically.
+// Served at /sitemap.xml. Every route exists three times — /en, /ru, /uz — so
+// each entry carries `alternates.languages` to say the three are translations
+// of one another. Without it Google treats them as duplicates and picks one,
+// which is how a Russian search ends up on the English page.
 
 import type { MetadataRoute } from "next";
 import { getAllAlbumSlugs } from "@/src/lib/albums";

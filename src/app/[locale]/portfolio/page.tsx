@@ -1,9 +1,6 @@
-// src/app/portfolio/page.tsx
-//
-// Server Component: reads every published album photo from Supabase and hands
-// it to the client-side interactive UI. Still no hardcoded photo links — new
-// uploads reach here through the sync job, and arrive with their derivative
-// ladder, dimensions and ThumbHash already attached.
+// Reads every published album photo from Supabase and hands it to the client
+// UI. No hardcoded photo links: uploads arrive through the sync job with their
+// derivative ladder, dimensions and ThumbHash already attached.
 
 import type { Metadata } from "next";
 import PortfolioContent from "./PortfolioContent";

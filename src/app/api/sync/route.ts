@@ -1,8 +1,6 @@
-// src/app/api/sync/route.ts
-//
-// The trigger. Runs the Bunny → Supabase sync, then invalidates exactly the
-// cache tags that just went stale — in the same process, so new photos are
-// live seconds after the sync finishes, with no redeploy.
+// Runs the Bunny → Supabase sync, then invalidates exactly the cache tags
+// that went stale — in the same process, so new photos are live seconds after
+// the sync finishes with no redeploy.
 
 import { revalidateTag } from "next/cache";
 import { timingSafeEqual } from "node:crypto";
@@ -15,8 +13,8 @@ export const maxDuration = 60;
 
 const SECRET = process.env.REVALIDATE_SECRET;
 
-// Constant-time compare so the response time can't be used to guess the
-// secret one character at a time.
+// Constant-time compare, so response timing can't leak the secret one
+// character at a time.
 function authorized(req: Request): boolean {
   if (!SECRET) return false;
   const header = req.headers.get("authorization") ?? "";
@@ -26,17 +24,14 @@ function authorized(req: Request): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Next 16 requires a cacheLife profile as the second argument; the old
-// one-argument form is deprecated and fails the type check.
+// Next 16 wants a cacheLife profile as the second argument; the one-argument
+// form is deprecated and fails the type check.
 //
-// "max" gives stale-while-revalidate: the entry is marked stale, the next
-// visitor is served the old page, and a fresh one regenerates behind them.
-// That means the FIRST reload after a sync still shows the old photos and the
-// second shows the new ones. Expected, not a bug.
-//
-// If that lag is annoying when you're checking your own work, swap "max" for
-// { expire: 0 } to force the next request to regenerate synchronously. At a
-// few hundred visitors a day there is no herd to worry about either way.
+// "max" is stale-while-revalidate: the entry is marked stale, the next visitor
+// gets the old page, and a fresh one regenerates behind them. So the first
+// reload after a sync still shows the old photos and the second shows the new.
+// Expected. Swap for { expire: 0 } to regenerate synchronously instead — at
+// this traffic there is no herd to worry about either way.
 const PROFILE = "max";
 
 function revalidate(results: SyncResult[]): void {
@@ -53,8 +48,8 @@ export async function POST(req: Request): Promise<Response> {
   const gallery = new URL(req.url).searchParams.get("gallery");
 
   try {
-    // One gallery at a time by default. Syncing everything can outrun the
-    // function timeout on a first run, when nothing has dimensions yet.
+    // One gallery at a time: syncing everything can outrun the function
+    // timeout on a first run, when nothing has dimensions yet.
     const results =
       !gallery || gallery === "all"
         ? await syncAllGalleries()

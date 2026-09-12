@@ -1,46 +1,36 @@
 "use client";
 
-// src/app/[locale]/landing/ScrollStage.tsx
-//
 // One rAF loop for the whole landing page, and a registry of scenes.
 //
-// The old CameraScene derived a single 0→1 from `scrollTop / (scrollHeight -
-// clientHeight)`, so every timing constant in the choreography depended on the
-// total height of the document. Adding or removing a pane retuned everything.
-//
-// Here each scene registers its own element and gets its own 0→1:
+// Each scene registers its own element and gets its own 0→1:
 //
 //   0  — the scene's top edge is at the top of the viewport
 //   1  — the scene's bottom edge is at the bottom of the viewport
 //
-// which is the useful measure for a tall section with a sticky child: it is
-// exactly the range over which the sticky child is pinned. A scene that is
-// only 100svh tall has no pinned range, so it reports 0→1 across its entry
-// instead (see `progressFor`).
+// which for a tall section with a sticky child is exactly the range over which
+// that child is pinned. A scene only 100svh tall has no pinned range and
+// reports 0→1 across its entry instead (see `progressFor`). Deriving one
+// page-wide 0→1 from scrollTop instead would tie every timing constant to the
+// height of the document, so adding a pane would retune everything.
 //
-// Progress is delivered through callbacks, not React state — at 60fps state
-// would re-render the page on every frame. Components mutate refs and styles
-// in the callback and stay out of React's way. The one thing that *is* state
-// is the active scene index, which changes a few times per page and drives the
-// scene indicator and the 3D phase.
+// Progress arrives through callbacks rather than React state: at 60fps, state
+// would re-render the page every frame. Components mutate refs and styles in
+// the callback. The one thing that is state is the active scene index, which
+// changes a few times per page and drives the indicator and the 3D phase.
 //
-// ── Mobile viewport chrome ───────────────────────────────────
+// Mobile viewport chrome. The URL bar collapses as you scroll and the viewport
+// grows by ~9%, so two heights matter and must not be confused:
 //
-// On a phone the URL bar collapses as you scroll and the viewport grows by
-// ~9%. Two different heights matter and they must not be confused:
+//   svh  the height with browser chrome shown. Never changes while scrolling,
+//        so every scroll LENGTH is expressed in it — dynamic section heights
+//        would resize the document mid-scroll and make the position jump.
+//   dvh  the height right now. Anything pinned to the bottom needs this, or it
+//        floats above the real edge once the bar goes.
 //
-//   svh  the height with the browser chrome *shown*. It never changes while
-//        you scroll, so every scroll *length* on the page is expressed in it.
-//        If section heights were dynamic the document would resize mid-scroll
-//        and the scroll position would jump.
-//   dvh  the height right now. Anything pinned to the bottom of the screen has
-//        to use this or it floats above the real bottom edge once the bar goes.
-//
-// So: sections are sized in svh, sticky children are sized in dvh, and the
-// progress denominator below uses the *stable* svh measurement rather than
-// window.innerHeight. Using innerHeight (as the old version did) meant the
-// pinned range silently shrank by 9% the moment the URL bar hid, which shifted
-// every timing constant in the choreography mid-scene.
+// So sections are sized in svh, sticky children in dvh, and the progress
+// denominator below uses the stable svh measurement rather than
+// window.innerHeight — which would shrink the pinned range by 9% the moment
+// the URL bar hid, shifting every timing constant mid-scene.
 
 import {
   createContext,
@@ -78,14 +68,13 @@ const StageContext = createContext<StageValue | null>(null);
 export const MOBILE_MAX = 820;
 
 /**
- * Measures the small viewport height by asking the browser directly — a
- * throwaway element sized `100svh` — rather than trying to infer it from
- * innerHeight, which is whatever the viewport happens to be at that instant.
+ * Measures the small viewport height by asking the browser directly, with a
+ * throwaway element sized `100svh`, rather than inferring it from innerHeight
+ * — which is whatever the viewport happens to be at that instant.
  *
- * Only the *width* and the orientation can change svh, so this is remeasured
- * on orientation change and on width changes, never on the URL bar collapsing.
- * `--sc-dvh` is published for browsers without dvh support (Safari < 15.4);
- * everything else should just use the native unit.
+ * Only width and orientation can change svh, so it is remeasured on those and
+ * never on the URL bar collapsing. `--sc-dvh` is published for browsers
+ * without dvh support (Safari < 15.4); everything else uses the native unit.
  */
 function measureViewport(): number {
   const probe = document.createElement("div");
@@ -208,8 +197,7 @@ export function ScrollStage({
 
     // `stable` is the svh height and drives the pinned range; `live` is the
     // current viewport and decides what's on screen. Keeping them apart is the
-    // whole fix for the URL-bar problem: `live` moves, `stable` doesn't, and
-    // only `stable` is allowed anywhere near a timing constant.
+    // whole fix for the URL bar: only `stable` goes near a timing constant.
     const progressFor = (r: DOMRect, stable: number) => {
       const pinned = r.height - stable;
       if (pinned > 1) {
@@ -323,7 +311,7 @@ export function useSceneProgress(id: string, cb: ProgressFn) {
   }, [id, subscribe]);
 }
 
-// ── Small maths shared by the scenes and the 3D ──────────────
+// Small maths shared by the scenes and the 3D
 
 /** Smoothstep. */
 export function ease(t: number): number {

@@ -1,33 +1,21 @@
 'use client';
 
-// src/app/[locale]/services/[slug]/ServiceAudience.tsx
-//
 // "WIUT student?" — one switch that re-points the page's copy at a specific
 // audience, with no navigation and no reload.
 //
-// ── Why a toggle rather than a second page ───────────────────
-// A /graduation/wiut route would split the same offer across two URLs, halve
-// whatever search authority either one earns, and force a visitor to classify
-// themselves before they have read anything. This is the same page saying the
-// same thing in the visitor's own terms — "At WIUT" instead of "At campus" —
-// which is what personalisation is actually for.
+// A toggle rather than a /graduation/wiut route: a second URL would split the
+// same offer in two, halve whatever search authority either earns, and make a
+// visitor classify themselves before reading anything.
 //
-// ── Why the state lives in a context ─────────────────────────
-// The switch is in one place and the text it changes is in several, some of
-// them inside other client islands (the package titles are in
-// ServicePackages). A context is the smallest thing that connects them without
-// making the whole page a client component.
+// The state is a context because the switch is in one place and the text it
+// changes is in several, some inside other client islands. The provider takes
+// `children`, so everything inside stays a server component — only the pieces
+// that change on toggle are client-rendered, which is why <AudienceText>
+// exists rather than the page branching.
 //
-// The provider takes `children`, so everything inside it stays a SERVER
-// component — a client component can render server children passed as a prop.
-// Only the pieces that actually change on toggle need to be client-rendered,
-// which is why <AudienceText> exists rather than the page simply branching.
-//
-// ── Why nothing is persisted ─────────────────────────────────
-// Reading a stored answer would mean rendering the base copy on the server and
-// swapping it after hydration — a visible flicker of the wrong text on every
-// load, to save a tap that costs nothing. It resets on reload, and that is the
-// better trade.
+// Nothing is persisted. Reading a stored answer would mean rendering base copy
+// on the server and swapping it after hydration — a flicker of the wrong text
+// on every load, to save a tap that costs nothing.
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
@@ -47,26 +35,17 @@ export function AudienceProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={{ on, setOn }}>{children}</Ctx.Provider>;
 }
 
-/**
- * Renders `alt` when the switch is on, `base` otherwise.
- *
- * Both strings are rendered by the CLIENT — that is the whole point. A server
- * component's output is fixed HTML, so any text that has to change on a toggle
- * has to be produced here.
- */
+/** Renders `alt` when the switch is on, `base` otherwise. Client-side by
+ *  necessity: a server component's output is fixed HTML, so text that changes
+ *  on a toggle has to be produced here. */
 export function AudienceText({ base, alt }: { base: string; alt?: string }) {
   const { on } = useAudience();
   return <>{on && alt ? alt : base}</>;
 }
 
-/**
- * The switch itself.
- *
- * A real switch rather than a checkbox or a link: it reads as a setting that
- * changes what is on screen, which is exactly what it does. `aria-pressed`
- * carries the state, and the whole control is one button so the label is part
- * of the tap target.
- */
+/** The switch itself. A switch rather than a checkbox or link because it
+ *  reads as a setting that changes what's on screen, which is what it is.
+ *  One button, so the label is part of the tap target. */
 export function AudienceToggle({
   prompt,
   accent,

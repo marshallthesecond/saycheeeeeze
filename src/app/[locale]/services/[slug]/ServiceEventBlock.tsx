@@ -1,28 +1,19 @@
 'use client';
 
-// src/app/[locale]/services/[slug]/ServiceEventBlock.tsx
+// The dated thing the client is buying for — a graduation ceremony, in
+// practice. Venue, schedule, how far away it is, how many sessions are left.
 //
-// The dated thing the client is buying for — WIUT's graduation ceremony, in
-// practice. Venue, schedule, how far away it is, and how many sessions are left.
+// A client component because the page is statically generated, so anything
+// computed on the server is computed once at build time and served for weeks:
+// a countdown rendered there would still say "63 days" in January. The day
+// count appears only after mount — the server has no clock the client agrees
+// with, and one frame of nothing beats a hydration mismatch.
 //
-// ── Why the countdown is a client component ──────────────────
-// This page is statically generated (generateStaticParams, no dynamic export),
-// so anything computed on the server is computed ONCE at build time and then
-// served for weeks. A countdown rendered there would say "63 days" in January.
-// Reading the clock in the browser is correct under any caching strategy, which
-// is why the one number that changes daily lives here and everything else stays
-// in the server component.
-//
-// The day count is rendered only after mount. The server has no clock the
-// client agrees with, so rendering it on both sides guarantees a hydration
-// mismatch; showing nothing for one frame is the cheaper trade.
-//
-// ── Why scarcity is conditional ──────────────────────────────
-// "3 of 12 sessions left" only appears when `booked` is a real number that has
-// moved. One ceremony, one day, one photographer is genuine scarcity — which is
-// exactly why it must not be decorated. In a cohort where everyone knows
-// everyone, an invented count is found out in a single Telegram message, and
-// then nothing else on the page is believed either.
+// "3 of 12 sessions left" appears only when `booked` is a real number that has
+// moved. One ceremony, one day, one photographer is genuine scarcity, which is
+// exactly why it must never be decorated: in a cohort where everyone knows
+// everyone, an invented count is found out in one Telegram message, and then
+// nothing else on the page is believed either.
 
 import { useEffect, useState } from 'react';
 import { CalendarDays, MapPin, Info } from 'lucide-react';

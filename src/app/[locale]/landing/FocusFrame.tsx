@@ -1,13 +1,11 @@
 "use client";
 
-// src/app/[locale]/landing/FocusFrame.tsx
+// Four corner brackets that hunt, lock and hold — the signature element, and
+// the reason the 3D camera can be demoted: the idea of a camera stays on
+// screen the whole way down for the cost of 1px of SVG stroke.
 //
-// Four corner brackets that hunt, lock, and hold. This is the signature
-// element and the reason the 3D camera can be demoted: the *idea* of a camera
-// stays on screen the whole way down, at the cost of 1px of SVG stroke.
-//
-// It appears in scenes 1, 3 and 7 — the same three scenes as the 3D — so its
-// return means something. Never more than one lock per scene.
+// Appears in scenes 1, 3 and 7, the same three as the 3D, so its return means
+// something. Never more than one lock per scene.
 //
 // State machine, driven by the owning scene's progress:
 //   hidden   → nothing drawn
@@ -40,10 +38,10 @@ export default function FocusFrame({
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // The hunt: a slow lissajous wobble, only while hunting. Written straight to
-  // the element rather than through state — this runs at 60fps and React has no
-  // reason to hear about it. Stopped entirely under reduced motion; a static
-  // bracket is fine, a drifting one isn't.
+  // A slow lissajous wobble, written straight to the element rather than
+  // through state — it runs at 60fps and React has no reason to hear about it.
+  // Stopped entirely under reduced motion: a static bracket is fine, a
+  // drifting one isn't.
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;

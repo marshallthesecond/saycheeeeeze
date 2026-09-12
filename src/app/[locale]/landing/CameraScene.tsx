@@ -1,30 +1,23 @@
 "use client";
 
-// src/app/[locale]/landing/CameraScene.tsx
-//
-// The camera, demoted. It appears in three scenes and nowhere else:
+// The camera. It appears in three scenes and nowhere else:
 //
 //   phase "hook"    scene 1 — rotates to show its back, the screen wakes
 //   phase "before"  scene 3 — small and angled, one iris snap
 //   phase "book"    scene 7 — far, dim, lens toward the viewer
 //
-// Removed from the previous version, deliberately:
-//   · the exploded view and its four DOM gear labels (sensor / mount / iris /
-//     evf) — a spec sheet is not a story
-//   · the six ejected photo cards — photographs are DOM images now, so they
-//     stay sharp on a phone
-//   · the lens detach/twist and the zoom-barrel extension
-//   · the second shutter click
-//   · 420 additively-blended dust points — the star field is SVG now, in
-//     Atmosphere, so it survives in the four scenes with no WebGL
+// Deliberately not here: an exploded view with gear labels (a spec sheet is
+// not a story), ejected photo cards (photographs are DOM images, so they stay
+// sharp on a phone), the lens detach and zoom-barrel extension, a second
+// shutter click, and a dust point cloud (the star field is SVG in Atmosphere,
+// so it survives the four scenes with no WebGL).
 //
-// The rig also changed: the old rim light was #ffc07a at intensity 3.0 against
-// a cool background, which is what made the body read brown and every bevel
-// read gold. It's cool and half as strong now.
+// Keep the rim light cool and low. Warm and strong makes the body read brown
+// and every bevel read gold.
 //
-// Fail-safes, unchanged in spirit: no WebGL → the canvas stays empty and every
-// scene still reads, because nothing lives behind the 3D. prefers-reduced-
-// motion → no spring, no tilt, no idle bob.
+// Fail-safes: no WebGL leaves the canvas empty and every scene still reads,
+// because nothing lives behind the 3D. Reduced motion means no spring, no
+// tilt, no idle bob.
 
 import { useEffect, useRef } from "react";
 import type * as THREE from "three";
@@ -35,14 +28,14 @@ type ThreeNS = typeof import("three");
 export type CameraPhase = "hook" | "before" | "book" | null;
 
 /**
- * How much of the frame the camera body is allowed to fill, as a fraction of
- * the viewport in each axis. 0.86 horizontally means the silhouette can never
- * be wider than 86% of the screen — 7% of clear space down each edge, on any
- * phone, at any angle. Lower it if you want the object to sit smaller; the
- * choreography's radius track becomes a floor rather than the final word.
+ * How much of the frame the camera body may fill, per axis. 0.86 horizontally
+ * means the silhouette is never wider than 86% of the screen — 7% of clear
+ * space down each edge, on any phone, at any angle. Lower it to sit the object
+ * smaller; the choreography's radius track then becomes a floor rather than
+ * the final word.
  *
- * Vertical is looser because the model is deliberately pushed into the upper
- * band on mobile, so it sits off-centre in y by design.
+ * Vertical is looser because the model is pushed into the upper band on
+ * mobile, so it sits off-centre in y by design.
  */
 const FIT_X = 0.86;
 const FIT_Y = 0.94;
@@ -51,12 +44,11 @@ const FIT_Y = 0.94;
  * Where the camera's rear screen is on the glass, in viewport percentages,
  * rewritten every frame of scene 1.
  *
- * x/y/w/h describe an upright box; `rot` is the roll that box needs to sit
- * square on the LCD, which is never zero because the body carries a velocity
- * tilt. The old version reported the axis-aligned bounding box of the four
- * projected corners, which is a different and always-larger rectangle than the
- * screen itself as soon as the body is turned even slightly — that is what made
- * the photograph appear off the screen rather than on it.
+ * x/y/w/h describe an upright box and `rot` is the roll it needs to sit square
+ * on the LCD — never zero, because the body carries a velocity tilt. Reporting
+ * the axis-aligned bounding box of the four projected corners instead gives a
+ * different, always-larger rectangle the moment the body turns at all, which
+ * puts the photograph beside the screen rather than on it.
  */
 export interface ScreenRect {
   x: number;
@@ -145,7 +137,7 @@ export default function CameraScene({
       scene = new T.Scene();
       const view = new T.PerspectiveCamera(32, 1, 0.01, 40);
 
-      // ── Environment ───────────────────────────────────────
+      // Environment
       // A painted studio, cooled down to match the page background.
       const ec = document.createElement("canvas");
       ec.width = 1024;
@@ -188,7 +180,7 @@ export default function CameraScene({
       const baseRim = 1.2;
       const baseFill = 0.35;
 
-      // ── Geometry helpers ──────────────────────────────────
+      // Geometry helpers
       let mobile = window.innerWidth < 820;
       const seg = (n: number) => (mobile ? Math.max(8, Math.round(n * 0.6)) : n);
 
@@ -253,7 +245,7 @@ export default function CameraScene({
         return t;
       };
 
-      // ── Materials ─────────────────────────────────────────
+      // Materials
       const M = (o: THREE.MeshStandardMaterialParameters) => new T.MeshStandardMaterial(o);
       const accent = new T.Color(accentHex);
       const mats = {
@@ -292,7 +284,7 @@ export default function CameraScene({
         }),
       };
 
-      // ── Model ─────────────────────────────────────────────
+      // Model
       const root = new T.Group();
       const bodyG = new T.Group();
       root.add(bodyG);
@@ -372,7 +364,7 @@ export default function CameraScene({
       for (const sx of [-1, 1])
         add(bodyG, new T.TorusGeometry(0.005, 0.0016, 8, seg(20)), mats.steel, [sx * 0.068, 0.03, -0.03], [0, Math.PI / 2, 0]);
 
-      // ── Lens ──────────────────────────────────────────────
+      // Lens
       const lens = new T.Group();
       root.add(lens);
       add(lens, new T.CylinderGeometry(0.0315, 0.0315, 0.007, seg(48)), mats.steel, [0, 0, 0.004], [Math.PI / 2, 0, 0]);
@@ -412,21 +404,19 @@ export default function CameraScene({
 
       scene.add(root);
 
-      // ── Framing ───────────────────────────────────────────
       // A stand-in for the model's silhouette, used by the fit solver below.
       //
-      // The obvious choice — the eight corners of one bounding box round the
-      // whole model — is far too loose for this shape. A long lens on a small
-      // body means the box is mostly empty air, so the solver over-estimates
-      // the width by about half, and because the box's corners swing further
-      // than the object does, the framing visibly pulses as the body turns:
-      // measured across scene 1, the camera breathed between 60% and 79% of
-      // the screen width.
+      // One bounding box round the whole model is far too loose for this
+      // shape: a long lens on a small body means the box is mostly empty air,
+      // so the solver over-estimates width by about half — and because the
+      // box's corners swing further than the object does, the framing pulses
+      // as the body turns (measured across scene 1: 60% to 79% of screen
+      // width).
       //
-      // So: take the eight corners of each *mesh's* own box — a union of small
-      // boxes rather than one big one — and reduce them to the extreme point in
-      // each of 64 evenly spread directions. Twenty points that bound the
-      // object closely from any angle. Same measurement: a steady 74–86%.
+      // So take the eight corners of each mesh's own box — a union of small
+      // boxes — and reduce them to the extreme point in each of 64 evenly
+      // spread directions. Twenty points that bound the object closely from
+      // any angle. Same measurement: a steady 74–86%.
       root.updateMatrixWorld(true);
       const candidates: THREE.Vector3[] = [];
       root.traverse((o) => {
@@ -464,12 +454,11 @@ export default function CameraScene({
         hull.push(candidates[bi]);
       }
 
-      // ── Resize ────────────────────────────────────────────
-      // A ResizeObserver on the canvas, not a window resize listener. On a
-      // phone the container changes size when the URL bar collapses, and that
-      // does not reliably fire `resize` — iOS in particular fires it late or
-      // not at all mid-scroll. A stale aspect stretches the render *and* moves
-      // the projected screen rect, so the photograph in scene 1 starts in the
+      // A ResizeObserver on the canvas, not a window resize listener. The
+      // container changes size when a phone's URL bar collapses, and that does
+      // not reliably fire `resize` — iOS fires it late or not at all
+      // mid-scroll. A stale aspect stretches the render and moves the
+      // projected screen rect, so the photograph in scene 1 starts in the
       // wrong place. The observer sees the box change whatever caused it.
       let idleFrames = 0;
       let viewW = 1;
@@ -510,7 +499,7 @@ export default function CameraScene({
       canvas.addEventListener("webglcontextlost", onLost);
       cleanups.push(() => canvas.removeEventListener("webglcontextlost", onLost));
 
-      // ── Screen-rect projection ────────────────────────────
+      // Screen-rect projection
       // Four corners of the LCD, projected to viewport percentages, so the DOM
       // image in scene 1 can start exactly where the screen is.
       const corners = [
@@ -535,11 +524,11 @@ export default function CameraScene({
         if (!out) return;
 
         // `project` reads camera.matrixWorldInverse, which is normally only
-        // refreshed inside renderer.render() — and this runs before the draw.
-        // The old version therefore projected through last frame's camera,
-        // which during the 140° sweep of scene 1 is a visible offset.
-        // placeView() has already inverted the matrix for this frame; the
-        // screen's own world matrix still needs updating.
+        // refreshed inside renderer.render() — and this runs before the draw,
+        // so without the inversion it projects through last frame's camera. In
+        // the 140° sweep of scene 1 that is a visible offset. placeView() has
+        // already inverted it for this frame; the screen's own world matrix
+        // still needs updating.
         screenMesh.updateWorldMatrix(true, false);
 
         for (let i = 0; i < corners.length; i++) {
@@ -586,7 +575,7 @@ export default function CameraScene({
         out.valid = true;
       };
 
-      // ── Choreography ──────────────────────────────────────
+      // Choreography
       // Every constant below is local to one scene, so scenes can change
       // length without any of this moving.
       const HOOK: Record<string, Stop[]> = {
@@ -698,16 +687,14 @@ export default function CameraScene({
         };
 
         /**
-         * How far outside the safe frame the model currently reaches, as a
-         * multiplier on the distance. 1 means it exactly touches the margin.
+         * How far outside the safe frame the model reaches, as a multiplier on
+         * the distance. 1 means it exactly touches the margin.
          *
-         * The old code framed the camera by hand — a 1.16 radius multiplier on
-         * mobile and a 0.34 floor — which is a guess that only holds for one
-         * aspect ratio. Measured on a 390×844 phone, the body actually covered
-         * between 146% and 215% of the screen width across scene 1: cut off at
-         * both edges, at every point in the scene. This measures the real
-         * silhouette instead, so it holds on any phone, in either orientation,
-         * at every angle in the choreography.
+         * Measuring the real silhouette rather than framing by hand is what
+         * makes this hold on any phone, in either orientation, at every angle.
+         * Hand-tuned multipliers only hold for one aspect ratio: on a 390×844
+         * phone a 1.16 multiplier put the body at 146–215% of screen width
+         * across scene 1 — cut off at both edges the whole way through.
          */
         const overflow = () => {
           let mx = 0;
@@ -777,12 +764,11 @@ export default function CameraScene({
         // Only scene 1 hands a photograph over, so only scene 1 pays for it.
         if (ph === "hook") updateScreenRect();
 
-        // Skip the draw once everything has settled and nothing is animating.
-        // Under reduced motion there's no idle bob, so once the spring settles
-        // there is genuinely nothing left to draw and we stop. With motion on,
-        // the bob advances every frame, so we keep drawing — the real saving is
-        // the four scenes with no phase at all, where the loop has already
-        // returned above without touching the GPU.
+        // Skip the draw once the spring has settled and nothing is animating.
+        // Under reduced motion there is no idle bob, so that is genuinely the
+        // end of it; with motion on the bob advances every frame. The real
+        // saving is the four scenes with no phase at all, where the loop has
+        // already returned above without touching the GPU.
         const settled =
           Math.abs(target - sp) < 0.0006 && Math.abs(sv) < 0.0006 && flash < 0.001;
         if (reduce && settled) {

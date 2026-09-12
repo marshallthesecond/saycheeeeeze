@@ -1,6 +1,5 @@
 "use client";
 
-// src/components/common/LanguageSwitcher.tsx
 //
 // Compact three-way toggle. Navigating rewrites the locale segment of the
 // current path, so switching language keeps you on the same page.

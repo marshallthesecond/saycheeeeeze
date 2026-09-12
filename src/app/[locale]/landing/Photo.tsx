@@ -1,14 +1,12 @@
 "use client";
 
-// src/app/[locale]/landing/Photo.tsx
-//
 // One way to put a photograph on the page, plus the placeholder that stands in
-// until the real file exists. Pass `src: null` and you get a graded panel at
-// the right aspect ratio with a REPLACE label — the layout, the type and the
-// scroll choreography are all final before a single image is dropped in.
+// until the real file exists. Pass `src: null` for a graded panel at the right
+// aspect ratio with a REPLACE label, so layout, type and scroll choreography
+// can all be finished before a single image is dropped in.
 //
-// No rounded corners, no border, no shadow: full-bleed photographs get no
-// treatment at all. Grain and vignette live in Atmosphere at z-0, underneath.
+// No rounded corners, border or shadow — full-bleed photographs get no
+// treatment at all. Grain and vignette live in Atmosphere, underneath.
 
 import Image from "next/image";
 
@@ -35,12 +33,9 @@ export default function Photo({
   className?: string;
   sizes?: string;
 }) {
-  // `relative` is only correct when the caller hasn't positioned the frame
-  // itself. Tailwind emits `.relative` after `.absolute`, so the base class was
-  // silently winning over every `absolute inset-0` passed in from a scene —
-  // the frames landed in the right place only because their parents happened
-  // to be the right size, and any caller relying on inset offsets would have
-  // been quietly ignored.
+  // `relative` only when the caller hasn't positioned the frame itself.
+  // Tailwind emits `.relative` after `.absolute`, so as a base class it
+  // silently beats every `absolute inset-0` passed in from a scene.
   const positioned = /(^|\s)(absolute|fixed|sticky|relative)(\s|$)/.test(className);
 
   return (
@@ -52,9 +47,9 @@ export default function Photo({
           fill
           sizes={sizes}
           priority={priority}
-          // Every caller passes a bunnyUrl(), which already carries ?width=1600.
-          // Guarded rather than hardcoded so a local file dropped in here later
-          // still gets optimized.
+          // Callers pass a bunnyUrl(), which already carries ?width=1600.
+          // Guarded rather than hardcoded so a local file dropped in later
+          // still gets optimised.
           unoptimized={/^https?:\/\//.test(src)}
           className="object-cover"
         />
@@ -78,11 +73,10 @@ export default function Photo({
 }
 
 function Placeholder({ label, tone = 0 }: { label?: string; tone?: number }) {
-  // Angles and lightness cycle with the index — enough variation that a run of
-  // placeholders reads as separate frames rather than one repeated texture.
-  // Explicit rgba over an opaque base rather than color-mix(): color-mix with
-  // percentages that don't sum to 100 multiplies alpha, which would let the 3D
-  // canvas show through the "photograph".
+  // Angles and lightness cycle with the index, so a run of placeholders reads
+  // as separate frames rather than one repeated texture. Explicit rgba over an
+  // opaque base rather than color-mix(), which multiplies alpha when the
+  // percentages don't sum to 100 and would let the 3D canvas show through.
   const angle = 145 + tone * 17;
   const lift = (0.05 + (tone % 3) * 0.02).toFixed(3);
 

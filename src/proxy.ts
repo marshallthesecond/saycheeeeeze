@@ -5,17 +5,14 @@
 // header -> default. Cookie first means an explicit choice always wins over
 // whatever the browser reports; the default is Russian (see i18n/config.ts).
 //
-// ── Why this is proxy.ts and not middleware.ts ───────────────
-// Next 16 renamed the convention. The file, the exported function name and the
-// runtime all changed; the matcher did not. Running on 16.3 with the old name
-// still worked but logged a deprecation on every boot, and a deprecated routing
-// convention is not something to discover on a production deploy — without this
-// file every bare URL stops being locale-prefixed.
+// proxy.ts, not middleware.ts: Next 16 renamed the convention, and the file,
+// the exported function name and the runtime all changed. The matcher did not.
+// Without this file every bare URL stops being locale-prefixed.
 //
-// One behavioural change worth knowing: Proxy defaults to the NODE runtime,
-// where Middleware defaulted to Edge. This file only reads a cookie and a
-// header, so nothing here depends on either — but the `runtime` segment option
-// is not merely ignored in a proxy file, it throws, so it must never be added.
+// One behavioural change worth knowing: Proxy defaults to the Node runtime
+// where Middleware defaulted to Edge. Nothing here depends on either, but the
+// `runtime` option is not merely ignored in a proxy file — it throws, so it
+// must never be added.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { defaultLocale, isLocale, type Locale } from "@/src/lib/i18n/config";

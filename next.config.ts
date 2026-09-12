@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // remotePatterns still matters even though almost nothing is optimised any
-    // more: next/image validates the src against it whether or not it is going
-    // to transform the file.
+    // Still needed even though almost nothing is optimised any more:
+    // next/image validates the src against this whether or not it is going to
+    // transform the file.
     remotePatterns: [
       {
         protocol: "https",
@@ -13,23 +13,19 @@ const nextConfig: NextConfig = {
       },
     ],
 
-    // ── Why Bunny photos bypass this entirely ────────────────
+    // Bunny-hosted images opt out of the optimiser individually, at each call
+    // site, rather than globally here.
     //
-    // Every image coming off Bunny is already exactly the size it should be —
-    // the derivative ladder produced it that way at ingest. Sending it through
-    // Next's optimiser means fetching a file that is already correct, decoding
-    // it, re-encoding it, and serving it from a second cache one network hop
-    // further away. On Vercel it is also billed per transform, which is the
-    // per-image cost this whole migration exists to avoid.
+    // They bypass it because the ladder already produced them at exactly the
+    // right size: sending one through means fetching a correct file, decoding
+    // it, re-encoding it and serving it from a second cache one hop further
+    // away — billed per transform on Vercel, which is the cost the ladder
+    // exists to avoid. In development it was worse, fetching 30 MB originals
+    // and timing out at 7 s, so album pages returned 500s.
     //
-    // In development it was worse than wasteful: the optimiser was fetching
-    // 30 MB+ originals and timing out at 7 s, so album pages returned 500s.
-    //
-    // This is NOT set globally, deliberately. `unoptimized: true` here would
-    // also cover the local files in public/ — and img2.png is 39.6 MB. Next is
-    // currently the only thing shrinking those, so they keep the optimiser
-    // until they move to Bunny and go through the ladder like everything else.
-    // Bunny-hosted images opt out individually at each call site instead.
+    // `unoptimized: true` here would also cover the local files in public/,
+    // some of which are tens of megabytes. Next is the only thing shrinking
+    // those, so they keep the optimiser until they move to Bunny.
   },
 };
 

@@ -1,17 +1,8 @@
 import "server-only";
 //
-// Server-only as of 2026-09-02, which is what the note here has been asking for
-// since bunny-url.ts was split out.
-//
-// The last client-side importer was AboutContent, which wanted bunnyUrl and got
-// every storage-API function in this file along with it. The key value was
-// never exposed — Next only inlines NEXT_PUBLIC_* vars — but the dead code
-// shipped to browsers, and the day somebody prefixed that variable to "make it
-// work" it would have become a real leak. AboutContent now imports from
-// bunny-url directly, so the door is shut rather than merely unused.
-//
-// If a client component ever needs bunnyUrl, import "./bunny-url". Adding a
-// re-export here would reopen exactly the hole this closes.
+// Server-only: this holds the storage API key. A client component that needs
+// bunnyUrl imports "./bunny-url" directly — adding a re-export here would
+// reopen the hole that split is closing.
 
 const STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE;
 const API_KEY = process.env.BUNNY_STORAGE_API_KEY;
@@ -41,8 +32,6 @@ export async function listBunnyImages(folder: string): Promise<string[]> {
     );
     return [];
   }
-
-  // const cleanFolder = folder.replace(/^\/|\/$/g, ""); // trim slashes
 
   const res = await fetch(
     `https://storage.bunnycdn.com/${STORAGE_ZONE}/${cleanFolder}/`,
@@ -103,17 +92,14 @@ const IMAGE_EXTENSIONS = /\.(jpe?g|png|webp|gif|avif)$/i;
 // - A path without a trailing slash hides just that one file.
 const EXCLUDE_MANIFEST_FILE = "portfolio-exclude.json";
 
-// Folders that are NEVER part of the portfolio, manifest or no manifest.
-// clients/ is delivered work: it is served through the private pull zone, it
-// isn't yours to publish, and it must not depend on a line in a JSON file
-// staying where you put it.
+// Never part of the portfolio, manifest or no manifest.
 //
-// d/ is the derivative ladder — machine-generated resizes of photographs that
-// are ALREADY in the portfolio via their originals. listAllBunnyImages() walks
-// the whole storage zone and accepts .avif, so without this line every rung of
-// every ladder is picked up as if it were a separate photograph: the portfolio
-// fills with twelve copies of each image, and the recursive listing makes one
-// API call per photo directory before the page can render.
+// clients/ is delivered work, served from the private zone, and must not depend
+// on a line in a JSON file staying put.
+//
+// d/ is the ladder. The zone walk accepts .avif, so without this the portfolio
+// fills with twelve copies of every photograph and makes one API call per
+// derivative directory before the page can render.
 const ALWAYS_EXCLUDED = ["clients", "d"];
 
 export interface ExcludeManifest {

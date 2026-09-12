@@ -1,71 +1,36 @@
-// scripts/build-ladder.mjs
+// Turns originals into the derivative ladder. Needs sharp and thumbhash.
 //
-// Phase 3. Turns originals into the derivative ladder.
-//
-//   node --env-file=.env.local scripts/build-ladder.mjs --check           # prove write access
-//   node --env-file=.env.local scripts/build-ladder.mjs --prune-legacy    # remove orphans
-//                                       from an older path layout (--dry-run first)
+//   node --env-file=.env.local scripts/build-ladder.mjs --check        # prove write access
+//   node --env-file=.env.local scripts/build-ladder.mjs                # everything pending
 //   node --env-file=.env.local scripts/build-ladder.mjs --gallery Sara --limit 1
-//   node --env-file=.env.local scripts/build-ladder.mjs --gallery Sara
-//   node --env-file=.env.local scripts/build-ladder.mjs              # everything pending
-//   node --env-file=.env.local scripts/build-ladder.mjs --dry-run    # encode, upload nothing
-//   node --env-file=.env.local scripts/build-ladder.mjs --retry-failed
+//   node --env-file=.env.local scripts/build-ladder.mjs --dry-run      # encode, upload nothing
 //   node --env-file=.env.local scripts/build-ladder.mjs --retry-failed --retry-stale --stale-after 1
 //   node --env-file=.env.local scripts/build-ladder.mjs --force --gallery Sara
+//   node --env-file=.env.local scripts/build-ladder.mjs --prune-legacy # orphans from an
+//                                       older path layout (--dry-run first)
 //
-// Needs:  npm i -D sharp thumbhash
-//
-// For each photo it writes, to the storage zone:
-//
-//   {prefix}/{width}.avif   ×6
-//   {prefix}/{width}.webp   ×6
-//   {prefix}/share.jpg      ×1
-//   {prefix}/download.jpg   ×1
-//
-// where {prefix} is
+// For each photo it writes {width}.avif ×6, {width}.webp ×6, share.jpg and
+// download.jpg under
 //
 //   d/{gallery_id}/{photo_id}/{checksum8}/v{LADDER_REV}           album
 //   clients/_d/{gallery_id}/{photo_id}/{checksum8}/v{LADDER_REV}  client gallery
 //
-// See derivativePrefix() for why the root is keyed on gallery kind rather than
-// visibility, and why the revision has to be in the path rather than only in a
-// column.
+// then records checksum8, thumbhash, variants, delivery_bytes and the true
+// intrinsic dimensions on the row and flips status to 'ready'. See
+// derivativePrefix() for why the root is keyed on gallery kind and why the
+// revision travels in the path.
 //
-// ...then records checksum8, thumbhash, variants, delivery_bytes and the true
-// intrinsic dimensions on the row and flips status to 'ready'.
+// Safe to interrupt: Ctrl-C loses at most the photo in flight. Rows go 'ready'
+// only after every byte is uploaded, so a half-finished photo stays
+// 'processing' and --retry-stale requeues it. Paths carry the content hash and
+// the ladder revision, so a re-run can never serve a stale mix — anything that
+// changes the output changes the directory.
 //
-// ── Safe to interrupt ────────────────────────────────────────
-// Ctrl-C at any point loses at most the photo in flight. Rows are only marked
-// 'ready' after every byte is uploaded, so a half-finished photo stays
-// 'processing' and `--retry-stale` puts it back in the queue. Derivative paths
-// contain the content hash and the ladder revision, so re-running never serves
-// a stale mix: anything that changes the output changes the directory, and the
-// old one is simply orphaned.
-//
-// ── Measured cost, so you can plan a backfill ────────────────
-// Profiled on a 24 MP photo-like source, 2 cores:
-//
-//   thumbhash raster            0.3 s
-//   master (single downscale)   0.4 s
-//   12 derivatives (avif+webp)  2.7 s
-//   download.jpg q92            2.2 s
-//   ────────────────────────────────
-//   ~5.6 s per photo, and less on more cores
-//
-// Encoding is NOT the bottleneck. Downloading a 38 MB original over a domestic
-// connection dwarfs it, so the wall-clock cost of a backfill is your link, not
-// your CPU. Expect a few minutes for a gallery of small files and considerably
-// longer for the 30 MB+ PNGs — the progress line will tell you which you are in.
-//
-// --read-ahead overlaps the next download with the current encode. It is off by
-// default because on a constrained uplink it starves this photo's own uploads;
-// see the note on readAhead() below.
-//
-// ── Why this is not the reference architecture's worker ──────
-// No queue service, no FOR UPDATE SKIP LOCKED, no long-lived container. There
-// is exactly one worker and it runs when you run it, so the concurrency
-// machinery would be ceremony. `reset_stale_photo_claims()` in the Phase 2
-// migration is the entire recovery story.
+// Roughly 5.6 s of CPU per 24 MP photo on 2 cores, but encoding is not the
+// bottleneck: downloading a 38 MB original dwarfs it, so a backfill costs your
+// link rather than your CPU. --read-ahead overlaps the next download with the
+// current encode; it is off by default because on a constrained uplink it
+// starves this photo's own uploads (see readAhead()).
 
 import { createHash } from "node:crypto";
 import process from "node:process";
@@ -74,15 +39,11 @@ import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
 import { createClient } from "@supabase/supabase-js";
 
-// ── Ladder ───────────────────────────────────────────────────
-// Grid tiles are never displayed above ~720 CSS px even on a large screen;
-// lightbox frames go to the display width. Generating 3840 for a grid tile is
-// waste, generating only grid sizes makes the lightbox mushy.
-//
-// Trimmed deliberately (decided 2026-09-01): no 2560, no 3840. Every device a
-// client actually opens their gallery on is covered by 2048, and each width
-// dropped is ~8% off encode time, storage and bandwidth. Bump LADDER_REV in
-// the database if you ever change this list.
+// Grid tiles never display above ~720 CSS px; lightbox frames go to the
+// display width. So 3840 for a grid tile is waste and grid sizes alone leave
+// the lightbox mushy. No 2560 or 3840 on purpose — 2048 covers every device a
+// client actually opens their gallery on, and each width dropped is ~8% off
+// encode time, storage and bandwidth. Bump LADDER_REV if you change this list.
 const GRID_WIDTHS = [240, 480, 720];
 const FULL_WIDTHS = [1080, 1440, 2048];
 const ALL_WIDTHS = [...GRID_WIDTHS, ...FULL_WIDTHS];
@@ -103,15 +64,12 @@ const DELIVERY = { quality: 92, mozjpeg: true, chromaSubsampling: "4:2:0" };
 
 // The light download — "For sharing" in the client's chooser.
 //
-// Derived from the MASTER, not the original, which is the opposite of the
-// decision above and for the opposite reason: this is the one output whose
-// entire purpose is to be small. The master is already at the widest rung
-// (2048 unless the original is narrower, which withoutEnlargement handles), so
-// this costs one extra encode and no extra decode of the full-size file.
-//
-// q82 rather than q92 because it will be looked at on a phone, recompressed by
-// whatever app it is posted to, and never printed. The difference between this
-// and the full-quality file is roughly 4 MB against 500 KB.
+// From the master rather than the original, because this is the one output
+// whose whole purpose is to be small: the master is already at the widest rung
+// so this costs one extra encode and no extra decode of the full-size file.
+// q82 rather than q92 because it will be seen on a phone, recompressed by
+// whatever app it is posted to, and never printed — roughly 500 KB against
+// 4 MB.
 const SHARE_JPEG = { quality: 82, mozjpeg: true, chromaSubsampling: "4:2:0" };
 
 // Deliberately low. Bunny is in Falkenstein and this runs from Tashkent on a
@@ -119,16 +77,12 @@ const SHARE_JPEG = { quality: 82, mozjpeg: true, chromaSubsampling: "4:2:0" };
 // just take sockets away from the download that is running at the same time.
 const UPLOAD_CONCURRENCY = Number(process.env.UPLOAD_CONCURRENCY ?? 2);
 
-// ── On timeouts, and why there are two of them ───────────────
-// A single whole-request deadline cannot serve both halves of this job. A
-// 300 KB upload that takes 60 s is broken; a 38 MB download that takes 60 s is
-// completely normal on a domestic link. Using one number for both meant every
-// large original was guaranteed to fail no matter how healthy the connection.
-//
-// So: uploads get a fixed deadline, because they are small and bounded.
-// Downloads get a STALL timeout instead — the clock resets on every chunk that
-// arrives, so a slow-but-progressing transfer runs as long as it needs and only
-// a genuinely dead connection is killed.
+// Two timeouts, because one whole-request deadline cannot serve both halves of
+// this job: a 300 KB upload taking 60 s is broken, a 38 MB download taking
+// 60 s is normal on a domestic link. Uploads get a fixed deadline, being small
+// and bounded. Downloads get a stall timeout — the clock resets on every chunk
+// — so a slow but progressing transfer runs as long as it needs and only a
+// dead connection is killed.
 const UPLOAD_TIMEOUT_MS = Number(process.env.UPLOAD_TIMEOUT_MS ?? 120_000);
 const DOWNLOAD_STALL_MS = Number(process.env.DOWNLOAD_STALL_MS ?? 45_000);
 
@@ -136,7 +90,7 @@ const DOWNLOAD_STALL_MS = Number(process.env.DOWNLOAD_STALL_MS ?? 45_000);
 // only delays finding out.
 const MAX_ATTEMPTS = 3;
 
-// ── Environment ──────────────────────────────────────────────
+// Environment
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY;
@@ -160,7 +114,7 @@ const LADDER_REV = Number(process.env.LADDER_REV ?? 1);
   }
 }
 
-// ── Flags ────────────────────────────────────────────────────
+// Flags
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(`--${f}`);
 const val = (f, d = null) => {
@@ -183,7 +137,7 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// ── Bunny Storage ────────────────────────────────────────────
+// Bunny Storage
 
 function storageUrl(path) {
   return `https://${STORAGE_HOST}/${STORAGE_ZONE}/${String(path).replace(/^\/+/, "")}`;
@@ -191,13 +145,10 @@ function storageUrl(path) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Node's fetch throws a bare TypeError("fetch failed") and hides the actual
- * reason — ECONNRESET, ETIMEDOUT, ENOTFOUND, UND_ERR_CONNECT_TIMEOUT — one or
- * more levels down the `cause` chain. Unwrapping it is the difference between
- * "fetch failed" and "the connection was reset", which are very different
- * problems with very different fixes.
- */
+/** Node's fetch throws a bare TypeError("fetch failed") and buries the real
+ *  reason — ECONNRESET, ETIMEDOUT, UND_ERR_CONNECT_TIMEOUT — down the `cause`
+ *  chain. Unwrapping it is the difference between "fetch failed" and "the
+ *  connection was reset", which have very different fixes. */
 function describeNetworkError(err) {
   const parts = [];
   const seen = new Set();
@@ -246,16 +197,14 @@ async function httpError(label, res) {
 }
 
 /**
- * Streams a file down with a STALL watchdog rather than a total deadline.
+ * Streams a file down with a stall watchdog rather than a total deadline. The
+ * watchdog re-arms on every chunk, so a 38 MB original crawling in over four
+ * minutes is fine and only DOWNLOAD_STALL_MS of silence kills it.
  *
- * The watchdog is re-armed on every chunk, so a 38 MB original crawling in over
- * four minutes is fine and a connection that has genuinely died is killed after
- * DOWNLOAD_STALL_MS of silence.
- *
- * Note the body is consumed HERE, inside the guarded region. An earlier version
- * returned the Response and let the caller await res.arrayBuffer() outside the
- * timeout's error handling — which is why large files reported a raw "The
- * operation was aborted due to timeout" instead of a useful message.
+ * The body is consumed here, inside the guarded region. Returning the Response
+ * and letting the caller await res.arrayBuffer() puts the read outside the
+ * timeout's error handling, which is how large files end up reporting a raw
+ * "operation was aborted due to timeout".
  */
 async function download(storagePath, onProgress) {
   const label = `GET ${storagePath}`;
@@ -344,15 +293,9 @@ async function upload(path, body, contentType) {
   });
 }
 
-/**
- * A Supabase write, retried.
- *
- * supabase-js does not throw on a failed fetch — it returns the error in
- * `error`, which is how "Supabase update: TypeError: fetch failed" appeared in
- * the first backfill run. Losing a 50-second encode because a 200-byte HTTP
- * request lost its connection is pure waste, so these get the same treatment as
- * everything else that crosses the network.
- */
+/** A Supabase write, retried. supabase-js doesn't throw on a failed fetch, it
+ *  returns the error in `error` — and losing a 50-second encode because a
+ *  200-byte request dropped its connection is pure waste. */
 async function updateRow(id, patch, what) {
   return withRetries(`Supabase ${what}`, async () => {
     const { error } = await db.from("photos").update(patch).eq("id", id);
@@ -415,13 +358,11 @@ async function pool(items, limit, fn) {
   return results;
 }
 
-// ── Safety ───────────────────────────────────────────────────
+// Safety
 
-/**
- * photos.error is readable by the anon role (albums.ts selects photos(*)), so
- * anything written there reaches the browser on album pages. Storage keys and
- * signed URLs must never survive into it.
- */
+/** photos.error is readable by the anon role (albums.ts selects photos(*)),
+ *  so anything written there reaches the browser. Storage keys and signed URLs
+ *  must never survive into it. */
 function sanitize(message) {
   return String(message)
     .replace(new RegExp(STORAGE_KEY, "g"), "[key]")
@@ -436,46 +377,31 @@ function human(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// ── The actual work ──────────────────────────────────────────
+// The actual work
 
 /**
  * Where a photo's derivatives live.
  *
- * Keyed on galleries.kind, NOT on galleries.visibility, and that distinction is
- * the whole security model:
+ *   album   → d/{gallery}/{photo}/{checksum8}/…            public zone
+ *   client  → clients/_d/{gallery}/{photo}/{checksum8}/…   private zone only
  *
- *   album         → d/{gallery}/{photo}/{checksum8}/…            public zone
- *   client        → clients/_d/{gallery}/{photo}/{checksum8}/…   private zone only
+ * Keyed on galleries.kind, not visibility, and that distinction is the whole
+ * security model. The public pull zone blocks any URL containing "/clients/",
+ * so nesting client derivatives there means the CDN refuses them without a
+ * token — the same mechanism that protects the originals rather than a second
+ * one to keep in step. Visibility is a column you flip from a dashboard;
+ * keying paths on it would make every flip either expose files or break them
+ * until someone re-ran this script. `kind` never changes, so files never move.
  *
- * The public pull zone carries an edge rule that blocks any request URL
- * containing "/clients/" (wildcard on both sides). Nesting client derivatives
- * under clients/ therefore means the CDN refuses them without a token — the
- * same mechanism that already protects the originals, rather than a second one
- * to keep in step.
+ * LADDER_REV is in the path because checksum8 hashes the original and nothing
+ * else — it covers a new or replaced photo, but not a change to the encoder
+ * settings below. These files carry a one-year immutable cache, and silently
+ * changing what lives at an immutable URL is the one thing that breaks the
+ * promise a content-addressed path makes. So bump LADDER_REV, rebuild, and the
+ * new files land at new URLs while the old ones age out.
  *
- * Visibility would have been the obvious key and is the wrong one. It is a
- * column you flip from a dashboard; keying paths on it means every flip either
- * exposes files or breaks them until someone remembers to re-run this script.
- * `kind` never changes — an album does not become a client gallery — so files
- * never have to move. Visibility now decides only whether a passkey is needed.
- *
- * ── Why LADDER_REV is in the path and not just in a column ───
- * checksum8 hashes the ORIGINAL file, and nothing else. That covers a new photo
- * and a replaced original, but NOT a change to the encoder settings below:
- * raising AVIF quality from 50 to 60 and re-running would rewrite the very same
- * paths with different bytes.
- *
- * These files are served with a one-year immutable cache, because the whole
- * point of a content-addressed path is that you never purge the CDN. Silently
- * changing what lives at an immutable URL is the one thing that breaks that
- * promise, and the only escape would be exactly the purge this design exists to
- * avoid. So the revision travels in the path: bump LADDER_REV, rebuild, and the
- * new files land at new URLs while the old ones simply age out.
- *
- * KEEP IN STEP with the resolver in the app (src/lib/…). Duplicated rather than
- * imported for the same reason verify-private-zone.mjs duplicates its signing:
- * a plain node script cannot import a "server-only" TypeScript module, and a
- * shared implementation could only prove the two agree with each other.
+ * KEEP IN STEP with the resolver in src/lib. Duplicated rather than imported
+ * because a plain node script cannot import a "server-only" TypeScript module.
  */
 function kindOf(photo) {
   // supabase-js returns an embedded to-one relation as an object, but has
@@ -487,19 +413,16 @@ function kindOf(photo) {
 /**
  * The prefix builder, with the revision passed in explicitly.
  *
- * Split out from derivativePrefix() because the --add-share top-up writes
- * ALONGSIDE files that already exist, so it must use the revision recorded on
- * the row rather than whatever LADDER_REV happens to be in the environment
- * today. Getting that wrong would drop share.jpg into an empty v2 directory
- * next to a live v1 ladder, and the app — which resolves from the row — would
- * never look there.
+ * Separate from derivativePrefix() because the --add-share top-up writes
+ * alongside files that already exist and must use the revision on the row, not
+ * whatever LADDER_REV is in the environment today. Getting that wrong drops
+ * share.jpg into an empty v2 directory beside a live v1 ladder, where the app
+ * — which resolves from the row — will never look.
  */
 function prefixFor(kind, galleryId, photoId, checksum8, rev) {
-  // Fail CLOSED. Defaulting an unknown kind to the public path would mean a
-  // change to the query — dropping the join, renaming the column — silently
-  // publishing client work rather than breaking loudly. The selects use
-  // !inner, so an absent kind means something is wrong upstream and this run
-  // should stop.
+  // Fail closed. Defaulting an unknown kind to the public path would let a
+  // change to the query — a dropped join, a renamed column — silently publish
+  // client work instead of breaking loudly.
   if (kind !== "album" && kind !== "client") {
     throw permanent(
       new Error(
@@ -550,16 +473,13 @@ function fetchOriginal(photo, withProgress) {
 }
 
 /**
- * One-slot read-ahead — OPT-IN, and off by default.
+ * One-slot read-ahead, opt-in via --read-ahead and off by default.
  *
- * The idea was that download and encode cost about the same and use different
- * resources, so overlapping them halves wall-clock. That holds on a fat link.
- * On a domestic connection it is actively harmful: prefetching the next 38 MB
- * original saturates the uplink that the current photo's own uploads need, and
- * they start failing with UND_ERR_CONNECT_TIMEOUT — which is exactly what
- * happened on the first real backfill run.
- *
- * Turn it on with --read-ahead if your connection has headroom to spare.
+ * Download and encode cost about the same and use different resources, so
+ * overlapping them halves wall-clock — on a fat link. On a domestic one it is
+ * actively harmful: prefetching the next 38 MB original saturates the uplink
+ * the current photo's uploads need, and they fail with
+ * UND_ERR_CONNECT_TIMEOUT. Turn it on only with headroom to spare.
  */
 function readAhead(photo) {
   if (!READ_AHEAD || !photo) return null;
@@ -662,7 +582,7 @@ async function processPhoto(photo, src) {
   };
 }
 
-// ── Queue ────────────────────────────────────────────────────
+// Queue
 
 async function selectQueue() {
   // ONE string literal — supabase-js parses this at the type level and its
@@ -690,25 +610,19 @@ async function selectQueue() {
 }
 
 /**
- * Deletes derivatives left behind by an OLDER PATH LAYOUT.
+ * Deletes derivatives left behind by an older path layout — two of them:
+ * everything once went to d/… regardless of gallery kind, leaving client
+ * derivatives where the public zone serves them untokened; and paths later
+ * gained a /v{ladder_rev}/ segment, orphaning everything built before it.
  *
- * Two layout changes have happened, and this clears up after both:
+ * That stale public copy is exactly the hole the kind-keyed path closes: flip
+ * a gallery to private and the app serves the signed path while the unsigned
+ * one quietly keeps working.
  *
- *   1. Everything used to go to d/… regardless of gallery kind, so client
- *      derivatives sat where the public zone would serve them untokened. A
- *      stale public copy is precisely the hole the kind-keyed path closes —
- *      the day a gallery is switched to private, the app serves the signed
- *      path while the unsigned one quietly keeps working.
- *
- *   2. Paths gained a /v{ladder_rev}/ segment. Everything built before that
- *      is orphaned at the un-versioned path.
- *
- * So for every photo it deletes both possible OLD prefixes — public and
- * client roots, without the version segment. The current path always contains
- * /v{n}/, so nothing this deletes can be live.
- *
- * Filenames are recoverable from `variants` plus download.jpg, so it only ever
- * deletes files it can name. 404s are expected and mean the file was not there.
+ * So it deletes both old prefixes, public and client, without the version
+ * segment. A current path always contains /v{n}/, so nothing deleted here can
+ * be live. Filenames come from `variants` plus download.jpg, so it only
+ * deletes files it can name; 404s are expected.
  */
 async function pruneLegacyDerivatives() {
   let q = db
@@ -773,28 +687,22 @@ async function pruneLegacyDerivatives() {
 }
 
 /**
- * Top-up pass: writes the ONE missing file for photos whose ladder is already
+ * Top-up pass: writes the one missing file for photos whose ladder is already
  * complete, and touches nothing else.
  *
- * share.jpg arrived after the first backfill had already run. It is a NEW path
- * under an existing prefix rather than a rewrite of a published file, so it
- * needs no LADDER_REV bump and invalidates nothing at the edge — which means a
- * full --force run would re-encode twelve derivatives and re-upload thirteen
- * files per photo in order to produce one new one. At ~400 photos that is the
- * difference between about forty minutes and about ten.
+ * share.jpg arrived after the first backfill ran. It is a new path under an
+ * existing prefix rather than a rewrite of a published file, so it needs no
+ * LADDER_REV bump and invalidates nothing at the edge — where a --force run
+ * would re-encode twelve derivatives and re-upload thirteen files per photo to
+ * produce one.
  *
- * Three things this is careful about:
- *
- *   The prefix uses the ROW's ladder_rev, never the environment's. This writes
- *   alongside files that already exist, wherever they landed.
- *
- *   It re-hashes the original and refuses any photo whose checksum has moved.
- *   A changed checksum means the source was replaced, every other file under
- *   that prefix is from different pixels, and the honest fix is a real rebuild
- *   — not a share.jpg quietly assembled from a newer photograph.
- *
- *   It writes share_bytes and source_bytes and NOTHING else. status, variants,
- *   thumbhash and checksum8 are left exactly as the real build left them.
+ * Three things it is careful about. The prefix uses the row's ladder_rev, not
+ * the environment's, because it writes alongside files that already exist. It
+ * re-hashes the original and refuses any photo whose checksum has moved — a
+ * changed checksum means every other file under that prefix is from different
+ * pixels, and the honest fix is a real rebuild. And it writes share_bytes and
+ * source_bytes only, leaving status, variants, thumbhash and checksum8 as the
+ * real build left them.
  */
 async function addShareTier() {
   console.log(

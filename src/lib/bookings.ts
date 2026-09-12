@@ -1,17 +1,8 @@
-// src/lib/bookings.ts
+// The booking ledger. Server only.
 //
-// The booking ledger, now in Postgres. SERVER ONLY.
-//
-// Replaces the Bunny file store, where every booking was a JSON file whose
-// date/time/status lived in the FILENAME. That design listed cheaply but could
-// not express a uniqueness constraint, so "one session per day" was
-// unenforceable: listBookingSlotsFresh() -> canBook() -> createBooking() let
-// two requests in the same second both pass and both write. Postgres closes
-// that window with a partial unique index, and the INSERT itself becomes the
-// lock.
-//
-// It also could not be queried. "How much did I earn in July" meant downloading
-// every file and parsing "800,000 so'm" back into a number.
+// "One session per day" is enforced by a partial unique index, so the INSERT
+// itself is the lock — a check-then-write cannot close the window between two
+// requests in the same second.
 
 import "server-only";
 
@@ -62,7 +53,7 @@ export type CreateResult =
 
 const PG_UNIQUE_VIOLATION = "23505";
 
-// ─── Reads ────────────────────────────────────────────────
+// Reads
 
 /**
  * Which days are taken, and nothing else.
@@ -121,7 +112,7 @@ export async function getBookingByRef(ref: string): Promise<BookingRecord | null
   }
 }
 
-// ─── Writes ───────────────────────────────────────────────
+// Writes
 
 /**
  * Inserts a booking. The partial unique index on (session_date) WHERE status IN
@@ -236,7 +227,7 @@ export async function markSheetSynced(ref: string): Promise<void> {
   }
 }
 
-// ─── Rate limiting ────────────────────────────────────────
+// Rate limiting
 
 const MAX_PER_DAY = 3;
 
@@ -262,7 +253,7 @@ export async function rateLimited(ipHash: string): Promise<boolean> {
   }
 }
 
-// ─── Mapping ──────────────────────────────────────────────
+// Mapping
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function fromRow(r: any): BookingRecord {

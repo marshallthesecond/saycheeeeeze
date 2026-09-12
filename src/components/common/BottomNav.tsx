@@ -165,12 +165,9 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
         {/* Absolutely positioned overlay — adds no layout, no size, no spacing. */}
         <NavPerimeterGlow active={busy && shown} />
 
-        {/* <BottomNavItem
-          icon={<Aperture className="w-5 h-5" />}
-          label={t("nav.home")}
-          href={`/${locale}`}
-          active={isHome}
-        /> */}
+        {/* No Home tab: the site root renders the About page, so Portfolio is
+            the first destination. Restore one here if the landing page is
+            ever wired up as the root. */}
         <BottomNavItem
           icon={<Briefcase className="w-5 h-5" />}
           label={t("nav.portfolio")}

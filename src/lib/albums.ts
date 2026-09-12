@@ -1,5 +1,3 @@
-// src/lib/albums.ts
-//
 // Supabase is the source of truth for album and photo METADATA. Bunny still
 // stores and serves the bytes — every column holds a storage path, and
 // bunnyUrl() turns it into a CDN URL at read time. Changing pull zone or CDN
@@ -24,25 +22,16 @@ import {
 } from "./ladder";
 import type { Database } from "./database.types";
 
-// ---------------------------------------------------------------------------
 // Public shapes — unchanged from the hardcoded version.
-// ---------------------------------------------------------------------------
 
 export interface AlbumPhoto {
   src: string;
   alt?: string;
   thumbSrc?: string;
   /**
-   * Intrinsic pixel dimensions, straight from the `photos` row.
-   *
-   * These have been sitting in the database since the first sync and nothing
-   * read them. Carrying them into the client lets PhotoGrid pack its columns
-   * from real aspect ratios on the FIRST render, before a single image byte
-   * is requested — instead of assuming 3:2 for everything and re-flowing the
-   * whole grid as photos trickle in.
-   *
-   * Optional because a photo whose dimensions could not be probed still has
-   * to render; PhotoGrid falls back to the old assumption per-photo.
+   * Intrinsic pixel dimensions, so PhotoGrid packs columns from real aspect
+   * ratios on the first render instead of assuming 3:2 and re-flowing.
+   * Optional — an unprobed photo falls back to that assumption.
    */
   width?: number;
   height?: number;
@@ -123,9 +112,7 @@ type PhotoRow = Pick<
 /** Time-based backstop. On-demand revalidateTag is the real refresh path. */
 const REVALIDATE_SECONDS = 3600;
 
-// ---------------------------------------------------------------------------
 // Row → app shape
-// ---------------------------------------------------------------------------
 
 const PUBLIC_CDN = (process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE ?? "").replace(/\/$/, "");
 
@@ -198,13 +185,11 @@ function toAlbum(g: GalleryRow, photos: PhotoRow[], count?: number): AlbumData {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Reads
 //
 // Errors throw rather than returning empty. A build that silently produces a
 // photography site with zero galleries is worse than a build that fails.
 // "Not found" is different from "query broke" and still returns undefined.
-// ---------------------------------------------------------------------------
 
 async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
   // Case-insensitive so /albums/wiut resolves the same gallery as /albums/WIUT.
@@ -330,18 +315,12 @@ export interface PortfolioPhoto extends AlbumPhoto {
 }
 
 /**
- * The portfolio grid, from the database rather than a live storage listing.
+ * The portfolio grid, read from the database rather than by listing storage —
+ * a URL carries nothing with it, so a listing left the portfolio with no
+ * dimensions, no ThumbHash and no ladder.
  *
- * listAllBunnyImages() walked the whole zone on every render and returned bare
- * URL strings. That cost one storage API call per folder before the page could
- * paint, and — because a URL carries nothing with it — left the portfolio as
- * the last surface with no stored dimensions, no ThumbHash and no ladder, still
- * resizing every tile through the Optimizer. It is the reason the Optimizer
- * could not be switched off.
- *
- * Curation is unchanged: portfolio-exclude.json still decides what is hidden
- * and what the categories are called, and the category is still the top-level
- * folder of the storage path. Only the source of the photo LIST moved.
+ * Curation is unchanged: portfolio-exclude.json decides what is hidden and what
+ * the categories are called, and the category is the top-level storage folder.
  */
 export const getPortfolioPhotos = unstable_cache(
   async (): Promise<PortfolioPhoto[]> => {
@@ -384,19 +363,15 @@ export const getPortfolioPhotos = unstable_cache(
 );
 
 /**
- * Resolves storage paths to full photo records, keyed by path.
+ * Storage paths → full photo records, keyed by path. For pages that pick
+ * photographs by hand: the About strip, works grid and service cards.
  *
- * For pages that pick out particular photographs by hand — the About page's
- * featured strip, works grid and service cards. Those used to hold
- * bunnyUrl('...') results, which is a one-way door: a URL cannot be looked up,
- * so those images had no stored dimensions, no ThumbHash and no ladder. Holding
- * the PATH instead means everything the database knows about the photo comes
- * along with it, and PhotoGrid and Lightbox already know what to do with that.
+ * Hold paths, never URLs. A URL cannot be looked up, so anything holding one
+ * loses dimensions, ThumbHash and ladder.
  *
- * A path with no row is simply absent from the result rather than an error —
- * the caller falls back to a plain CDN URL, which is exactly what it had
- * before. Five of the About page's paths currently point at files that do not
- * exist; see the note in about/photos.ts.
+ * A path with no row is absent from the result rather than an error, and the
+ * caller falls back to a plain CDN URL. Five About-page paths currently point
+ * at files that do not exist — see about/photos.ts.
  */
 export const getPhotosByPaths = unstable_cache(
   async (paths: string[]): Promise<Record<string, AlbumPhoto>> => {

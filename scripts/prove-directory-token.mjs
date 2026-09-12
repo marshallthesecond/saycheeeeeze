@@ -10,7 +10,7 @@
 // 300-photo page needs one signature. If it can't, the path drops galleryId
 // and every photo needs its own. Choosing wrong means re-uploading everything.
 //
-//   node --env-file=.env.local scripts/prove-directory-token.mjs clients/sara-grad/IMG_1432.jpg
+//   node --env-file=.env.local scripts/prove-directory-token.mjs clients/sara-grad/3M0A0217.png
 //
 // Reads nothing, writes nothing, changes nothing. Pass a real file inside
 // clients/ — the same kind of path verify-private-zone.mjs wants.

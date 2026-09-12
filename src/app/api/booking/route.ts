@@ -1,30 +1,21 @@
-// src/app/api/booking/route.ts
+// Takes a booking. Five rules hold this route together — break any of them
+// and the bug is expensive rather than noisy:
 //
-// What changed from the previous version:
-//
-//   1. PRICE IS SERVER-SIDE. The old route wrote body.price — a string the
-//      client supplied — into the ledger, your Telegram message and your Sheet
-//      without ever checking it. A modified request booked a 1.6M commercial
-//      shoot for 1 so'm and the notification said 1 so'm.
-//
-//   2. DURATION IS SERVER-SIDE. Derived from the package, never accepted from
-//      the request. That also removes the `duration ?? 1` fallback that
-//      silently priced a missing duration as one hour.
-//
-//   3. THE INSERT IS THE LOCK. No check-then-write. A second booking for the
+//   1. Price is server-side. Never body.price. A request that supplied its own
+//      once booked a 1.6M commercial shoot for 1 so'm, and the notification
+//      agreed with it.
+//   2. Duration is server-side, derived from the package. Never accepted from
+//      the request, and never defaulted — a missing duration is an error, not
+//      one hour.
+//   3. The INSERT is the lock. No check-then-write: a second booking for the
 //      same day raises 23505 and becomes a 409.
-//
-//   4. TIME IS TASHKENT EVERYWHERE. canBook() no longer defaults to new Date(),
-//      which was UTC on Vercel and put the server a calendar day behind the
-//      browser between 00:00 and 05:00 local.
-//
-//   5. THE CLIENT GETS A BOT LINK BACK. A Telegram bot cannot message someone
-//      by @username — the person must press Start first. The deep link in the
-//      response is how that handshake begins.
+//   4. Time is Tashkent everywhere. new Date() is UTC on Vercel, which puts
+//      the server a calendar day behind the browser between 00:00 and 05:00.
+//   5. The client gets a bot deep link back. A Telegram bot can't message
+//      someone by @username until they press Start; the link starts that.
 //
 // Env: TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_ADMIN_CHAT_ID,
-//      IP_HASH_SALT, NEXT_PUBLIC_SITE_URL, GOOGLE_* (unchanged)
-// Retired: BOOKING_ADMIN_TOKEN — replaced by callback_query + admin chat check.
+//      IP_HASH_SALT, NEXT_PUBLIC_SITE_URL, GOOGLE_*
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
@@ -91,8 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // ── Honeypot ────────────────────────────────────────────
-  // Report success without doing anything. A bot that gets a 400 learns to
+  // Honeypot: report success and do nothing. A bot that gets a 400 learns to
   // retry differently; one that gets a 200 moves on satisfied.
   if (body.website && body.website.trim() !== "") {
     return NextResponse.json({ ok: true, reference: "SC-000000" });
@@ -110,7 +100,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Shape validation ────────────────────────────────────
+  // Shape validation
   const locale: Locale =
     body.locale === "ru" || body.locale === "uz" ? body.locale : "en";
 
@@ -125,17 +115,15 @@ export async function POST(req: NextRequest) {
   if (!telegram && !phone) {
     return NextResponse.json({ error: "contact" }, { status: 400 });
   }
-  // The old client enabled submit on truthiness alone, so "@ab" — which the
-  // field itself flagged with a red ✗ — went through. Enforce it here too.
+  // Enforced here as well as in the form: "@ab" is not an email address.
   if (telegram && !TELEGRAM_RE.test(telegram)) {
     return NextResponse.json({ error: "telegram" }, { status: 400 });
   }
   if (phone && (phoneDigits.length < 7 || phoneDigits.length > 15)) {
     return NextResponse.json({ error: "phone" }, { status: 400 });
   }
-  // Accepts either shape. A client on a cached page still sends a single
-  // locationId, and rejecting those for a whole deploy cycle would cost real
-  // bookings for no benefit.
+  // Either shape. A client on a cached page still sends a single locationId,
+  // and rejecting those for a deploy cycle would cost real bookings.
   const locationIds = Array.isArray(body.locationIds)
     ? [...new Set(body.locationIds.filter((id): id is string => typeof id === "string"))]
     : body.locationId
@@ -155,14 +143,13 @@ export async function POST(req: NextRequest) {
   const date = fromISODate(body.isoDate ?? "");
   if (!date) return NextResponse.json({ error: "date" }, { status: 400 });
 
-  // ── Resolve the package. This is where price comes from. ─
+  // Resolve the package — this is where price comes from.
   //
-  // Two sources, one resolver. A package id is either one of the individually
-  // bookable service tiers (graduation's five, priced in services.ts) or one of
-  // the four generic session packages from the database. quoteBooking() is the
-  // SAME function the form uses to display the quote, so the 409 below fires
-  // only on a genuine change and never on the two sides disagreeing about
-  // arithmetic.
+  // Two sources, one resolver: a package id is either a bookable service tier
+  // (priced in services.ts) or a generic session package from the database.
+  // quoteBooking() is the same function the form uses to show the quote, so
+  // the 409 below fires only on a genuine change, never on the two sides
+  // disagreeing about arithmetic.
   const packages = await getBookablePackages();
   const catalogItem = body.packageId ? findCatalogItem(body.packageId) : undefined;
   const pkg = packages.find((p) => p.id === body.packageId);
@@ -173,7 +160,7 @@ export async function POST(req: NextRequest) {
 
   const people = body.peopleCount == null ? null : Math.floor(Number(body.peopleCount));
 
-  // Head count only constrains the generic packages. A catalogue tier prices
+  // Head count only constrains the generic packages; a catalogue tier prices
   // the session, not the people in it.
   if (pkg && !catalogItem) {
     const pErr = peopleError(pkg, people);
@@ -195,25 +182,22 @@ export async function POST(req: NextRequest) {
 
   const durationMinutes = quote.durationMinutes;
 
-  // Resolved ONCE. `pkg` is undefined for a catalogue booking, so anything
-  // downstream that reaches for pkg.name breaks on exactly the bookings this
-  // refactor was built to support.
+  // Resolved once. `pkg` is undefined for a catalogue booking, so anything
+  // downstream reaching for pkg.name breaks on exactly those.
   //
-  // English on purpose, both halves: this label goes into the `bookings` row as
-  // packageName.en and into the Telegram message, and both of those are read by
-  // Marshall rather than by the client. Resolving it in the CLIENT's locale
-  // would leave a Russian booking indistinguishable from a Uzbek one at a
-  // glance in a list of them.
+  // English on purpose: this goes into the bookings row as packageName.en and
+  // into the Telegram message, both of which Marshall reads rather than the
+  // client. In the client's locale a Russian booking would be
+  // indistinguishable from an Uzbek one at a glance.
   //
-  // pickLocale rather than dropping the Localized straight into the template:
-  // an object interpolates without complaint and prints "[object Object]".
+  // pickLocale, not the Localized straight into the template — an object
+  // interpolates without complaint and prints "[object Object]".
   const packageLabel = catalogItem
     ? `${pickLocale(catalogItem.serviceTitle, "en")} — ${packageDuration(catalogItem, "en")}`
     : pick((pkg as SessionPackage).name, "en");
 
-  // A surcharged location typed into the free-text box instead of picked would
-  // dodge the fee. There is nothing to charge for a place we cannot identify,
-  // so the rule is simply that the studio has to be SELECTED to be booked.
+  // A surcharged location typed into the free-text box rather than picked
+  // would dodge the fee, so the rule is that it has to be selected to count.
   if (
     locationIds.length === 0 &&
     hasSurcharge(body.locationCustom?.trim().toLowerCase())
@@ -221,8 +205,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "location" }, { status: 400 });
   }
 
-  // A price change while the form was open shouldn't quietly charge the new
-  // amount. Surface it and make them re-confirm.
+  // A price change while the form was open should be surfaced and
+  // re-confirmed, not quietly charged.
   if (
     typeof body.quotedPriceUzs === "number" &&
     body.quotedPriceUzs !== quote.totalUzs
@@ -237,7 +221,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Timing rules ────────────────────────────────────────
+  // Timing rules
   const now = nowInTashkent();
   const fromISO = toISODate(now);
   const [taken, blackouts] = await Promise.all([
@@ -259,23 +243,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: check.code, message: check.reason }, { status });
   }
 
-  // ── Write. The unique index is the lock. ────────────────
+  // Write. The unique index is the lock.
   const ref = makeRef();
   const created = await createBooking({
     ref,
     sessionDate: body.isoDate as string,
     startTime: body.startTime as string,
     durationMinutes,
-    // The id is whichever source resolved it. Catalogue tiers carry their own
-    // stable id ("grad-campus-90m"), so a booking row records exactly which
-    // package was sold rather than only which broad category it fell into.
+    // Whichever source resolved it. Catalogue tiers carry a stable id, so the
+    // row records which package was sold, not just its broad category.
     packageId: catalogItem ? catalogItem.id : (pkg as SessionPackage).id,
     packageName: catalogItem ? { en: packageLabel } : (pkg as SessionPackage).name,
     priceUzs: quote.totalUzs,
     basePriceUzs: quote.basePriceUzs,
     peopleCount: people,
-    // Both surcharges land in the same addons list, so a booking row explains
-    // its own total rather than showing a number nobody can reconstruct.
+    // Both surcharges land in the same list, so a row explains its own total.
     addons: [
       ...(quote.extraPeople > 0
         ? [{
@@ -285,10 +267,9 @@ export async function POST(req: NextRequest) {
             people: quote.extraPeople,
           }]
         : []),
-      // Every location is recorded, priced or not — a booking row that lists
-      // only the ones that cost money cannot tell you where the shoot was.
-      // BookingAddon.people is a number, not nullable; 0 is the honest reading
-      // of "this addon is not about people".
+      // Every location, priced or not — a row listing only the ones that cost
+      // money can't tell you where the shoot was. people is 0 rather than null
+      // because the field isn't nullable and this addon isn't about people.
       ...locationIds.map((id) => ({
         id: `location-${id}`,
         qty: 1,
@@ -305,8 +286,7 @@ export async function POST(req: NextRequest) {
         : []),
     ],
     serviceSlug: body.serviceSlug ?? null,
-    // The first is the primary, for the existing column. The rest live in the
-    // addons above rather than being dropped.
+    // First is the primary, for the existing column; the rest are in addons.
     locationId: locationIds[0] ?? null,
     locationCustom: (body.locationCustom ?? "").trim() || null,
     clientName: name,
@@ -332,8 +312,8 @@ export async function POST(req: NextRequest) {
   const booking = created.booking;
   const priceLabel = formatSom(quote.totalUzs, locale);
 
-  // ── Notify you. Fire-and-forget: the customer should not wait on
-  //    Telegram's API, and a failed notification is recoverable. ──
+  // Fire-and-forget: the customer shouldn't wait on Telegram's API, and a
+  // failed notification is recoverable.
   void notifyAdmin({
     ref,
     name,
@@ -343,8 +323,8 @@ export async function POST(req: NextRequest) {
     serviceSlug: body.serviceSlug ?? null,
     date: body.isoDate as string,
     slot: describeSlot(body.startTime as string, durationMinutes),
-    // Every place, joined — the notification is how Marshall finds out where
-    // to turn up, so listing only the first would be actively misleading.
+    // Every place, joined. This notification is how Marshall finds out where
+    // to turn up, so listing only the first would be misleading.
     location:
       [...locationIds, (body.locationCustom ?? "").trim()].filter(Boolean).join(" + ") || "—",
     people,
@@ -371,11 +351,9 @@ export async function POST(req: NextRequest) {
   );
 }
 
-// ─── Admin notification ───────────────────────────────────
-// Inline buttons rather than approve/decline URLs. The old links carried
-// BOOKING_ADMIN_TOKEN in the query string, which put it in browser history and
-// in every logging hop between Telegram and the server — and any prefetcher
-// that opened one silently approved a booking. A callback_query is
+// Admin notification. Inline buttons rather than approve/decline URLs: a URL
+// carries its token through browser history and every logging hop, and any
+// prefetcher that opens one silently approves a booking. A callback_query is
 // authenticated by Telegram and carries no secret at all.
 
 interface AdminNotice {

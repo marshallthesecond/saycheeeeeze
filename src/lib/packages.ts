@@ -1,5 +1,3 @@
-// src/lib/packages.ts
-//
 // Types, pure helpers and the offline fallback. NO Supabase import — this file
 // is safe to pull into a client component. The database read lives next door in
 // packages.server.ts, which is server-only.
@@ -56,7 +54,7 @@ export interface SessionPackage {
   coverPath: string | null;
 }
 
-// ─── Fallback ─────────────────────────────────────────────
+// Fallback
 // Used only when Supabase is unreachable at render time, so /book never shows
 // an empty price list. Keep in sync with sql/0001_booking_system.sql — the
 // database is the source of truth, this is the parachute.
@@ -107,7 +105,7 @@ export const FALLBACK_PACKAGES: SessionPackage[] = [
   },
 ];
 
-// ─── Localisation ─────────────────────────────────────────
+// Localisation
 
 export function pick(field: Localised | null | undefined, locale: Locale): string {
   if (!field) return "";
@@ -119,7 +117,7 @@ export function pickList(field: LocalisedList | null | undefined, locale: Locale
   return field[locale] ?? field.en ?? [];
 }
 
-// ─── Money ────────────────────────────────────────────────
+// Money
 
 const CURRENCY_SUFFIX: Record<Locale, string> = { en: "so'm", ru: "сум", uz: "so'm" };
 
@@ -138,7 +136,7 @@ export function formatSom(amount: number, locale: Locale = "en"): string {
   return `${grouped} ${CURRENCY_SUFFIX[locale] ?? CURRENCY_SUFFIX.en}`;
 }
 
-// ─── Pricing ──────────────────────────────────────────────
+// Pricing
 
 export interface PriceBreakdown {
   basePriceUzs: number;
@@ -189,7 +187,7 @@ export function getPackage(list: SessionPackage[], id: string): SessionPackage |
   return list.find((p) => p.id === id && p.isActive);
 }
 
-// ─── Service → package mapping ────────────────────────────
+// Service → package mapping
 // The 17 service pages stay as marketing and SEO surfaces. Four packages are
 // what you can actually buy. A service with `null` is not bookable through the
 // form: its page swaps "Book this" for "Ask about this" → Telegram.

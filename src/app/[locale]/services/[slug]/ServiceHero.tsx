@@ -1,30 +1,20 @@
-// src/app/[locale]/services/[slug]/ServiceHero.tsx
-//
 // The drawn hero: a gradient built from the service's accent, one large
 // graphic bleeding off the corner, and the title. No photograph.
 //
-// ── Why a service would want this instead of a photo ─────────
-// Because a stand-in photograph is worse than none. The graduation page has no
-// graduation photographs yet, so its hero was a WIUT frame of something else —
-// which says "this is a photography service" and nothing about WHICH one. A
-// drawn mortarboard says "graduation" in one glance and does not pretend to be
-// work that has not been done.
+// A stand-in photograph is worse than none — a frame of something else says
+// "this is a photography service" and nothing about which one. A drawn
+// mortarboard says "graduation" at a glance without pretending to be work that
+// hasn't been done. Drop `hero` from the service once there are real
+// photographs and the photo hero comes back; that is the intended direction.
 //
-// The moment there are real graduation photographs, drop `hero` from the
-// service and the photo hero comes back. That is the intended direction of
-// travel: this is a good answer to having nothing to show, not a better answer
-// than having something.
+// The cap runs off the top-right corner rather than sitting centred, placed so
+// the crown stays inside the frame — board alone is a rhombus, board plus
+// crown is unmistakably a cap. The tassel is the first thing the crop takes,
+// so the offsets keep as much of it as the composition allows rather than
+// maximising the cap.
 //
-// ── On the crop ──────────────────────────────────────────────
-// The cap runs off the top-right corner rather than sitting centred. It is
-// placed so the CROWN stays inside the frame: board alone is a rhombus, board
-// plus crown is unmistakably a cap. The tassel is the first thing the crop
-// takes, so the offsets are tuned to keep as much of it as the composition
-// allows rather than to maximise the cap's size.
-//
-// ── Why the palette is computed ──────────────────────────────
-// Every stop is mixed from `accent`, so a second service adopting this hero
-// gets a coherent one from its own colour with no new CSS.
+// Every gradient stop is mixed from `accent`, so a second service adopting
+// this hero gets a coherent palette from its own colour with no new CSS.
 
 /** #1B4F9C → [27, 79, 156]. Returns null for anything not a 6-digit hex. */
 function parseHex(hex: string): [number, number, number] | null {
@@ -53,9 +43,9 @@ interface Props {
 export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: Props) {
   const rgb = parseHex(accent) ?? [27, 79, 156];
 
-  // Two layers: a glow anchored where the cap sits, over a diagonal wash that
-  // settles to the page background. Ends transparent rather than at black, so
-  // the page's own background shows through and there is no seam to line up.
+  // Two layers: a glow anchored where the cap sits, over a diagonal wash.
+  // Ends transparent rather than at black, so the page background shows
+  // through and there is no seam to line up.
   const background = [
     `radial-gradient(125% 95% at 76% 10%, ${shade(rgb, 0.06, 0.55)} 0%, transparent 62%)`,
     `linear-gradient(168deg, ${shade(rgb, -0.55)} 0%, ${shade(rgb, -0.78)} 46%, transparent 100%)`,
@@ -106,11 +96,10 @@ export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: P
 /**
  * A mortarboard, drawn rather than iconified.
  *
- * The crown starts at y=96 because that is where the board's lower-left edge
- * actually passes through x=58 — an earlier version started it higher and the
- * crown poked out above the board as two stray stubs, which only a render
- * showed. The tassel runs from the centre button out along the board and over
- * the right corner, where a real one hangs from.
+ * The crown starts at y=96 because that's where the board's lower-left edge
+ * passes through x=58; start it higher and the crown pokes out above the board
+ * as two stray stubs. The tassel runs from the centre button along the board
+ * and over the right corner, where a real one hangs from.
  */
 function Mortarboard({
   className,

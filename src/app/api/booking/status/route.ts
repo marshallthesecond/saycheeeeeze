@@ -1,15 +1,11 @@
-// src/app/api/booking/status/route.ts
-//
-// ⚠ TRANSITIONAL. This still uses the token-in-URL approve links, which is the
-// thing the Telegram webhook is meant to replace: the token lands in your
-// browser history and in every logging hop between Telegram and the server, and
-// any prefetcher that opens one silently approves a booking.
-//
-// It is patched here only so the build passes and you can still approve
-// bookings today. Delete this file once /api/telegram/webhook is live and the
-// admin message carries inline callback buttons instead of links.
+// TRANSITIONAL — delete this file once /api/telegram/webhook is live.
 //
 //   GET /api/booking/status?ref=SC-7F3K2&action=confirm&token=…
+//
+// Token-in-URL approve links are exactly what the webhook replaces: the token
+// lands in browser history and in every logging hop between Telegram and the
+// server, and any prefetcher that opens one silently approves a booking. Kept
+// only so bookings can still be approved in the meantime.
 
 import { NextRequest, NextResponse } from "next/server";
 import { describeSlot } from "@/src/lib/availability";

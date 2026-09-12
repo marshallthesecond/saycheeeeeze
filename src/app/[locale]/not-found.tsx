@@ -1,9 +1,7 @@
 "use client";
 
-// src/app/[locale]/not-found.tsx — 404 for any unmatched route
-//
-// A client component so it can read the active dictionary: a Russian visitor
-// who mistypes a URL should get a Russian 404, not an English one.
+// 404 for any unmatched route. A client component so it can read the active
+// dictionary — a Russian visitor who mistypes a URL gets a Russian 404.
 
 import Link from "next/link";
 import { Camera } from "lucide-react";

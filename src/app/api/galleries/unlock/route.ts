@@ -1,7 +1,5 @@
-// src/app/api/galleries/unlock/route.ts
-//
-// Trades a passkey for a cookie. The only endpoint in the app that accepts a
-// secret, so it is deliberately small: parse, check, set cookie, done.
+// Trades a passkey for a cookie. The only endpoint that accepts a secret, so
+// it stays small on purpose: parse, check, set cookie, done.
 //
 // Node runtime, not edge — gallery-access.ts uses node:crypto.
 

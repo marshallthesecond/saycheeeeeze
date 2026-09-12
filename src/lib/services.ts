@@ -1,33 +1,16 @@
 /**
- * A string that may be written once, or once per language.
- *
- * Service CONTENT — titles, taglines, descriptions, FAQs — has always been
- * plain English here, so /ru and /uz render English service pages with a
- * translated shell around them. Rather than refactor all sixteen services at
- * once, new fields take this type: a bare string behaves exactly as before, and
- * an object carries translations. Existing fields can adopt it one at a time
- * without touching anything that already works.
- *
- * `en` is required in the object form because it is the fallback. A missing
- * translation should render English, never an empty page.
+ * A string written once, or once per language. A bare string means "the same
+ * everywhere", so fields convert one at a time. `en` is required because it is
+ * the fallback — a missing translation renders English, never nothing.
  */
 export type Localized = string | ({ en: string } & Partial<Record<'ru' | 'uz', string>>);
 
 /**
- * Resolves a Localized for one locale, falling back to English.
- *
  * Two plain functions rather than one with overloads. The overloaded version
- * type-checked perfectly and then failed to BUILD: Turbopack's transform could
- * not see the export at all — "Export pickLocale doesn't exist in target
- * module" — because the two type-only signatures sit between `export` and the
- * only declaration carrying a body. tsc is not the only thing reading this
- * file, and the pair below is understood by everything.
+ * type-checks and then fails to BUILD — Turbopack cannot see an export whose
+ * only body sits below two type-only signatures. Do not "tidy" these into one.
  */
-/**
- * Every package a service sells, grouped or flat, in display order.
- *
- * One accessor so nothing has to know which of the two shapes a service uses.
- */
+/** Every package a service sells, grouped or flat, in display order. */
 export function allPackages(service: ServiceData): ServicePackage[] {
   if (service.packageGroups?.length) return service.packageGroups.flatMap((g) => g.packages);
   return service.packages ?? [];
@@ -72,15 +55,8 @@ export function pickLocaleOpt(
 }
 
 /**
- * How many finished frames the client gets.
- *
- * Was a hand-written "25–40 edited photos" on all forty-nine packages, which is
- * a sentence in English pretending to be data: a Russian visitor read the
- * Russian shell of the page and then "40–60 edited photos" in the middle of it.
- * As two numbers it renders in whichever language is being read, and there is
- * nothing left to translate per package.
- *
- * `max` omitted means "and up" — the 400+ wedding tier.
+ * How many finished frames. Numbers rather than a sentence, so it renders in
+ * whichever language is being read. `max` omitted means "and up".
  */
 export interface PhotoCount {
   min: number;
@@ -129,14 +105,9 @@ export interface ServicePackage {
   photos: PhotoCount;
   delivery: DeliverySpec;
   /**
-   * The price, in so'm, as a number.
-   *
-   * Was a hand-written "700,000 so'm" string that three separate call sites
-   * parsed the digits back out of at render time — and which printed the Uzbek
-   * currency word to a Russian reader whatever their locale. One number,
-   * formatted by formatSom() for display, is fewer moving parts AND correctly
-   * localised. It is also what the server can verify a booking against, which a
-   * display string never could be.
+   * Price in so'm, as a number. formatSom() handles display and the currency
+   * word per locale, and the server can verify a booking against it — none of
+   * which a display string could do.
    */
   priceUzs: number;
   highlight?: boolean;
@@ -171,16 +142,11 @@ export interface ServicePackage {
 }
 
 /**
- * A named set of packages, when one service sells more than one KIND of thing.
+ * For a service selling more than one KIND of thing. Graduation is two
+ * products under one name — a session you schedule, and coverage on the day —
+ * kept on one page because a visitor does not yet know which they want.
  *
- * Graduation is two different products wearing one name: a scheduled session in
- * a place you choose, and coverage on the day at the venue. They have different
- * prices, different preparation and different constraints — but a student
- * deciding "do I want graduation photos" does not yet know which they want, so
- * making them pick a URL before they can compare is the wrong door. One page,
- * two clearly separated offers.
- *
- * Leave it unset and `packages` renders as before.
+ * Unset and `packages` renders as before.
  */
 export interface ServicePackageGroup {
   key: string;
@@ -239,15 +205,9 @@ export interface ServiceEvent {
 }
 
 /**
- * Copy for one specific audience, behind a toggle.
- *
- * The page does not change shape — the same offers, the same prices, the same
- * order. Only the words that would be phrased differently if you knew who you
- * were talking to. "At campus" is what you say to a stranger; "At WIUT" is what
- * you say to someone who has just told you where they study.
- *
- * Anything omitted simply keeps the default, so a variant can be as small as
- * one group title.
+ * Copy for one audience, behind a toggle. Same offers, same prices, same order
+ * — only the wording changes ("At campus" → "At WIUT"). Anything omitted keeps
+ * the default, so a variant can be one group title.
  */
 export interface ServiceAudience {
   /** The switch's label — a question, because the visitor answers it. */
@@ -298,15 +258,9 @@ export interface ServiceData {
   slug: string;
   category: 'commercial' | 'moments' | 'fashion';
   /**
-   * ── Why the content fields are Localized and not plain strings ────
-   * They used to be plain strings, so /ru rendered a Russian shell — nav,
-   * headings, buttons — wrapped around an English page: an English title, an
-   * English tagline, English FAQs. That is worse than an all-English page,
-   * because it looks like the translation is finished.
-   *
-   * A bare string still means "the same in every language", which is right for
-   * the fifteen services whose copy has not been translated yet. Graduation is
-   * translated; the others adopt the object form one at a time.
+   * Localized, not plain strings: a translated shell around English content
+   * looks like a finished translation and is worse than an English page.
+   * Graduation is done; the other fifteen convert one at a time.
    */
   title: Localized;
   tagline: Localized;
@@ -322,17 +276,12 @@ export interface ServiceData {
    */
   coverPath: string;
   /**
-   * Where this service's example photographs come from.
+   * Where the example rail's photographs come from. Without it every service
+   * showed the same eight portfolio images.
    *
-   * WITHOUT this, the rail took every Nth photo of the whole portfolio, which
-   * meant all sixteen services showed the identical eight images — a graduation
-   * page whose visual evidence was an espresso machine. Examples must argue for
-   * the service they sit under or they argue against it.
-   *
-   * `galleryPaths` wins when set and keeps its order, so a page can be curated
-   * frame by frame. `galleryCategory` is the cheap version: a top-level Bunny
-   * folder name. Neither set falls back to the old spread, which is fine for a
-   * service with no dedicated work yet.
+   * `galleryPaths` wins and keeps its order, for a page curated frame by frame.
+   * `galleryCategory` is the cheap version: one top-level Bunny folder. Neither
+   * set falls back to an even spread of the portfolio.
    */
   galleryPaths?: string[];
   galleryCategory?: string;
@@ -378,7 +327,7 @@ export interface ServiceData {
 }
 
 export const servicesData: ServiceData[] = [
-  // ── COMMERCIAL ──────────────────────────────────────────
+  // COMMERCIAL
   {
     slug: 'brand-product',
     category: 'commercial',
@@ -479,7 +428,7 @@ export const servicesData: ServiceData[] = [
     accentColor: '#c8b400',
   },
 
-  // ── MOMENTS ──────────────────────────────────────────────
+  // MOMENTS
   {
     slug: 'wedding-love-story',
     category: 'moments',
@@ -779,19 +728,11 @@ export const servicesData: ServiceData[] = [
       'bitiruv uchun fotograf',
     ],
 
-    // ─────────────────────────────────────────────────────────
-    // FILL THIS IN. Everything else on the page works without it;
-    // this is the one field that makes the page urgent.
-    //
-    // Deliberately left empty rather than guessed. WIUT held the ceremony on
-    // 18 November in 2023 and 22 November in 2024, both at the Alisher Navoi
-    // Cinema Palace, so 2026 is very likely mid-to-late November — but "very
-    // likely" is not something to print on a page a client books from. The
-    // block below renders venue and slots regardless, and grows a countdown
-    // the moment a real date lands here.
-    //
-    // Check wiut.uz/events or the WIUT Telegram in October.
-    // ─────────────────────────────────────────────────────────
+    // TODO(marshall): fill in `date` once WIUT announces it — check
+    // wiut.uz/events in October. Empty on purpose rather than guessed: 2023 was
+    // 18 Nov and 2024 was 22 Nov, but "probably" is not printable on a page
+    // someone books from. Venue and slots render regardless; a countdown
+    // appears the moment a real date lands here.
     event: {
       date: '',
       label: {

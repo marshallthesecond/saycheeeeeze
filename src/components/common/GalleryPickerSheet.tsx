@@ -1,22 +1,15 @@
 "use client";
 
-// src/components/common/GalleryPickerSheet.tsx
 //
-// What opens when someone taps "Client galleries" or "Private gallery" on
-// /portfolio. Same bottom-sheet shape as GalleryRequestSheet — backdrop tap to
-// close, Escape to close, body scroll locked, safe-area padding at the bottom
-// — because a second sheet that behaves differently from the first is a bug
-// with extra steps.
+// Opens from "Client galleries" / "Private gallery" on /portfolio. Same
+// bottom-sheet shape as GalleryRequestSheet.
 //
-// ── What a private tile is allowed to show ────────────────
-// A cover thumbnail, obviously not: the whole point is that you can't see the
-// photos. A client's full name, also not, unless you chose to publish it —
-// which is what galleries.list_label is for. So a private tile shows a lock,
-// a label you control, a date and a count. Anything more and the picker
-// becomes the leak the passkey was meant to prevent.
+// A private tile shows a lock, a label you control via galleries.list_label, a
+// date and a count — never a cover, never a client's name unless you published
+// it. Anything more and the picker becomes the leak the passkey prevents.
 //
-// Galleries you don't want listed at all get is_listed = false and are
-// reachable only by the link you send.
+// is_listed = false keeps a gallery out of the list entirely, reachable only by
+// the link you send.
 
 import { useEffect } from "react";
 import Image from "next/image";

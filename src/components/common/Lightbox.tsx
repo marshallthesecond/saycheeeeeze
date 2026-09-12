@@ -108,7 +108,7 @@ export default function Lightbox({
     setTimeout(() => setToast(null), TOAST_MS);
   }, []);
 
-  // ── Keyboard navigation ──────────────────────────────────
+  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -119,7 +119,7 @@ export default function Lightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, onPrev, onNext]);
 
-  // ── Lock body scroll ─────────────────────────────────────
+  // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -168,7 +168,7 @@ export default function Lightbox({
     if (photos[index]) prefetchPhotoFile(sharePhotoUrl(photos[index]));
   }, [index, photos]);
 
-  // ── Touch gestures: swipe L/R to navigate, swipe down to close ──
+  // Touch gestures: swipe L/R to navigate, swipe down to close
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const t = e.touches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
@@ -206,7 +206,7 @@ export default function Lightbox({
     axis.current = "none";
   }, [drag, onClose, onPrev, onNext]);
 
-  // ── Download ─────────────────────────────────────────────
+  // Download
   // Keeps the original extension. The old version renamed everything to .png,
   // so every .JPG in the WIUT folder arrived mislabelled.
   const handleDownload = useCallback(async () => {
@@ -222,7 +222,7 @@ export default function Lightbox({
     setBusy(null);
   }, [photo, busy, onDownload]);
 
-  // ── Share ────────────────────────────────────────────────
+  // Share
   // Prefers sharing the image itself, which is what lets someone drop it
   // straight into an Instagram story. Falls back to a link that reopens the
   // gallery on this exact photo.
@@ -267,7 +267,7 @@ export default function Lightbox({
       }}
       onClick={onClose}
     >
-      {/* ── Top bar: counter + actions ── */}
+      {/* Top bar: counter + actions */}
       <div
         className="relative z-10 flex shrink-0 items-center justify-between px-4 py-3 transition-opacity"
         style={{ opacity: isDragging ? 0 : 1 }}
@@ -356,7 +356,7 @@ export default function Lightbox({
         </div>
       </div>
 
-      {/* ── Image area ── */}
+      {/* Image area */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
         <button
           className="absolute left-4 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/10 p-3 transition hover:bg-white/25 sm:flex"
@@ -436,7 +436,7 @@ export default function Lightbox({
         </div>
       </div>
 
-      {/* ── Footer hint + toast ── */}
+      {/* Footer hint + toast */}
       <div
         className="flex shrink-0 flex-col items-center gap-2 py-4 transition-opacity"
         style={{ opacity: isDragging ? 0 : 1 }}

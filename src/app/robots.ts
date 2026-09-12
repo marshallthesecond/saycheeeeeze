@@ -1,4 +1,4 @@
-// src/app/robots.ts — served at /robots.txt
+// Served at /robots.txt.
 
 import type { MetadataRoute } from "next";
 
@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      // /home is the unfinished page gated behind NEXT_PUBLIC_SHOW_HOME.
+      // Client galleries are passkey-gated; keep them out of the index.
       disallow: ["/api/", "/*/galleries/"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

@@ -1,36 +1,30 @@
-// scripts/backfill-blur.mjs
-//
 // Generates the inline blur placeholder for every photo and writes it to
-// photos.blur_data_url.
-//
-// Run it after applying supabase/migrations/0001_photo_blur_placeholder.sql:
+// photos.blur_data_url. Run after applying
+// supabase/migrations/0001_photo_blur_placeholder.sql.
 //
 //     node scripts/backfill-blur.mjs            # fill in what's missing
 //     node scripts/backfill-blur.mjs --force    # regenerate everything
 //     node scripts/backfill-blur.mjs --dry-run  # report, write nothing
 //     node scripts/backfill-blur.mjs --limit 20 # try a handful first
 //
-// It is safe to run repeatedly, safe to interrupt, and safe to run against
-// production: it only ever writes blur_data_url, and it skips rows that
-// already have one unless you pass --force.
+// Safe to repeat, to interrupt, and to run against production: it only writes
+// blur_data_url, and skips rows that already have one unless you --force.
 //
-// ── No native dependencies ───────────────────────────────────
-// There's no sharp, no canvas, no image library. Bunny already has an image
-// pipeline, so the script asks the CDN for a 24px WebP and stores those bytes
-// verbatim. The blur itself is a CSS filter in PhotoGrid, which is how
-// Next.js's own blur placeholder works.
+// No native dependencies — no sharp, no canvas. Bunny already has an image
+// pipeline, so this asks the CDN for a 24px WebP and stores those bytes
+// verbatim; the blur itself is a CSS filter in PhotoGrid, the same way
+// Next.js's own placeholder works.
 //
-// Explicit `format=webp` matters here. Bunny's `quality` parameter has no
-// effect on lossless output, and ~98% of this library is PNG — without the
-// format switch you'd get a 24px PNG at several times the size, and Node's
-// fetch doesn't send the Accept header that triggers Bunny's automatic
-// negotiation the way a browser does.
+// The explicit `format=webp` matters: Bunny's `quality` parameter does nothing
+// to lossless output and ~98% of this library is PNG, so without it you get a
+// 24px PNG several times the size. Node's fetch doesn't send the Accept header
+// that would trigger Bunny's automatic negotiation.
 
 import { createHmac } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 
-// ── Environment ──────────────────────────────────────────────
+// Environment
 // Reads .env.local the same way Next does, so there's nothing extra to set up.
 for (const file of [".env.local", ".env"]) {
   try {
@@ -51,17 +45,11 @@ const PUBLIC_ZONE = process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE;
 const PRIVATE_ZONE = process.env.BUNNY_PRIVATE_PULL_ZONE;
 const PRIVATE_KEY = process.env.BUNNY_PRIVATE_TOKEN_KEY;
 
-// Pull zones often have hotlink protection, which passes a browser (it sends a
-// Referer) and rejects a bare script (it doesn't) with a 403 that looks exactly
-// like a permissions problem.
-//
-// The app is not deployed, so there is no production domain to claim to be
-// coming from. The only referrer that has legitimately hit this zone is the dev
-// server. Set BUNNY_REFERER in .env.local to whatever your Bunny allow-list
-// actually contains — diagnose-bunny.mjs prints the value that works.
-//
-// Set BUNNY_REFERER="" to send no Referer at all, which is correct when hotlink
-// protection is off.
+// Hotlink protection passes a browser (which sends a Referer) and rejects a
+// bare script (which doesn't) with a 403 that looks exactly like a permissions
+// problem. Set BUNNY_REFERER in .env.local to whatever the Bunny allow-list
+// contains — diagnose-bunny.mjs prints the value that works — or to "" to send
+// no Referer at all, which is right when hotlink protection is off.
 const REFERER =
   process.env.BUNNY_REFERER ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -81,7 +69,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-// ── Flags ────────────────────────────────────────────────────
+// Flags
 const argv = process.argv.slice(2);
 const FORCE = argv.includes("--force");
 const DRY_RUN = argv.includes("--dry-run");
@@ -101,10 +89,8 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
-// ── Bunny URL construction ───────────────────────────────────
-// Mirrors src/lib/bunny-sign.ts. Kept as a copy rather than an import because
-// that module is "server-only" and importing it from a plain node script pulls
-// in the whole Next runtime.
+// Mirrors src/lib/bunny-sign.ts. A copy rather than an import because that
+// module is "server-only" and importing it here drags in the Next runtime.
 
 function base64url(buf) {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
@@ -155,7 +141,7 @@ function blurUrl(storagePath, isPrivate) {
   return `${PRIVATE_ZONE.replace(/\/$/, "")}${encodePath(path)}?${q}`;
 }
 
-// ── Work ─────────────────────────────────────────────────────
+// Work
 
 async function makeBlur(storagePath, isPrivate) {
   const url = blurUrl(storagePath, isPrivate);

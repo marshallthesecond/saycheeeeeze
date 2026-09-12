@@ -1,6 +1,5 @@
 "use client";
 
-// src/lib/i18n/LanguageProvider.tsx
 //
 // Makes the active locale and its dictionary available to client components.
 // The dictionary is loaded on the SERVER and passed down as a prop, so there's
@@ -47,15 +46,12 @@ function lookup(dict: unknown, path: string): unknown {
 }
 
 /**
- * useT() returns a translate function.
- *
  *   const { t, locale } = useT();
- *   t("book.confirm")                       -> "Confirm booking"
- *   t("book.stepOf", { n: 2, total: 4 })    -> "Step 2 of 4"
- *   t("calendar.months")                    -> use tArray for lists
+ *   t("book.confirm")                    -> "Confirm booking"
+ *   t("book.stepOf", { n: 2, total: 4 }) -> "Step 2 of 4"
+ *   tArray("calendar.months")            -> lists
  *
- * A missing key returns the key itself rather than throwing — a visible
- * "book.confirm" in the UI is easy to spot and fix, a crash is not.
+ * A missing key returns the key itself rather than throwing.
  */
 export function useT() {
   const ctx = useContext(LanguageContext);

@@ -1,17 +1,13 @@
 "use client";
 
-// src/app/[locale]/book/CalendarPicker.tsx
-//
 // Two pickers. Both take a value and an onChange and know nothing about the
 // booking form, so they can be moved freely.
 //
-// What changed from the old version:
-//   • No prices in the cells. A day is free or it isn't; money comes from the
-//     package now, so a per-day rate in a calendar cell was meaningless.
-//   • "Partly free" is gone. One session per day means two states, not five.
-//   • Start times are DERIVED from the chosen package's block, and grouped into
-//     morning / afternoon / evening — Thursday runs to 23:00 and would
-//     otherwise render 15 loose buttons.
+// A day is free or it isn't — two states, not five, because there is one
+// session per day and the price comes from the package rather than the date.
+// Start times are derived from the chosen package's block and grouped into
+// morning / afternoon / evening; Thursday runs to 23:00 and would otherwise
+// render fifteen loose buttons.
 
 import { useMemo } from "react";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
@@ -32,8 +28,8 @@ import {
   todayInTashkent,
 } from "@/src/lib/availability";
 
-// One place for the palette. Reads from the design tokens rather than the
-// hardcoded greens the old form used — globals.css says there is one accent.
+// One place for the palette, read from the design tokens — globals.css says
+// there is one accent.
 const STATUS_STYLE: Record<DayStatus, string> = {
   open:    "hover:bg-white/12 active:bg-white/16 text-white/85",
   pending: "bg-white/[0.04] text-white/25 cursor-not-allowed",
@@ -83,8 +79,8 @@ export function CalendarPicker({
     [daysInMonth, viewYear, viewMonth, availability, takenMap, blackoutSet, today]
   );
 
-  // Past months and months beyond maxAdvanceDays aren't just empty, they're
-  // unreachable — so the arrows switch off rather than opening a dead grid.
+  // Past months and months beyond maxAdvanceDays are unreachable, so the
+  // arrows switch off rather than opening a dead grid.
   const first = earliestBookableDate(availability, today);
   const last = latestBookableDate(availability, today);
   const monthIndex = (y: number, m: number) => y * 12 + m;
@@ -136,8 +132,7 @@ export function CalendarPicker({
         {Array.from({ length: firstWeekday }).map((_, i) => <div key={`e${i}`} />)}
 
         {days.map(({ d, iso, info }) => {
-          // Compare the full ISO date, not the day number — day 14 of August is
-          // not day 14 of September.
+          // Full ISO date, not the day number: 14 August is not 14 September.
           const selected = selectedISO === iso;
           const selectable = info.status === "open";
           const isToday = iso === toISODate(today);
@@ -177,7 +172,7 @@ function Legend({ className, label }: { className: string; label: string }) {
   );
 }
 
-// ─── Start times ──────────────────────────────────────────
+// Start times
 
 interface TimeProps {
   selectedISO: string | null;

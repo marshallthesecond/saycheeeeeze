@@ -1,26 +1,17 @@
 "use client";
 
-// src/components/common/DownloadSheet.tsx
 //
 // What opens when a client taps Download. Same bottom-sheet shape as
-// GalleryRequestSheet and GalleryPickerSheet — backdrop tap to close, Escape to
-// close, body scroll locked, safe-area padding — because a third sheet that
-// behaves differently from the first two is a bug with extra steps.
+// GalleryRequestSheet and GalleryPickerSheet — a third sheet that behaves
+// differently is a bug with extra steps.
 //
-// ── Two questions, and why both are here ─────────────────────
-// Which quality, and — for more than one photo — one archive or separate files.
-// They are asked together because they are answered together, and because
-// splitting them across two taps is how you get a client who picks "originals"
-// and then discovers they have started a 2 GB download of separate files.
+// Quality and archive-vs-separate are asked together because they are answered
+// together: split across two taps, a client picks "originals" and only then
+// discovers they have started 2 GB of separate downloads.
 //
-// ── Why every option shows its size ──────────────────────────
-// This is the whole point of the sheet. "Full quality" and "Original file" are
-// meaningless labels next to each other until one says 4.2 MB and the other
-// says 24.6 MB; then nobody has to understand JPEG to choose correctly. On a
-// phone on mobile data in Tashkent, that number is the decision.
-//
-// A size we do not have is rendered "—", never "0 B" — see totalBytes(), which
-// withholds a total rather than quietly summing the photos it has figures for.
+// Every option shows its size, which is the point of the sheet. "Full quality"
+// and "Original file" mean nothing side by side until one says 4.2 MB and the
+// other 24.6 MB. An unknown size renders "—", never "0 B" — see totalBytes().
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Download, Check, FileArchive, Files, AlertTriangle } from "lucide-react";
@@ -189,7 +180,7 @@ export default function DownloadSheet({
           </button>
         </div>
 
-        {/* ── Quality ── */}
+        {/* Quality */}
         <fieldset className="mt-3 space-y-2 px-6">
           <legend className="sr-only">{tx("download.quality", "Quality")}</legend>
           {tiers.map((t) => {
@@ -232,7 +223,7 @@ export default function DownloadSheet({
           })}
         </fieldset>
 
-        {/* ── Packaging ── */}
+        {/* Packaging */}
         {packagingMatters && (
           <div className="mt-5 px-6">
             <div className="grid grid-cols-2 gap-2">
@@ -302,7 +293,7 @@ export default function DownloadSheet({
           </div>
         )}
 
-        {/* ── Confirm ── */}
+        {/* Confirm */}
         <div className="px-6 py-6">
           <button
             type="button"

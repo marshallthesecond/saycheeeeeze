@@ -1,36 +1,21 @@
-// src/lib/ladder.ts
-//
 // The derivative ladder, described once.
 //
-// Pure functions and constants only — no "server-only", no secrets, no storage
-// API. This is deliberately importable from a client component, because
-// PhotoGrid and the lightbox both need to build srcset strings in the browser.
-// Anything that needs the token key lives in bunny-sign.ts instead.
+// Pure functions and constants, no secrets — PhotoGrid and the lightbox build
+// srcsets in the browser. Anything needing the token key is in bunny-sign.ts.
 //
-// ── The contract with the worker ─────────────────────────────
-// scripts/build-ladder.mjs writes the files this module builds URLs for. The
-// two must agree on the path layout exactly, and they are kept in step by hand
-// rather than sharing code: a plain node script cannot import a TypeScript
-// module out of a Next app, and the same reasoning applies here as in
-// verify-private-zone.mjs — a test that shares an implementation with the thing
-// it tests can only prove the two agree with each other, not that either is
-// right. If you change the layout, change it in both places and say so here.
+// scripts/build-ladder.mjs writes the files these URLs point at. The two agree
+// on the path layout by hand, not by shared code (a node script cannot import
+// from the Next app). Change the layout in one and you must change the other.
 
 import type React from "react";
 import { thumbHashToDataURL } from "thumbhash";
 
 /**
- * ThumbHash → a data URL, decoded once per distinct hash.
+ * ThumbHash → data URL, decoded once per distinct hash. Module-level cache
+ * because the decode is pure and one photo appears in several places.
  *
- * Module-level cache rather than a hook, because the decode is pure — same hash,
- * same PNG, always — and the same photo can appear in more than one place on a
- * page. A gallery decodes each hash once and never again.
- *
- * Note atob(), not Buffer. The canonical ThumbHash snippet uses
- * Buffer.from(hash, "base64"), which is a Node global and throws in a browser.
- *
- * Lives here rather than in PhotoGrid so album covers, service cards and the
- * grid all share one implementation.
+ * atob(), not Buffer — the canonical snippet uses a Node global that throws in
+ * a browser.
  */
 const blurCache = new Map<string, string>();
 
@@ -78,17 +63,10 @@ export interface Variant {
 }
 
 /**
- * Reads photos.variants, which is jsonb and therefore `Json` — anything at all
- * as far as the type system is concerned.
- *
- * Validating beats asserting here. A cast would compile and then hand a
- * malformed row straight into a srcset, where the failure mode is a broken
- * image rather than an error anyone sees. Rows with no usable width are
- * dropped, so a partially-written row degrades to "no ladder" and the caller
- * falls back to the Optimizer path instead of rendering nothing.
- *
- * Sorted ascending, because srcset entries should read small to large and no
- * caller should have to remember that.
+ * photos.variants is jsonb, so it arrives untyped. Validated rather than cast:
+ * a malformed row would otherwise reach a srcset, where the failure is a broken
+ * image rather than an error. Rows with no usable width are dropped, so a
+ * half-written row degrades to "no ladder". Sorted ascending for srcset.
  */
 export function parseVariants(value: unknown): Variant[] {
   if (!Array.isArray(value)) return [];
@@ -108,13 +86,9 @@ export function parseVariants(value: unknown): Variant[] {
 }
 
 /**
- * The escape hatch.
- *
- * Set NEXT_PUBLIC_IMAGE_MODE=legacy to make every surface fall back to the old
- * Optimizer URLs even where derivatives exist. That is the rollback for this
- * whole migration: flip the variable, re-enable Optimizer on the pull zone, and
- * the app is exactly where it started. No data moves in either direction,
- * because the ladder never touched storage_path.
+ * Rollback switch. NEXT_PUBLIC_IMAGE_MODE=legacy sends every surface back to
+ * the Optimizer URLs. Flip it, re-enable Optimizer on the pull zone, and the
+ * app is where it started — the ladder never touched storage_path.
  */
 export const IMAGE_MODE: "ladder" | "legacy" =
   process.env.NEXT_PUBLIC_IMAGE_MODE === "legacy" ? "legacy" : "ladder";
@@ -122,17 +96,13 @@ export const IMAGE_MODE: "ladder" | "legacy" =
 /**
  * Where a photo's derivatives live, relative to the storage zone root.
  *
- * Keyed on gallery KIND, never on visibility — see the long note in
- * scripts/build-ladder.mjs. Short version: the public pull zone blocks any URL
- * containing "/clients/", kind never changes, and visibility is a column you
- * flip from a dashboard. Keying on visibility would mean every flip either
- * exposes files or breaks them.
+ * Keyed on gallery KIND, never visibility: the public zone blocks any URL
+ * containing "/clients/", kind never changes, and visibility is a dashboard
+ * toggle that would otherwise expose or break files on every flip.
  *
- * `ladderRev` is in the path because checksum8 hashes the ORIGINAL only. Change
- * the encoder settings and the same paths would be rewritten with different
- * bytes — fatal under the one-year immutable cache these files are served with,
- * and recoverable only by the CDN purge this whole design exists to avoid.
- * Bump the revision and everything lands at fresh URLs instead.
+ * ladderRev is in the path because checksum8 hashes the original only. Changing
+ * encoder settings without bumping it rewrites the same URLs with different
+ * bytes, under a one-year immutable cache. Always bump.
  */
 export function derivativePrefix(
   kind: GalleryKind,
@@ -146,12 +116,9 @@ export function derivativePrefix(
 }
 
 /**
- * Everything needed to build one photo's URLs, resolved server-side.
- *
- * `base` is absolute and already points at the right pull zone; `query` carries
- * the signature for a client gallery and is "" for an album. Both are decided
- * on the server so the browser never sees a token key or has to know which zone
- * a gallery belongs to.
+ * Everything needed to build one photo's URLs. `base` already points at the
+ * right pull zone and `query` carries the signature ("" for an album), both
+ * decided server-side so the browser never sees a token key.
  */
 export interface LadderSources {
   base: string;
@@ -168,12 +135,8 @@ export function srcSet(l: LadderSources, ext: "avif" | "webp"): string {
   return l.widths.map((w) => `${l.base}/${w}.${ext}${l.query} ${w}w`).join(", ");
 }
 
-/**
- * The <img> src inside a <picture>. WebP rather than AVIF, and the widest rung
- * rather than the narrowest: this is only reached by browsers that ignored both
- * <source> elements, which in 2026 means something old enough that guessing
- * small would look worse than spending the bytes.
- */
+/** The <img> inside a <picture>: only reached by browsers that ignored both
+ *  <source> elements, so WebP and the widest rung rather than guessing small. */
 export function fallbackSrc(l: LadderSources): string {
   const widest = l.widths[l.widths.length - 1];
   return `${l.base}/${widest}.webp${l.query}`;
@@ -189,20 +152,14 @@ export function shareSrc(l: LadderSources): string {
   return `${l.base}/share.jpg${l.query}`;
 }
 
-// ─────────────────────────────────────────────────────────────
 // Download tiers
-// ─────────────────────────────────────────────────────────────
 
 /**
  * What a client can take away.
  *
- *   share     2048px wide, q82      ~400-600 KB   posting, messaging
- *   full      full resolution, q92  ~3-5 MB       printing, cropping, keeping
- *   original  the untouched source  5-30 MB       archive, retoucher
- *
- * Named for what they are FOR rather than by a quality word, because "medium"
- * tells a client nothing about which one they want and "for printing" tells
- * them everything.
+ *   share     2048px, q82           ~400-600 KB   posting, messaging
+ *   full      full resolution, q92  ~3-5 MB       printing, keeping
+ *   original  untouched source      5-30 MB       archive, retoucher
  */
 export type DownloadTier = "share" | "full" | "original";
 
@@ -212,13 +169,9 @@ export const DEFAULT_DOWNLOAD_TIERS: DownloadTier[] = ["share", "full"];
 const TIER_ORDER: DownloadTier[] = ["share", "full", "original"];
 
 /**
- * Reads galleries.download_tiers, which is text[] and arrives as `unknown`.
- *
- * Validated rather than cast, for the same reason parseVariants is: a bad value
- * here decides what a client is allowed to download. An unrecognised entry is
- * dropped, and a column that ends up empty or malformed falls back to the
- * DEFAULT rather than to "everything" — the failure mode of a typo must never
- * be handing out originals.
+ * galleries.download_tiers arrives untyped and decides what a client may take.
+ * Unrecognised entries are dropped and an empty result falls back to the
+ * DEFAULT, not to "everything" — a typo must never hand out originals.
  */
 export function parseTiers(value: unknown): DownloadTier[] {
   if (!Array.isArray(value)) return DEFAULT_DOWNLOAD_TIERS;
@@ -233,13 +186,8 @@ export interface DownloadSizes {
   original?: number;
 }
 
-/**
- * The subset of a photo that downloading, zipping and sharing care about.
- *
- * Lives here rather than in gallery.ts so that the tier resolver below is pure
- * and importable anywhere; gallery.ts re-exports it so existing imports keep
- * working.
- */
+/** The part of a photo that downloading, zipping and sharing care about.
+ *  Here rather than gallery.ts so the resolver below stays importable. */
 export interface DownloadablePhoto {
   src: string;
   /** Real filename from the database — see tierFileName() for why it matters. */
@@ -256,30 +204,17 @@ export interface DownloadOption {
 }
 
 /**
- * The tiers this photo can actually be handed over as, in order.
+ * The tiers this photo can be handed over as, in order.
  *
- * Two filters, and they are different things. `allowed` is the gallery's
- * policy — what you are willing to give this client. Everything else here is
- * availability: a photo with no ladder has no share.jpg and no download.jpg to
- * point at, whatever the policy says, so it degrades to the original alone.
- * That is also what NEXT_PUBLIC_IMAGE_MODE=legacy produces, which is the
- * rollback behaving exactly as documented.
+ * Two different filters: `allowed` is the gallery's policy, everything else is
+ * availability. A photo with no ladder has no share.jpg to point at whatever
+ * the policy says, so it degrades to the original alone.
  *
- * The original is always reachable — it is `src`, already signed for a client
- * gallery — so it needs no ladder and no extra file.
- *
- * ── Why a share-only gallery can still yield an original ─────
- * The `out.length === 0` clause looks like it defeats the policy, and it is
- * deliberate. A photo with no ladder has no share.jpg and no download.jpg in
- * existence; the choice is between handing over the original and rendering a
- * download button that does nothing. And withholding it would protect nothing,
- * because that same original is what the PAGE is already displaying for an
- * un-laddered photo — the client can save it from the browser without asking
- * us. Blocking the button would be theatre paid for with a broken feature.
- *
- * This is an edge case by construction: it means a photo was synced but never
- * built. If it is showing up for a whole gallery, the ladder worker has not
- * run, and that is the actual thing to fix.
+ * The `out.length === 0` clause looks like it defeats the policy and does not.
+ * An un-laddered photo is already being displayed at full size by the page, so
+ * the client can save it from the browser anyway; blocking the button would be
+ * theatre. It only happens when a photo was synced but never built — if a whole
+ * gallery does this, the worker has not run.
  */
 export function downloadOptions(
   photo: DownloadablePhoto,
@@ -305,25 +240,14 @@ export function downloadOptions(
 }
 
 /**
- * The tiers worth OFFERING for a whole selection.
+ * The tiers worth offering for a whole selection. A tier counts if ANY photo
+ * can supply it: one unbuilt photo should not remove "For sharing" from a sheet
+ * covering fifty that have it.
  *
- * A tier is offered if ANY photo in the selection can supply it, not if all of
- * them can. One photo that has not been through the worker yet should not
- * remove "For sharing" from a sheet covering fifty that have — that photo falls
- * back to its original through preferredTier(), which is the documented
- * degradation, and the client gets what they asked for everywhere it exists.
- *
- * ── Why "full" can disappear ─────────────────────────────────
- * download.jpg is a q92 re-encode at full resolution. When the source is
- * already a modest JPEG — a 370 KB frame off a phone rather than a 38 MB PNG
- * off the camera — that re-encode comes out BIGGER than the file it came from,
- * while also being a generation worse. Offering it there would mean asking a
- * client to choose "Full quality" over "Original file" when it is larger and
- * lossier: strictly worse on both axes.
- *
- * So when originals are on offer and the full tier is not actually smaller, the
- * full tier is dropped. Only ever when both totals are known — a tier is never
- * removed on the strength of a missing number.
+ * "Full" can disappear. download.jpg is a q92 re-encode, so when the source is
+ * already a modest JPEG it comes out BIGGER than the original and a generation
+ * worse — strictly worse on both axes. Dropped only when originals are on offer
+ * and both totals are known; never on a missing number.
  */
 export function availableTiers(
   photos: DownloadablePhoto[],
@@ -360,19 +284,14 @@ export function preferredTier(
 }
 
 /**
- * The name to save a file under, with an extension that matches the actual bytes.
+ * Save name, with an extension matching the actual bytes. Two traps:
  *
- * Two bugs live here if you get it wrong.
+ * Ladder URLs end in "share.jpg", so parsing the name out of the URL gives
+ * every photo in a zip the same name. The real name comes from the database.
  *
- * Parsing the name out of the URL worked while URLs ended in "3M0A0675.png".
- * Ladder URLs end in "share.jpg" or "download.jpg" — so every photo in a zip
- * would arrive under the same name and overwrite the last. The real name
- * travels from the database instead.
- *
- * And the derivative IS a JPEG even when the original was a PNG, so keeping the
- * original ".png" would hand the client a file whose extension lies about its
- * contents — which some photo software simply refuses to open. The original
- * tier is the one case where the source name is exactly right.
+ * And the derivative is a JPEG even when the original was a PNG — keeping
+ * ".png" produces a file some photo software refuses to open. Only the original
+ * tier keeps its source name.
  */
 export function tierFileName(photo: DownloadablePhoto, tier: DownloadTier): string {
   const raw = photo.fileName ?? urlFileName(photo.src);
@@ -392,13 +311,9 @@ export function urlFileName(src: string): string {
 }
 
 /**
- * Total bytes for a selection at one tier, or undefined if ANY photo's size is
- * unknown.
- *
- * All-or-nothing on purpose. A total that silently omits the photos it has no
- * figure for reads as authoritative and is wrong, and "1.2 GB" turning out to
- * mean 3 GB is precisely the surprise the size labels exist to prevent. Better
- * to show no total than a confident wrong one.
+ * Total bytes for a selection, or undefined if any photo's size is unknown.
+ * All-or-nothing: "1.2 GB" turning out to mean 3 GB is the surprise these
+ * labels exist to prevent.
  */
 export function totalBytes(
   photos: DownloadablePhoto[],
@@ -430,13 +345,10 @@ export function formatBytes(bytes: number | undefined): string {
 }
 
 /**
- * `sizes` for a justified/masonry grid. Getting this wrong is how a browser
- * cheerfully pulls the 2048 rung into a 300 px tile and undoes the entire
- * migration — audit it in DevTools by comparing an <img>'s intrinsic size
- * against its rendered size; they should be within the device pixel ratio.
- *
- * Kept here rather than inline at each call site so there is one place to fix
- * when the grid breakpoints move. These mirror columnsForWidth() in PhotoGrid.
+ * `sizes` for the justified grid. Get this wrong and the browser pulls the 2048
+ * rung into a 300px tile, undoing the migration — check in DevTools that
+ * intrinsic and rendered size agree within the pixel ratio. Mirrors
+ * columnsForWidth() in PhotoGrid.
  */
 export const GRID_SIZES = "(max-width: 520px) 50vw, (max-width: 900px) 33vw, (max-width: 1400px) 25vw, 20vw";
 export const FULL_SIZES = "100vw";

@@ -1,31 +1,20 @@
-// scripts/diagnose-bunny.mjs
-//
-// Works out WHY a pull zone returns 403 to this machine when the same file
-// loads fine in your browser. Run it and paste the whole output back.
+// Works out why a pull zone returns 403 to this machine when the same file
+// loads fine in a browser. Changes nothing — reads only.
 //
 //     node scripts/diagnose-bunny.mjs
 //     node scripts/diagnose-bunny.mjs --path "WIUT-Fashion-Show-2026/3M0A1775.png"
 //     node scripts/diagnose-bunny.mjs --referer http://localhost:3001
 //
-// Reads nothing, writes nothing, changes nothing.
+// Three things produce a 403 here:
 //
-// ── On referrers, for an app that isn't deployed ─────────────
-// Hotlink protection compares the Referer header against an allow-list you set
-// in the Bunny dashboard. There is no production domain yet, so the only
-// referrer that has ever legitimately hit this zone is your dev server —
-// http://localhost:3000. That's the default here.
-//
-// This matters as a diagnostic in its own right: if images already render at
-// localhost:3000, then either hotlink protection is off or localhost is
-// allowed, which makes hotlinking an unlikely explanation for the 403 and
-// points at token authentication instead.
-//
-// ── The three things that produce a 403 here ─────────────────
 //  1. Hotlink protection — the request needs a Referer this zone accepts.
-//  2. Token authentication on the PUBLIC zone — every URL needs signing, not
-//     just the private zone's.
-//  3. Optimizer restricted to predefined image classes — the plain file is
-//     served but ?width= / ?format= are refused.
+//  2. Token authentication on the PUBLIC zone, not just the private one.
+//  3. The Optimizer restricted to predefined image classes, so the plain file
+//     is served but ?width= / ?format= are refused.
+//
+// The default referrer is http://localhost:3000, the dev server. That doubles
+// as a diagnostic: if images already render there, hotlink protection is
+// either off or allowing localhost, which points at token auth instead.
 
 import { readFileSync } from "node:fs";
 
@@ -100,7 +89,7 @@ console.log(`\nZone:  ${ZONE}`);
 console.log(`Path:  ${TEST_PATH}`);
 console.log(`URL:   ${base}\n`);
 
-// ── Phase 1: can we get the plain file at all, and under what referrer? ──
+// Phase 1: can we get the plain file at all, and under what referrer?
 console.log("Phase 1 — plain file, no Optimizer parameters\n");
 
 let workingReferer = undefined; // undefined = none worked yet
@@ -138,7 +127,7 @@ if (workingReferer === undefined) {
   process.exit(0);
 }
 
-// ── Phase 2: do Optimizer parameters survive? ──
+// Phase 2: do Optimizer parameters survive?
 console.log("Phase 2 — Optimizer parameters\n");
 
 const withWidth = await probe(`${base}?width=24`, workingReferer);
@@ -149,7 +138,7 @@ const full = await probe(`${base}?width=24&quality=45&format=webp`, workingRefer
 console.log(`  ?width=24&quality=45&format=webp`);
 console.log(`    ${full.status}  ${full.type}  ${full.ok ? `${full.bytes} bytes` : full.body}\n`);
 
-// ── Interpretation ───────────────────────────────────────────
+// Interpretation
 console.log("─".repeat(64));
 console.log("\nReading:\n");
 

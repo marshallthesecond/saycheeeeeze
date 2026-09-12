@@ -1,31 +1,16 @@
-// src/lib/client-galleries.ts
+// Client delivery pages. Same tables as albums.ts, told apart by
+// galleries.kind = 'client' — one sync, one migration, one place to fix a bug.
 //
-// Client galleries — the delivery pages a client gets after a shoot. Same
-// Supabase tables as albums.ts, distinguished by galleries.kind = 'client'.
+// THE RULE: every client gallery is served from the private zone with signed
+// URLs, whatever its visibility. Client photos live under clients/, the public
+// zone blocks any URL containing "/clients/", and the private zone answers
+// nothing without a token. Visibility decides one thing only — whether a
+// passkey is needed to reach the page. The zone follows `kind`, which never
+// changes.
 //
-// Why the same tables rather than new ones: sync-bunny.ts already mirrors a
-// gallery's Bunny folder into `photos` keyed by gallery_id, and every one of
-// these needs exactly that. A parallel table would mean a parallel sync, a
-// parallel migration and two places to fix the next bug. The `kind` column
-// carries the difference, and albums.ts filters on it so nothing new leaks
-// into the portfolio.
-//
-// ── The one rule that makes "private" mean something ──────
-// EVERY client gallery is served from the private pull zone with signed URLs,
-// whatever its visibility. Client photos live under clients/, the public zone
-// carries an edge rule blocking any URL containing "/clients/", and the private
-// zone answers nothing without a valid token.
-//
-// This used to branch on visibility, and that was wrong twice over: the
-// "public" branch built public-zone URLs the CDN refused outright, and making a
-// dashboard column decide WHICH ZONE serves the bytes meant every flip changed
-// URLs, cache entries and derivative paths. Visibility now decides exactly one
-// thing — whether a passkey is required to reach the page. The zone follows
-// `kind`, which never changes.
-//
-// Deliberately NOT cached with unstable_cache. A signed URL has a deadline
-// baked into it, and caching the object that holds it would hand a visitor a
-// URL that expired an hour ago. Metadata reads are cached; photo reads are not.
+// Photo reads are NOT wrapped in unstable_cache. A signed URL has a deadline
+// baked in, so caching it would hand a visitor a URL that expired an hour ago.
+// Metadata reads are cached; photo reads are not.
 
 import "server-only";
 import { unstable_cache } from "next/cache";
@@ -133,27 +118,18 @@ function visibilityOf(raw: string): GalleryVisibility {
   return raw === "public" ? "public" : "private";
 }
 
-// ---------------------------------------------------------------------------
 // The picker index
-// ---------------------------------------------------------------------------
 
 /**
- * Every client gallery worth showing in the picker.
+ * Every client gallery worth showing in the picker. `is_listed = false` hides
+ * one while leaving it reachable by direct link.
  *
- * `is_listed = false` hides a gallery from the list while leaving it reachable
- * by direct link — which is what you want for anything sensitive, or for a
- * gallery you've handed to one person over Telegram and nobody else.
+ * A private gallery returns no cover, no title unless list_label is set, and no
+ * photo paths — a stranger learns only that it exists and roughly when.
  *
- * Note what is NOT returned for private galleries: no cover, no title unless
- * you set list_label, no photo paths. A stranger opening the sheet learns that
- * a private gallery exists and roughly when it was shot. That is the most a
- * picker can show without becoming a leak.
- *
- * Reads with the SERVICE key, not the anon key. Your RLS policy is
- * `is_published AND visibility = 'public'`, which is stricter than this needs —
- * with the anon key the private rows are invisible and the "Private gallery"
- * sheet comes up empty. The columns selected below are the safe ones; the
- * photo paths and the passkey are not among them.
+ * Reads with the SERVICE key: the anon RLS policy is `is_published AND
+ * visibility = 'public'`, which would make the private rows invisible and the
+ * sheet come up empty. Only the safe columns are selected.
  */
 export const getGalleryIndex = unstable_cache(
   async (): Promise<GalleryListing[]> => {
@@ -188,18 +164,10 @@ export const getGalleryIndex = unstable_cache(
     return (data ?? []).map((row) => {
       const visibility = visibilityOf(row.visibility);
 
-      // ONLY list_cover_path, for every client gallery regardless of
-      // visibility — and that path must live OUTSIDE /clients/.
-      //
-      // Two reasons it can never be cover_path. The public zone blocks any URL
-      // containing "/clients/", so a cover inside it is refused. And this
-      // function is wrapped in unstable_cache: a signed URL cached for five
-      // minutes would be handed to visitors long after it expired, and a signed
-      // URL is exactly what a cover inside clients/ would have to be.
-      //
-      // Leave list_cover_path null and the tile renders a lock, which is the
-      // safe default — a stranger opening the picker learns only that a gallery
-      // exists and roughly when it was shot.
+      // list_cover_path only, never cover_path, and it must live OUTSIDE
+      // /clients/ — the public zone refuses anything inside it, and this
+      // function is cached, so a signed URL would outlive its deadline.
+      // Null renders a lock, which is the safe default.
       const coverPath = row.list_cover_path as string | null;
 
       return {
@@ -225,9 +193,7 @@ export const getGalleryIndex = unstable_cache(
   { revalidate: REVALIDATE_SECONDS, tags: ["client-galleries"] },
 );
 
-// ---------------------------------------------------------------------------
 // One gallery
-// ---------------------------------------------------------------------------
 
 /**
  * Metadata for one gallery. No photos — the caller decides whether the visitor
@@ -313,21 +279,7 @@ export async function getGalleryContent(
     ? rows.find((r) => r.storage_path === coverPath) ?? undefined
     : undefined;
 
-  // ── Client galleries are ALWAYS served from the private zone ──
-  //
-  // This used to branch on visibility: public ones went through bunnyUrl() to
-  // the public zone, private ones were signed. That was broken in two ways.
-  //
-  // It did not work. Every client photo lives under clients/, and the public
-  // pull zone carries an edge rule blocking any URL containing "/clients/", so
-  // the "public" branch produced URLs the CDN refused outright.
-  //
-  // And it was the wrong shape. Visibility is a column you flip from a
-  // dashboard; making it decide WHICH ZONE serves the bytes means every flip is
-  // a change of URL, of cache entry, and of derivative path. Visibility now
-  // decides one thing only — whether a passkey is required to reach this page —
-  // and the zone follows `kind`, which never changes.
-  //
+  // Always the private zone, never branching on visibility — see the header.
   // One deadline shared by every URL on the page, so they lapse together and
   // the refresher has a single number to watch.
   const expiresAt = nextExpiry();

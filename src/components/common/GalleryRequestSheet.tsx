@@ -1,5 +1,3 @@
-// src/components/common/GalleryRequestSheet.tsx
-//
 // The client's way of asking you to change something. There's no backend
 // behind this yet, so it composes a message and hands it to Telegram or email
 // — the filenames are baked in so you can act on it without a back-and-forth.

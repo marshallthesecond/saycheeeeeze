@@ -1,7 +1,5 @@
-// src/lib/packages.server.ts
-//
-// The database read, kept apart from packages.ts so a client component can
-// import the types and the maths without dragging server-only into the bundle.
+// The packages table read, kept apart from packages.ts so client components
+// can import the types and the maths without pulling in server-only.
 
 import "server-only";
 
@@ -62,10 +60,9 @@ function toPackage(r: PackageRow): SessionPackage {
 /**
  * Every active package, cheapest sort_order first.
  *
- * Fails OPEN to the compiled-in fallback. A Supabase blip should degrade the
- * booking page to slightly stale prices, not to an empty page — and the INSERT
- * still resolves its price from the database, so a stale display can only ever
- * cause a 409 "price changed, please re-confirm", never a mispriced sale.
+ * Falls back to the compiled-in list on any failure. The INSERT re-reads the
+ * price from the database anyway, so stale display prices can only cause a
+ * "price changed, re-confirm" 409, never a mispriced sale.
  */
 export async function getPackages(): Promise<SessionPackage[]> {
   try {

@@ -1,17 +1,9 @@
-// src/lib/gallery.ts
-//
 // Browser-side helpers for client galleries: thumbnails, downloads, zip,
-// sharing and the "ask the photographer" message builder.
+// sharing and the "ask the photographer" message builder. Client components
+// only — everything here assumes a browser.
 //
-// Everything here assumes it runs in the browser — import it from client
-// components only.
-//
-// ── Two things must be true on the Bunny pull zone for this to work ──
-//   1. CORS enabled (Access-Control-Allow-Origin). Without it every fetch()
-//      below fails and downloads silently fall back to opening a tab, and
-//      sharing the actual image file stops working entirely.
-//   2. Bunny Optimizer enabled, if you want thumbUrl() to do anything. Set
-//      BUNNY_OPTIMIZER to false to serve originals into the grid instead.
+// Needs CORS enabled on the Bunny pull zone. Without it every fetch() here
+// fails, downloads fall back to opening a tab, and file sharing stops working.
 
 import {
   downloadOptions,
@@ -29,21 +21,15 @@ export type { DownloadablePhoto, DownloadTier };
 /** Set to false if Image Optimizer isn't enabled on the pull zone. */
 export const BUNNY_OPTIMIZER = true;
 
-// ─────────────────────────────────────────────────────────────
 // Thresholds
-// ─────────────────────────────────────────────────────────────
 
 /**
  * When many photos stop being separate files and become an archive.
  *
- * This is not a tidiness preference. Chrome asks "Download multiple files?" on
- * the SECOND file of a batch and silently drops every one after it if the
- * client dismisses the prompt; iOS Safari is worse. So a hundred individual
- * saves is not a noisier experience than a zip, it is an unreliable one — and
- * the client discovers that by counting their files a week later.
- *
- * Below the first threshold individual files genuinely are nicer: nothing to
- * unpack, and they go straight into a share sheet.
+ * Not tidiness. Chrome asks "Download multiple files?" on the SECOND file and
+ * silently drops the rest if the client dismisses it; iOS Safari is worse. So
+ * a hundred individual saves is unreliable, not just noisy. Below the first
+ * threshold separate files are genuinely nicer.
  */
 export const ZIP_DEFAULT_ABOVE = 10;
 export const ZIP_ONLY_ABOVE = 30;
@@ -67,20 +53,14 @@ const STREAM_ABOVE_BYTES = 12 * 1024 * 1024;
 /** Never cache a File this big for sharing — see fetchPhotoFile. */
 const MAX_CACHEABLE_BYTES = 4 * 1024 * 1024;
 
-// ─────────────────────────────────────────────────────────────
 // What a download actually is
-// ─────────────────────────────────────────────────────────────
 
 /**
- * Does this browser let a page stream a download straight to a file the user
- * picked?
+ * Can this browser stream a download straight to a file the user picked?
  *
- * The `typeof window` guard is not decoration. This is called from a component
- * body, and Next renders client components on the server too, where `window`
- * does not exist — an unguarded reference is a ReferenceError that takes the
- * whole page down. It happens to have been safe until now only because the
- * expression that calls it short-circuits before reaching it during SSR, which
- * is not a property worth relying on.
+ * The `typeof window` guard is load-bearing: this runs in a component body and
+ * Next renders client components on the server too, where an unguarded
+ * `window` is a ReferenceError that takes the page down.
  */
 export function canSaveStreamed(): boolean {
   if (typeof window === "undefined") return false;
@@ -89,16 +69,13 @@ export function canSaveStreamed(): boolean {
 }
 
 /**
- * Is the client on a connection where a large download is a bad idea?
+ * Is this a bad connection for a large download?
  *
- * Network Information API — Chrome and most Android browsers have it, Safari
- * and Firefox do not, and there is no substitute. So this is a one-way signal:
- * true means "we know this is a poor moment for 1.8 GB", false means "we have
- * no idea", never "the connection is fine". The UI treats it accordingly and
- * warns on size alone as well.
- *
- * saveData is the strongest signal there is — the client has explicitly asked
- * every site to send less.
+ * Network Information API: Chrome and most Android have it, Safari and Firefox
+ * do not. So it is one-way — true means "we know this is a poor moment", false
+ * means "no idea", never "the connection is fine". The UI also warns on size
+ * alone. saveData is the strongest signal: the client asked every site to send
+ * less.
  */
 export function isMeteredConnection(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -114,18 +91,11 @@ export function isMeteredConnection(): boolean {
 export const LARGE_DOWNLOAD_BYTES = 500 * 1024 * 1024;
 
 /**
- * Numbering for files that arrive as a SET.
+ * Numbering for files that arrive as a SET. Camera counters sort in shooting
+ * order only by accident, so a leading index preserves the gallery's order.
  *
- * A client who downloads forty photos gets forty files named after camera
- * counters — 3M0A0217, 3M0A0231 — which sort in shooting order only by
- * accident and mean nothing to the print shop they get handed to. A leading
- * index preserves the gallery's own order and survives being copied around.
- *
- * The camera name is kept rather than replaced, because it is the shared
- * vocabulary between you and the client: "can you retouch 3M0A0217" has to
- * keep working. Single downloads are not numbered — one file is not a set.
- *
- * Set to false to go back to plain camera names everywhere.
+ * The camera name is kept, not replaced — "can you retouch 3M0A0217" has to
+ * keep working. Single downloads are not numbered. Set false to disable.
  */
 export const NUMBER_FILES_IN_SETS = true;
 
@@ -179,9 +149,7 @@ export function sharePhotoUrl(photo: DownloadablePhoto): string {
 import { CONTACT } from "./contact";
 export { CONTACT };
 
-// ─────────────────────────────────────────────────────────────
 // URLs and filenames
-// ─────────────────────────────────────────────────────────────
 
 /**
  * A resized variant for the grid. Originals are full-resolution PNGs — a
@@ -239,9 +207,7 @@ export function syncDeepLink(index: number | null): void {
   window.history.replaceState(null, "", u.toString());
 }
 
-// ─────────────────────────────────────────────────────────────
 // Fetching originals
-// ─────────────────────────────────────────────────────────────
 
 // navigator.share({ files }) has to be called while the tap that triggered it
 // is still "active". Awaiting a fetch first blows that window on iOS Safari
@@ -251,15 +217,11 @@ const fileCache = new Map<string, File>();
 const MAX_CACHED_FILES = 24;
 
 /**
- * ── Why there is a size guard on the cache ────────────────────
- * This map holds up to 24 whole files in memory, which was fine while every
- * caller fetched a ~400 KB share file or a ~4 MB delivery JPEG. Downloading
- * originals through it would mean 24 × 30 MB — most of a gigabyte held live in
- * a tab, on a phone, for a share sheet that will never be opened.
+ * Up to 24 whole files in memory. Fine for ~400 KB share files, but originals
+ * would be 24 × 30 MB held live in a phone tab for a share sheet nobody opens.
  *
- * The guard is on the RESPONSE size rather than on the URL, because it is the
- * bytes that are the problem and a rule that reads the path would need updating
- * every time a new tier appears.
+ * The guard reads the RESPONSE size, not the URL — the bytes are the problem,
+ * and a path rule would need updating for every new tier.
  */
 export async function fetchPhotoFile(src: string): Promise<File> {
   const cached = fileCache.get(src);
@@ -288,9 +250,7 @@ export function prefetchPhotoFile(src: string): void {
   void fetchPhotoFile(src).catch(() => {});
 }
 
-// ─────────────────────────────────────────────────────────────
 // Downloads
-// ─────────────────────────────────────────────────────────────
 
 function saveBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -367,15 +327,13 @@ async function saveStreamed(
 /**
  * One photo, at one tier.
  *
- * The `download` attribute is ignored on cross-origin URLs, so a plain
- * <a download> pointed at Bunny just opens a tab — the bytes have to be fetched
- * and saved from a blob URL. Opening a tab is the fallback for when CORS isn't
- * available.
+ * `download` is ignored on cross-origin URLs, so <a download> at Bunny just
+ * opens a tab — the bytes must be fetched and saved from a blob. Opening a tab
+ * is the no-CORS fallback.
  *
- * Anything large goes through the save picker instead, which streams straight
- * to disk. That is not only about memory: a 30 MB original assembled as a Blob
- * gives the client no progress and no idea whether anything is happening, and
- * "nothing is happening" is when people tap the button a second time.
+ * Anything large goes through the save picker, which streams to disk. Not only
+ * for memory: a 30 MB Blob gives no progress, and "nothing is happening" is
+ * when people tap the button again.
  */
 export async function downloadPhoto(
   photo: DownloadablePhoto,
@@ -415,16 +373,13 @@ export interface BatchProgress {
 }
 
 /**
- * Many photos, as separate files.
+ * Many photos, as separate files. Only below ZIP_ONLY_ABOVE — see that
+ * constant. The stagger between saves is the only lever against browsers
+ * treating the batch as a burst; the prompt itself cannot be suppressed or
+ * detected from a page.
  *
- * Offered only below ZIP_ONLY_ABOVE, and the reason is in the comment on that
- * constant: browsers gate this. The small stagger between saves is what keeps
- * Chrome and Firefox from treating the batch as a burst, and it is the only
- * lever available from here — the permission prompt itself is not something a
- * page can suppress or detect.
- *
- * Failures are counted and returned rather than thrown, because stopping a
- * twenty-file batch on the one photo that 404s helps nobody.
+ * Failures are counted and returned, not thrown — stopping a twenty-file batch
+ * on the one photo that 404s helps nobody.
  */
 export async function downloadPhotosIndividually(
   photos: DownloadablePhoto[],
@@ -460,15 +415,14 @@ export interface ZipProgress {
 }
 
 /**
- * Many photos, as a single zip, entirely in the browser.
+ * Many photos, one zip, entirely in the browser.
  *
- * On Chromium desktop we ask for a save location up front and stream each
- * photo straight to disk, so a 3 GB gallery never lands in memory. Everywhere
- * else we build the zip as a blob, which is fine for normal gallery sizes but
- * is the reason the picker is tried first.
+ * Chromium desktop asks for a save location up front and streams each photo to
+ * disk, so a 3 GB gallery never lands in memory. Everywhere else builds a blob,
+ * which is why the picker is tried first.
  *
- * Photos are stored, not compressed — they're already compressed, so deflate
- * would cost CPU for nothing. client-zip does that by default.
+ * Stored, not compressed — photos are already compressed, so deflate would
+ * cost CPU for nothing.
  */
 export async function downloadPhotosAsZip(
   photos: DownloadablePhoto[],
@@ -559,9 +513,7 @@ export async function downloadPhotosAsZip(
   saveBlob(await zipped.blob(), zipName);
 }
 
-// ─────────────────────────────────────────────────────────────
 // Sharing
-// ─────────────────────────────────────────────────────────────
 
 export type ShareResult = "shared" | "copied" | "cancelled" | "unavailable";
 
@@ -610,9 +562,7 @@ export async function shareLink(url: string, title: string): Promise<ShareResult
   }
 }
 
-// ─────────────────────────────────────────────────────────────
 // Requests to the photographer
-// ─────────────────────────────────────────────────────────────
 
 export type RequestKind = "hide" | "delete" | "private" | "approve";
 

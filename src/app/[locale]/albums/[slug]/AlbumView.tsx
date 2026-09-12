@@ -45,12 +45,9 @@ import {
 } from "@/src/lib/downloadPrefs";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 
-/**
- * Kept next to the hero it describes rather than in ladder.ts, because it has
- * to match the hero's own container widths (65% at sm, 42% at lg) and nothing
- * else on the site uses those. Get this wrong and the browser pulls the 2048
- * rung into a 400px box.
- */
+/** Lives here rather than in ladder.ts because it has to match the hero's own
+ *  container widths (65% at sm, 42% at lg), which nothing else uses. Get it
+ *  wrong and the browser pulls the 2048 rung into a 400px box. */
 const HERO_SIZES = "(min-width: 1024px) 42vw, (min-width: 640px) 65vw, 100vw";
 
 const PAGE_SIZE = 24;
@@ -79,23 +76,18 @@ export default function AlbumView({
   /**
    * galleries.download_enabled. false hides every download affordance.
    *
-   * The column has existed since the first migration and was read into
-   * ClientGallery, but nothing ever consumed it — so a gallery you had marked
-   * "no downloads" handed them out anyway. It is honoured here now.
-   *
-   * This is a courtesy, not a control: the photos are on the page, and anyone
-   * determined can save them from the browser. What it does is stop the app
-   * from OFFERING what you said you were not offering.
+   * A courtesy, not a control: the photos are on the page and anyone
+   * determined can save them from the browser. What this does is stop the app
+   * offering what you said you were not offering.
    */
   downloadEnabled?: boolean;
   /** Which tiers this gallery hands over. Portfolio albums take the default;
-   *  client galleries pass galleries.download_tiers, which is where "this
-   *  client also gets the originals" is decided. */
+   *  client galleries pass galleries.download_tiers. */
   downloadTiers?: DownloadTier[];
   /** Optional line from the photographer, shown under the hero. Client
-   *  galleries pass this; portfolio albums don't. It lives here rather than
-   *  above <AlbumView> in ClientGalleryView because the top bar is fixed —
-   *  anything rendered before the hero slides underneath it. */
+   *  galleries pass this; portfolio albums don't. It's a prop rather than a
+   *  sibling above <AlbumView> because the fixed top bar covers anything
+   *  rendered before the hero. */
   note?: string | null;
 }) {
   // Links have to carry the active locale, or the middleware bounces the
@@ -141,7 +133,7 @@ export default function AlbumView({
     setTimeout(() => setToast(null), TOAST_MS);
   }, []);
 
-  // ── Deep link: /albums/sara?p=7 opens on the seventh photo ──
+  // Deep link: /albums/sara?p=7 opens on the seventh photo
   useEffect(() => {
     const index = readDeepLinkIndex(album.photos.length);
     if (index === null) return;
@@ -153,7 +145,7 @@ export default function AlbumView({
     syncDeepLink(lightboxIndex);
   }, [lightboxIndex]);
 
-  // ── Lightbox navigation ──
+  // Lightbox navigation
   const openLightbox = useCallback((i: number) => setLightboxIndex(i), []);
   const closeLightbox = useCallback(() => {
     setLightboxIndex(null);
@@ -186,7 +178,7 @@ export default function AlbumView({
     };
   }, [isSlideshow, lightboxIndex, album.photos.length]);
 
-  // ── Selection ──
+  // Selection
   const toggleSelect = useCallback((src: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -194,10 +186,10 @@ export default function AlbumView({
         next.delete(src);
       } else {
         next.add(src);
-        // Warm the bytes now so Share can hand navigator.share a File without
-        // an await — iOS refuses the share sheet if the tap has gone stale.
-        // Warm the DELIVERY file, which is what Share and Download actually
-        // fetch — warming the 37 MB original would be worse than not warming.
+        // Warm the bytes now so Share can hand navigator.share a File with no
+        // await — iOS refuses the share sheet once the tap has gone stale.
+        // The delivery file, not the original: warming 37 MB would be worse
+        // than not warming at all.
         const photo = album.photos.find((p) => p.src === src);
         if (photo) prefetchPhotoFile(sharePhotoUrl(photo));
       }
@@ -222,7 +214,7 @@ export default function AlbumView({
     setSelected(new Set(visiblePhotos.map((p) => p.src)));
   }, [visiblePhotos]);
 
-  // ── Share ──
+  // Share
   const shareGallery = useCallback(async () => {
     const url = window.location.href.split("?")[0];
     const result = await shareLink(url, album.title);
@@ -249,15 +241,13 @@ export default function AlbumView({
     );
   }, [selectedPhotos, album.title, say, tx]);
 
-  // ── Download ──
+  // Download
   useEffect(() => setPref(readDownloadPreference()), []);
 
   /**
-   * Carries out a choice once it has been made.
-   *
-   * One photo never gets an archive around it, whatever the packaging answer
-   * said — that answer is about a batch, and wrapping a single file in a zip is
-   * work for the client with nothing in return.
+   * Carries out a choice once it's been made. One photo never gets an archive
+   * around it whatever the packaging answer said — that answer is about a
+   * batch, and zipping a single file is work for the client with nothing back.
    */
   const runDownload = useCallback(
     async (photos: DownloadablePhoto[], choice: DownloadChoice) => {
@@ -290,9 +280,9 @@ export default function AlbumView({
           downloadTiers,
           setBatch,
         );
-        // Never silent. A batch that half-worked because the browser's
-        // multiple-downloads prompt was dismissed looks exactly like success
-        // until the client counts their files a week later.
+        // Never silent: a batch that half-worked because the browser's
+        // multiple-downloads prompt was dismissed looks like success until the
+        // client counts their files a week later.
         if (result.failed > 0) {
           say(
             tx(
@@ -316,10 +306,10 @@ export default function AlbumView({
   /**
    * The entry point for every download button on the page.
    *
-   * A single photo with a standing answer needs no question — that is the whole
-   * point of remembering it. More than one photo always opens the sheet, because
-   * one archive or separate files is a second decision and it depends on how
-   * many were selected, which the remembered answer cannot know.
+   * A single photo with a standing answer asks nothing — that's the point of
+   * remembering it. More than one always opens the sheet: archive or separate
+   * files is a second decision, and it depends on how many were selected,
+   * which the remembered answer can't know.
    */
   const requestDownload = useCallback(
     (photos: DownloadablePhoto[]) => {
@@ -353,7 +343,7 @@ export default function AlbumView({
 
   return (
     <div className="min-h-screen bg-background text-white">
-      {/* ══ TOP BAR ══
+      {/* Top bar
           The same StickyHeader every other page uses. What was here before was
           a static <header> with two icon components that accepted `className`
           and then never applied it — they rendered at a fixed 20px and neither
@@ -367,7 +357,7 @@ export default function AlbumView({
         backHref={`/${locale}/portfolio`}
       />
 
-      {/* ══ SECTION A — flat accent, fixed height matching the photo ══ */}
+      {/* Section A — flat accent, fixed height matching the photo */}
       <section
         className="relative h-44 w-full overflow-hidden sm:h-60 lg:h-76"
         style={{ background: album.color }}
@@ -377,13 +367,11 @@ export default function AlbumView({
           style={blurStyle(album.coverThumbhash)}
         >
           {hasLadder(album.coverLadder) ? (
-            // The hero is this page's Largest Contentful Paint, so it is the
-            // one image where the ladder is worth the most — and it was the
-            // last thing still being resized on the fly by the Optimizer.
-            //
-            // fetchPriority="high" and no lazy attribute: this is above the
-            // fold by definition, and the browser should start it immediately
-            // rather than after layout.
+            // The hero is this page's Largest Contentful Paint, so it's the
+            // one image where the ladder is worth the most. fetchPriority
+            // high and no lazy attribute — it's above the fold by definition,
+            // so the browser should start it immediately rather than after
+            // layout.
             <picture>
               <source
                 type="image/avif"
@@ -471,14 +459,14 @@ export default function AlbumView({
         </div>
       </section>
 
-      {/* ══ PHOTOGRAPHER'S NOTE — client galleries only ══ */}
+      {/* Photographer's note — client galleries only */}
       {note && (
         <p className="bg-white/5 px-6 py-3 text-center text-sm leading-relaxed text-white/70 sm:px-10">
           {note}
         </p>
       )}
 
-      {/* ══ SECTION B — actions, fading to black ══ */}
+      {/* Section B — actions, fading to black */}
       <section
         className="relative w-full py-8 sm:py-10"
         style={{
@@ -513,14 +501,14 @@ export default function AlbumView({
         </div>
       </section>
 
-      {/* ══ SELECTION HINT ══ */}
+      {/* Selection hint */}
       {selectionMode && selected.size === 0 && (
         <p className="px-6 pb-2 pt-4 text-center text-xs text-white/40">
           {tx("gallery.selectHint", "Tap photos to select them. Long-press works too.")}
         </p>
       )}
 
-      {/* ══ PHOTO GRID ══ */}
+      {/* Photo grid */}
       <div className="pb-4 pt-4">
         <PhotoGrid
           photos={visiblePhotos}
@@ -534,7 +522,7 @@ export default function AlbumView({
         />
       </div>
 
-      {/* ══ LOAD MORE ══ */}
+      {/* Load more */}
       {hasMore && (
         <div className="flex justify-center py-10">
           <button
@@ -546,7 +534,7 @@ export default function AlbumView({
         </div>
       )}
 
-      {/* ══ FOOTER ══ */}
+      {/* Footer */}
       <footer className="border-t border-white/10 px-6 py-10 pb-28 text-center">
         <button
           onClick={() => setRequestOpen(true)}
@@ -575,7 +563,7 @@ export default function AlbumView({
         </Link>
       </footer>
 
-      {/* ══ SELECTION BAR ══ */}
+      {/* Selection bar */}
       {selected.size > 0 && (
         <div
           className={`fixed left-1/2 z-60 flex -translate-x-1/2 items-center gap-1 rounded-full bg-neutral-900/95 px-2 py-2 shadow-2xl ring-1 ring-white/15 backdrop-blur-md ${BAR_OFFSET}`}
@@ -619,7 +607,7 @@ export default function AlbumView({
         </div>
       )}
 
-      {/* ══ TOAST ══ */}
+      {/* Toast */}
       {toast && (
         <div
           className={`fixed left-1/2 z-70 -translate-x-1/2 rounded-full bg-white px-4 py-2.5 text-xs font-medium text-black shadow-xl ${
@@ -632,7 +620,7 @@ export default function AlbumView({
         </div>
       )}
 
-      {/* ══ LIGHTBOX ══ */}
+      {/* Lightbox */}
       {lightboxIndex !== null && (
         <>
           <Lightbox
