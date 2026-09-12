@@ -77,3 +77,32 @@ export function supabaseAdmin(): SupabaseClient<Database> {
   adminClient ??= createClient<Database>(url, service, CLIENT_OPTIONS);
   return adminClient;
 }
+
+/**
+ * Runs a read, retrying briefly before giving up.
+ *
+ * A Supabase project that has been idle takes a few seconds to wake, and the
+ * first request against it can outlast the API gateway's own timeout — a 504
+ * that says nothing about the query. That is survivable at request time and
+ * was fatal at build time, because a prerendered page whose data fetch throws
+ * fails the entire deploy.
+ *
+ * Two retries turn the usual cold start into a slower build rather than no
+ * build. It deliberately does NOT swallow the error: the caller decides
+ * whether an empty result is an acceptable answer, and for some of them it is
+ * not.
+ */
+export async function withRetry<T>(label: string, run: () => Promise<T>): Promise<T> {
+  const backoffMs = [2_000, 6_000];
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run();
+    } catch (e) {
+      if (attempt >= backoffMs.length) throw e;
+      const why = e instanceof Error ? e.message : String(e);
+      console.warn(`[${label}] attempt ${attempt + 1} failed, retrying: ${why}`);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs[attempt]));
+    }
+  }
+}

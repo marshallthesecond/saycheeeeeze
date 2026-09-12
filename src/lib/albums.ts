@@ -13,7 +13,7 @@ import { unstable_cache } from "next/cache";
 
 import { bunnyUrl } from "./bunny-url";
 import { getExcludeManifest, isPathExcluded } from "./bunny";
-import { supabaseRead } from "./supabase";
+import { supabaseRead, withRetry } from "./supabase";
 import {
   derivativePrefix,
   parseVariants,
@@ -274,7 +274,7 @@ export const getAllAlbumSlugs = unstable_cache(
  * PostgREST aggregate on the embedded table; RLS still applies to it, so
  * unpublished galleries are not counted.
  */
-export const getAllAlbums = unstable_cache(
+const loadAllAlbums = unstable_cache(
   async (): Promise<AlbumData[]> => {
     const { data, error } = await supabaseRead()
       .from("galleries")
@@ -294,6 +294,26 @@ export const getAllAlbums = unstable_cache(
   ["albums-all"],
   { revalidate: REVALIDATE_SECONDS, tags: ["albums"] },
 );
+
+/**
+ * Every album, or an empty list if the database cannot be reached.
+ *
+ * Empty rather than a throw because this feeds prerendered pages, and a
+ * prerendered page whose data fetch throws does not degrade — it fails the
+ * whole deploy. An About page with no album shelf is a missing section; a
+ * build that will not run is a site that cannot ship. Nothing is cached on the
+ * failure path, so the next request retries rather than serving an empty shelf
+ * for the rest of the revalidate window.
+ */
+export async function getAllAlbums(): Promise<AlbumData[]> {
+  try {
+    return await withRetry("albums", loadAllAlbums);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`[albums] Could not load albums, rendering without them: ${why}`);
+    return [];
+  }
+}
 
 /*
  * getAllPhotoSrcs() lived here and returned a flat list of bunnyUrl() strings.
@@ -322,7 +342,7 @@ export interface PortfolioPhoto extends AlbumPhoto {
  * Curation is unchanged: portfolio-exclude.json decides what is hidden and what
  * the categories are called, and the category is the top-level storage folder.
  */
-export const getPortfolioPhotos = unstable_cache(
+const loadPortfolioPhotos = unstable_cache(
   async (): Promise<PortfolioPhoto[]> => {
     const [manifest, { data, error }] = await Promise.all([
       getExcludeManifest(),
@@ -362,6 +382,18 @@ export const getPortfolioPhotos = unstable_cache(
   { revalidate: REVALIDATE_SECONDS, tags: ["albums"] },
 );
 
+/** Every portfolio photo, or an empty list if the database cannot be reached.
+ *  See getAllAlbums() for why this is not a throw. */
+export async function getPortfolioPhotos(): Promise<PortfolioPhoto[]> {
+  try {
+    return await withRetry("albums", loadPortfolioPhotos);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`[albums] Could not load portfolio photos: ${why}`);
+    return [];
+  }
+}
+
 /**
  * Storage paths → full photo records, keyed by path. For pages that pick
  * photographs by hand: the About strip, works grid and service cards.
@@ -373,7 +405,7 @@ export const getPortfolioPhotos = unstable_cache(
  * caller falls back to a plain CDN URL. Five About-page paths currently point
  * at files that do not exist — see about/photos.ts.
  */
-export const getPhotosByPaths = unstable_cache(
+const loadPhotosByPaths = unstable_cache(
   async (paths: string[]): Promise<Record<string, AlbumPhoto>> => {
     if (paths.length === 0) return {};
 
@@ -394,6 +426,24 @@ export const getPhotosByPaths = unstable_cache(
   ["photos-by-path"],
   { revalidate: REVALIDATE_SECONDS, tags: ["albums"] },
 );
+
+/**
+ * Storage paths to photo records, or an empty map if the database cannot be
+ * reached. The callers already treat an absent path as "fall back to a plain
+ * CDN URL", so an empty map costs the ladder and the ThumbHash — the
+ * photographs still render.
+ */
+export async function getPhotosByPaths(
+  paths: string[],
+): Promise<Record<string, AlbumPhoto>> {
+  try {
+    return await withRetry("albums", () => loadPhotosByPaths(paths));
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`[albums] Could not resolve photo paths: ${why}`);
+    return {};
+  }
+}
 
 /**
  * SIGNATURE UNCHANGED — `await getAlbumPhotos(album)` still works as-is,

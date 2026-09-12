@@ -17,7 +17,7 @@ import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { bunnyUrl } from "./bunny-url";
-import { supabaseAdmin, supabaseRead } from "./supabase";
+import { supabaseAdmin, supabaseRead, withRetry } from "./supabase";
 import {
   nextExpiry,
   privateHost,
@@ -131,7 +131,7 @@ function visibilityOf(raw: string): GalleryVisibility {
  * visibility = 'public'`, which would make the private rows invisible and the
  * sheet come up empty. Only the safe columns are selected.
  */
-export const getGalleryIndex = unstable_cache(
+const loadGalleryIndex = unstable_cache(
   async (): Promise<GalleryListing[]> => {
     // ONE string literal, never a concatenation. supabase-js parses this at the
     // TYPE level, and its parser only understands literals — a `"a, b" + "c"`
@@ -192,6 +192,19 @@ export const getGalleryIndex = unstable_cache(
   ["client-gallery-index"],
   { revalidate: REVALIDATE_SECONDS, tags: ["client-galleries"] },
 );
+
+/** The listed client galleries, or an empty list if the database cannot be
+ *  reached. The picker comes up empty; a client with a direct link is
+ *  unaffected, because that route resolves its own gallery. */
+export async function getGalleryIndex(): Promise<GalleryListing[]> {
+  try {
+    return await withRetry("client-galleries", loadGalleryIndex);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`[client-galleries] Could not load the gallery index: ${why}`);
+    return [];
+  }
+}
 
 // One gallery
 
