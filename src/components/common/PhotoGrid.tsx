@@ -171,7 +171,9 @@ export default function PhotoGrid({
                 }`}
                 // The ThumbHash sits UNDER the image rather than being swapped
                 // out when it loads, so there is no "loaded" state to track and
-                // no fade to get wrong. Photos are opaque — JPEG, and AVIF/WebP
+                // no fade to get wrong. It is also the whole error strategy:
+                // onError below hides the img, which reveals the blur that was
+                // already there instead of the browser painting alt text. Photos are opaque — JPEG, and AVIF/WebP
                 // encoded without alpha — so the moment the real image paints it
                 // covers the placeholder completely.
                 //
@@ -240,7 +242,14 @@ export default function PhotoGrid({
                   height={photo.height}
                   loading="lazy"
                   decoding="async"
+                  // Hiding the img uncovers the ThumbHash already painted on
+                  // the wrapper. The alt attribute stays for screen readers —
+                  // it just stops being drawn. Safe to mutate the node directly:
+                  // the wrapper is keyed on photo.src, so a different photograph
+                  // is a different element and cannot inherit this.
+                  onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
                   onLoad={(e) => {
+                    e.currentTarget.style.visibility = "";
                     // Only needed for photos with no stored dimensions. Skipping
                     // it otherwise avoids a pointless setState per image on
                     // every gallery render.

@@ -12,7 +12,7 @@
 // the link you send.
 
 import { useEffect } from "react";
-import Image from "next/image";
+import PhotoFrame from "./PhotoFrame";
 import Link from "next/link";
 import { X, Lock, ChevronRight, Send, Images } from "lucide-react";
 
@@ -104,30 +104,28 @@ export default function GalleryPickerSheet({
                   onClick={onClose}
                   className="group flex items-center gap-3 rounded-2xl border border-white/10 p-3 transition hover:border-white/30 active:bg-white/5"
                 >
-                  <span
-                    className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl"
-                    style={{
-                      background: gallery.cover ? undefined : `${gallery.accentColor}`,
-                    }}
-                  >
-                    {gallery.cover ? (
-                      <Image
-                        src={gallery.cover}
-                        alt=""
-                        fill
-                        sizes="56px"
-                        // Already resized by Bunny (getGalleryIndex asks for
-                        // width=480). Sending it through Next's optimizer as
-                        // well means a second resize of an already-resized
-                        // file, an extra network hop, and a per-transform
-                        // charge on Vercel — for a 56px thumbnail.
-                        unoptimized
-                        className="object-cover"
-                      />
-                    ) : (
+                  {gallery.cover ? (
+                    // Never through next/image: getGalleryIndex already asked
+                    // Bunny for 480px, so optimizing again means a second
+                    // resize of an already-resized file, an extra hop, and a
+                    // per-transform charge — for a 56px thumbnail.
+                    <PhotoFrame
+                      ladder={gallery.coverLadder}
+                      src={gallery.cover}
+                      thumbhash={gallery.coverThumbhash}
+                      accent={gallery.accentColor}
+                      alt=""
+                      sizes="56px"
+                      className="h-14 w-14 shrink-0 rounded-xl"
+                    />
+                  ) : (
+                    <span
+                      className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                      style={{ background: gallery.accentColor }}
+                    >
                       <Lock className="h-5 w-5 text-white/70" />
-                    )}
-                  </span>
+                    </span>
+                  )}
 
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-white">

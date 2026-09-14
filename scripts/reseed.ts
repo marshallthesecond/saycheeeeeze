@@ -77,6 +77,27 @@ const HOST = process.env.BUNNY_STORAGE_HOST ?? "storage.bunnycdn.com";
 const CLIENT_FOLDER_PREFIXES = ["clients"];
 const CLIENT_KIND = "client";
 
+// The ladder's own output, which this script must never look inside.
+//
+// build-ladder.mjs writes 14 derivative files per photo under these roots —
+// six AVIF, six WebP, share.jpg and download.jpg. Every one of them matches
+// IMAGE_RE, so a walk that descends here finds folders full of images and
+// dutifully turns each into a gallery: 63 of them on the first run, published
+// and public by default, each "holding" the 14 rungs of one photograph. Then
+// build-ladder queues those derivatives as sources and builds derivatives of
+// derivatives, whose directories the next reseed also finds. It compounds.
+//
+// Skipped at the descent rather than filtered afterwards, so the listing cost
+// is not paid either. These two prefixes are reserved: never name an album
+// folder "d".
+const DERIVATIVE_PREFIXES = ["d", "clients/_d"];
+
+/** True for the ladder's output roots and anything beneath them. */
+function isDerivativePath(path: string): boolean {
+  const p = path.replace(/^\/+/, "").toLowerCase();
+  return DERIVATIVE_PREFIXES.some((root) => p === root || p.startsWith(`${root}/`));
+}
+
 // Only sent on first insert. Everything omitted here falls back to the column
 // default in Postgres, which is where accent_color, photographer_handle,
 // description and date_label are already handled.
@@ -167,8 +188,10 @@ async function walkZone(
       for (const e of entries) {
         const path = dir ? `${dir}/${e.ObjectName}` : e.ObjectName;
         if (e.IsDirectory) {
-          next.push(path);
+          // Counted as a subfolder either way, so a parent holding only
+          // derivative directories is not misreported as empty below.
           subdirs++;
+          if (!isDerivativePath(path)) next.push(path);
         } else if (IMAGE_RE.test(e.ObjectName)) {
           files.push({ path, name: e.ObjectName, length: e.Length });
         }

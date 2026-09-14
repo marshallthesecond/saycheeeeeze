@@ -22,6 +22,7 @@ import {
 } from "@/src/lib/gallery";
 import {
   FULL_SIZES,
+  blurStyle,
   fallbackSrc,
   hasLadder,
   srcSet,
@@ -35,6 +36,8 @@ export interface LightboxPhoto {
   fileName?: string;
   /** Pre-generated derivatives. Absent → the original via the Optimizer. */
   ladder?: LadderSources;
+  /** Shown behind the photo while it decodes, and left showing if it fails. */
+  thumbhash?: string;
 }
 
 interface LightboxProps {
@@ -382,6 +385,12 @@ export default function Lightbox({
         <div
           className="relative h-full w-full touch-pan-y sm:mx-20"
           style={{
+            // contain, not the cover that blurStyle defaults to: the photo is
+            // object-contain here, so a cover-sized blur would spill past its
+            // edges instead of sitting exactly behind it.
+            ...blurStyle(photo.thumbhash),
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
             transform: `translate(${drag.x}px, ${drag.y}px)`,
             transition:
               isDragging || reduceMotion
@@ -419,6 +428,8 @@ export default function Lightbox({
                 // deliberately opened the photo.
                 fetchPriority="high"
                 decoding="async"
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
                 className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
               />
             </picture>
@@ -431,6 +442,8 @@ export default function Lightbox({
               className="pointer-events-none select-none object-contain"
               priority
               unoptimized
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
             />
           )}
         </div>

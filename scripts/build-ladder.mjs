@@ -601,6 +601,15 @@ async function selectQueue() {
     const statuses = RETRY_FAILED ? ["pending", "failed"] : ["pending"];
     q = q.in("status", statuses);
   }
+
+  // Never treat this script's own output as a source photograph. A row under
+  // d/ or clients/_d/ is a rung of somebody's ladder, and building a ladder
+  // for it writes more rungs for the next run to find. Belt and braces:
+  // reseed.ts no longer creates these rows, and --force bypasses the status
+  // filter above, so this is the only thing standing between a stale database
+  // and an exponential backfill.
+  q = q.not("storage_path", "like", "d/%").not("storage_path", "like", "clients/_d/%");
+
   if (GALLERY) q = q.eq("galleries.slug", GALLERY);
   if (LIMIT) q = q.limit(LIMIT);
 

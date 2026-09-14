@@ -59,6 +59,10 @@ export interface GalleryListing {
   photoCount: number;
   /** Public galleries only. Private tiles render a lock instead — see below. */
   cover: string | null;
+  /** The cover's ladder and ThumbHash, so a tile can blur up rather than
+   *  appearing all at once. Absent when the cover path resolves to no row. */
+  coverLadder?: LadderSources;
+  coverThumbhash?: string;
   accentColor: string;
   expired: boolean;
 }
@@ -184,6 +188,8 @@ const loadGalleryIndex = unstable_cache(
                 : bunnyUrl(coverPath, { width: 480 });
             })()
           : null,
+        coverLadder: coverPath ? coverPhotos[coverPath]?.ladder : undefined,
+        coverThumbhash: coverPath ? coverPhotos[coverPath]?.thumbhash : undefined,
         accentColor: row.accent_color ?? "#2a2f36",
         expired: isExpired(row.expires_at as string | null),
       };

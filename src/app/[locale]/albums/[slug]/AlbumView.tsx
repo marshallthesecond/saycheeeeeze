@@ -17,6 +17,7 @@ import Lightbox from "@/src/components/common/Lightbox";
 import GalleryRequestSheet from "@/src/components/common/GalleryRequestSheet";
 import DownloadSheet, { type DownloadChoice } from "@/src/components/common/DownloadSheet";
 import StickyHeader from "@/src/components/common/StickyHeader";
+import PhotoFrame from "@/src/components/common/PhotoFrame";
 import type { AlbumData } from "@/src/lib/albums";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import {
@@ -427,7 +428,17 @@ export default function AlbumView({
           className="absolute right-4 z-10 h-16 w-16 shadow-xl sm:h-20 sm:w-20 lg:hidden"
           style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
         >
-          <Image src={album.cover} alt="" fill sizes="80px" className="object-cover" unoptimized/>
+          {/* The ladder, not album.cover — that is bunnyUrl(cover_path),
+              i.e. the untouched original, for an 80px thumbnail. */}
+          <PhotoFrame
+            ladder={album.coverLadder}
+            src={album.cover}
+            thumbhash={album.coverThumbhash}
+            accent={album.color}
+            alt=""
+            sizes="80px"
+            className="h-full w-full"
+          />
         </div>
 
         <div className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-8 lg:flex">
@@ -446,16 +457,15 @@ export default function AlbumView({
               {album.description}
             </p>
           </div>
-          <div className="relative h-55 w-55 shrink-0 shadow-xl">
-            <Image
-              src={album.cover}
-              alt=""
-              fill
-              sizes="220px"
-              className="rounded-2xl object-cover"
-              unoptimized
-            />
-          </div>
+          <PhotoFrame
+            ladder={album.coverLadder}
+            src={album.cover}
+            thumbhash={album.coverThumbhash}
+            accent={album.color}
+            alt=""
+            sizes="220px"
+            className="h-55 w-55 shrink-0 rounded-2xl shadow-xl"
+          />
         </div>
       </section>
 
