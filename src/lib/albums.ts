@@ -217,15 +217,26 @@ async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
 }
 
 /**
- * NOW ASYNC. Was synchronous when albumsData was a local array.
- * Call sites that changed: albums/[slug]/page.tsx lines 20 and 51.
+ * One album, or undefined when there is no such album.
+ *
+ * Retries, but still THROWS when the database stays unreachable — unlike the
+ * list queries, which fall back to empty. Returning undefined here means
+ * notFound(), and a 404 cached for an album that exists is worse than a loud
+ * failure: the build stopping is noticed in a minute, a client getting "not
+ * found" on the link you sent them might not be for days.
+ *
+ * The retry is what makes that stance affordable. generateMetadata calls this
+ * once per album per locale, so on a cold database any one of ~54 calls could
+ * take the whole deploy down; scripts/warm-supabase.mjs waits for the database
+ * before the build starts, and this covers whatever slips past it.
  */
 export async function getAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
   const key = slug.toLowerCase();
-  return unstable_cache(() => fetchAlbumBySlug(slug), ["album", key], {
+  const load = unstable_cache(() => fetchAlbumBySlug(slug), ["album", key], {
     revalidate: REVALIDATE_SECONDS,
     tags: ["albums", `album:${key}`],
-  })();
+  });
+  return withRetry("albums", load);
 }
 
 /**
