@@ -824,8 +824,8 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [
       'Portraits/ShirinGrad.png',
-      'Portraits/Radmir/3M0A0549.png',
-      'Portraits/Diora/076A0398.png',
+      'Portraits/RadmirGrad.png',
+      'Portraits/DioraGrad.png',
     ],
     galleryCategory: 'WIUT',
     hero: {
