@@ -28,9 +28,15 @@ import {
   srcSet,
   type LadderSources,
 } from "@/src/lib/ladder";
+import MarkButtons from "./MarkButtons";
+import type { PhotoMark } from "@/src/lib/photo-marks";
 
 export interface LightboxPhoto {
   src: string;
+  /** The photos row id — the handle a mark is keyed on. See AlbumPhoto.id. */
+  id?: string;
+  /** The client's request for this photograph — client galleries only. */
+  mark?: PhotoMark | null;
   alt?: string;
   /** Real filename from the database, for Download and Share. */
   fileName?: string;
@@ -63,6 +69,17 @@ interface LightboxProps {
   downloadLabel?: string;
   /** false hides the download button entirely — galleries.download_enabled. */
   canDownload?: boolean;
+  /**
+   * Keep / Publish / Delete for the photograph on screen. Omit it and the
+   * lightbox has no marking row, which is how the portfolio is unaffected.
+   *
+   * On its own line above the toolbar rather than squeezed into it: the
+   * toolbar is already five controls wide on a phone, and these three are the
+   * reason a client opened the photograph full-screen in the first place.
+   */
+  onMark?: (photoId: string, next: PhotoMark | null) => void;
+  markBusy?: boolean;
+  tx?: (key: string, fallback: string) => string;
 }
 
 // Subscribes to the OS reduced-motion setting. Defined outside the component
@@ -90,6 +107,9 @@ export default function Lightbox({
   onDownloadOptions,
   downloadLabel,
   canDownload = true,
+  onMark,
+  markBusy = false,
+  tx,
 }: LightboxProps) {
   const photo = photos[index];
 
@@ -272,10 +292,28 @@ export default function Lightbox({
     >
       {/* Top bar: counter + actions */}
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between px-4 py-3 transition-opacity"
+        // flex-wrap so the marking row above can claim a full line of its own;
+        // without it the row becomes a third item squeezed between the
+        // counter and the toolbar.
+        className="relative z-10 flex shrink-0 flex-wrap items-center justify-between px-4 py-3 transition-opacity"
         style={{ opacity: isDragging ? 0 : 1 }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Its own full-width row above the toolbar, centred. Five toolbar
+            controls plus three marks does not fit a 390px phone, and the marks
+            are the ones that must not be the ones that get cut. */}
+        {onMark && photo?.id && tx && (
+          <div className="mb-3 flex w-full justify-center">
+            <MarkButtons
+              variant="bar"
+              tx={tx}
+              mark={photo.mark ?? null}
+              busy={markBusy}
+              onMark={(next) => onMark(photo.id as string, next)}
+            />
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/60">
             {index + 1} / {photos.length}

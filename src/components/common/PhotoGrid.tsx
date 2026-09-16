@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { thumbUrl } from "@/src/lib/gallery";
+import MarkButtons, { MarkDot } from "./MarkButtons";
+import type { PhotoMark } from "@/src/lib/photo-marks";
 import {
   GRID_SIZES,
   blurStyle,
@@ -25,6 +27,10 @@ import {
 
 export interface Photo {
   src: string;
+  /** The photos row id. Required for marking; absent on portfolio albums. */
+  id?: string;
+  /** The client's request for this photograph — client galleries only. */
+  mark?: PhotoMark | null;
   alt?: string;
   thumbSrc?: string;
   /** Intrinsic pixel size from the `photos` row, when it is known. */
@@ -47,6 +53,19 @@ interface PhotoGridProps {
   onToggleSelect?: (src: string) => void;
   /** Fired by long-press on touch, so mobile can enter selection without a toolbar trip. */
   onLongPress?: (src: string) => void;
+  /**
+   * Keep / Publish / Delete on each tile. Omit it and no tile renders any of
+   * them — that is how the portfolio stays exactly as it was, rather than by a
+   * flag someone has to remember to set to false.
+   *
+   * Called with null when the client presses the mark a photograph already
+   * has, which un-marks it.
+   */
+  onMark?: (photoId: string, next: PhotoMark | null) => void;
+  /** Ids with a request in flight, so their buttons disable. */
+  markBusy?: Set<string>;
+  /** tx(key, fallback) from the page — see MarkButtons. */
+  tx?: (key: string, fallback: string) => string;
 }
 
 const LONG_PRESS_MS = 450;
@@ -82,6 +101,9 @@ export default function PhotoGrid({
   selected,
   onToggleSelect,
   onLongPress,
+  onMark,
+  markBusy,
+  tx,
 }: PhotoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(2);
@@ -268,6 +290,26 @@ export default function PhotoGrid({
                   }`}
                   />
                 </picture>
+
+                {/* Marking. Always visible rather than revealed on hover:
+                    this is the job the client came to do, and on a phone there
+                    is no hover to reveal anything with. The row sits at the
+                    bottom so it never covers a face, and the tile's own click
+                    handler is stopped inside MarkButtons. */}
+                {onMark && photo.id && tx && (
+                  <>
+                    <MarkDot mark={photo.mark ?? null} />
+                    <div className="absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
+                      <MarkButtons
+                        variant="tile"
+                        tx={tx}
+                        mark={photo.mark ?? null}
+                        busy={markBusy?.has(photo.id) ?? false}
+                        onMark={(next) => onMark(photo.id as string, next)}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {selectable && (
                   <>

@@ -323,7 +323,19 @@
     "shareUnavailable": "Bu brauzerda ulashib bo'lmaydi",
     "filesUnsupported": "Bu yerda fotolarni ulashib bo'lmaydi — galereya havolasi nusxalandi",
     "downloadFailed": "Yuklab bo'lmadi — qayta urinib ko'ring",
-    "downloadPartial": "{saved} ta saqlandi, {failed} tasi saqlanmadi — brauzer qolganini to‘sgan bo‘lishi mumkin"
+    "downloadPartial": "{saved} ta saqlandi, {failed} tasi saqlanmadi — brauzer qolganini to‘sgan bo‘lishi mumkin",
+    "markKeep": "Qoldirish",
+    "markPublish": "Chop etish",
+    "markDelete": "O‘chirish",
+    "markedKeep": "Belgilandi: qoldirish",
+    "markedPublish": "Belgilandi: chop etish mumkin",
+    "markedDelete": "O‘chirish uchun belgilandi",
+    "markCleared": "Belgi olib tashlandi",
+    "markFailed": "Saqlab bo‘lmadi — qayta urinib ko‘ring",
+    "markHint": "Bu belgilar — fotograf uchun eslatma. U ko‘rib chiqmaguncha suratga hech narsa bo‘lmaydi — istalgan vaqtda fikringizni o‘zgartirishingiz mumkin.",
+    "filterAll": "Hammasi",
+    "filterUnmarked": "Belgilanmagan",
+    "filterEmpty": "Bunday belgi bilan hozircha hech narsa yo‘q."
   },
   "gate": {
     "eyebrow": "Yopiq galereya",

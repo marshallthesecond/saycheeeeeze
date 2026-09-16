@@ -45,6 +45,16 @@ import {
   type DownloadPreference,
 } from "@/src/lib/downloadPrefs";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
+import {
+  FILTER_FALLBACK,
+  FILTER_KEYS,
+  MARK_FALLBACK,
+  MARK_FILTERS,
+  MARK_KEYS,
+  matchesFilter,
+  type MarkFilter,
+  type PhotoMark,
+} from "@/src/lib/photo-marks";
 
 /** Lives here rather than in ladder.ts because it has to match the hero's own
  *  container widths (65% at sm, 42% at lg), which nothing else uses. Get it
@@ -72,6 +82,9 @@ export default function AlbumView({
   note = null,
   downloadTiers = DEFAULT_DOWNLOAD_TIERS,
   downloadEnabled = true,
+  onMark,
+  markBusy,
+  markHint = null,
 }: {
   album: AlbumData;
   /**
@@ -90,6 +103,22 @@ export default function AlbumView({
    *  sibling above <AlbumView> because the fixed top bar covers anything
    *  rendered before the hero. */
   note?: string | null;
+  /**
+   * Turns on the whole marking feature: three buttons per photograph and the
+   * filter above the grid.
+   *
+   * Omitted by the portfolio, which is why nothing about a public album
+   * changes. The handler lives in ClientGalleryView because it owns the
+   * network call, the optimistic update and the rollback — this component
+   * renders marks and reports presses, and knows nothing about how they are
+   * stored.
+   */
+  onMark?: (photoId: string, next: PhotoMark | null) => Promise<boolean>;
+  /** Ids with a request in flight. */
+  markBusy?: Set<string>;
+  /** One line under the filter explaining that a mark is a request, not an
+   *  action. Worth the space: "Delete" is a frightening word to press. */
+  markHint?: string | null;
 }) {
   // Links have to carry the active locale, or the middleware bounces the
   // visitor through a redirect and can land them in the wrong language.
@@ -119,28 +148,110 @@ export default function AlbumView({
   const [pref, setPref] = useState<DownloadPreference | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [markFilter, setMarkFilter] = useState<MarkFilter>("all");
   const slideshowTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const visiblePhotos = album.photos.slice(0, visibleCount);
-  const hasMore = visibleCount < album.photos.length;
+  /**
+   * The photographs the page is currently working with.
+   *
+   * EVERYTHING downstream reads this rather than album.photos: the grid, the
+   * "load more" count, the lightbox's list and its wrap-around, the slideshow
+   * and "download all". Leave any one of them on album.photos and filtering to
+   * "Delete" then opens the lightbox on a photograph that is not on screen,
+   * because the index the grid handed over counts a different list.
+   *
+   * album.photos survives for the two things that are genuinely about the
+   * whole set: the photo count beside the title, and the selection.
+   */
+  const filteredPhotos = useMemo(
+    () =>
+      markFilter === "all"
+        ? album.photos
+        : album.photos.filter((p) => matchesFilter(p.mark, markFilter)),
+    [album.photos, markFilter],
+  );
+
+  /** How many photographs each filter would show. Counted once per render over
+   *  the whole set, rather than filtering five times to find five lengths. */
+  const markCounts = useMemo(() => {
+    const counts: Record<MarkFilter, number> = {
+      all: album.photos.length,
+      keep: 0,
+      publish: 0,
+      delete: 0,
+      unmarked: 0,
+    };
+    for (const p of album.photos) {
+      if (p.mark) counts[p.mark]++;
+      else counts.unmarked++;
+    }
+    return counts;
+  }, [album.photos]);
+
+  const visiblePhotos = filteredPhotos.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredPhotos.length;
 
   const selectedPhotos = useMemo(
     () => album.photos.filter((p) => selected.has(p.src)),
     [album.photos, selected],
   );
 
+  /**
+   * Changing the filter re-seats the page rather than just re-rendering it.
+   *
+   * Both of these count POSITIONS in a list that has just changed length: a
+   * lightbox open on index 40 of "all" would index past the end of a
+   * three-photograph "Delete", and "load more" would carry a count from a list
+   * the visitor is no longer looking at.
+   */
+  const chooseFilter = useCallback((next: MarkFilter) => {
+    setMarkFilter(next);
+    setVisibleCount(PAGE_SIZE);
+    setLightboxIndex(null);
+    setIsSlideshow(false);
+  }, []);
+
   const say = useCallback((message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), TOAST_MS);
   }, []);
 
+  /**
+   * Press -> say what it was marked as -> save it.
+   *
+   * The message goes up FIRST and is corrected if the save fails, rather than
+   * waiting for the round trip. On a phone on Tashkent mobile data the honest
+   * order costs about a second of a button that looks broken, and the failure
+   * path is rare enough to be the one that waits.
+   *
+   * The toast is deliberately in the past tense about a RECORD, not an action:
+   * "Marked for deletion", never "Deleted". Nothing has been deleted, the
+   * photograph is still on screen, and a client who reads otherwise will ask
+   * why.
+   */
+  const handleMark = useCallback(
+    async (photoId: string, next: PhotoMark | null) => {
+      if (!onMark) return;
+      say(
+        next
+          ? tx(MARK_KEYS[next].toast, MARK_FALLBACK[next].toast)
+          : tx("gallery.markCleared", "Mark removed"),
+      );
+      const ok = await onMark(photoId, next);
+      if (!ok) say(tx("gallery.markFailed", "Couldn't save that — try again"));
+    },
+    // say and tx are defined above; onMark comes from the client shell.
+    [onMark, say, tx],
+  );
+
+
   // Deep link: /albums/sara?p=7 opens on the seventh photo
   useEffect(() => {
-    const index = readDeepLinkIndex(album.photos.length);
+    const index = readDeepLinkIndex(filteredPhotos.length);
     if (index === null) return;
     setVisibleCount((c) => Math.max(c, index + 1));
     setLightboxIndex(index);
-  }, [album.photos.length]);
+  }, [filteredPhotos.length]);
 
   useEffect(() => {
     syncDeepLink(lightboxIndex);
@@ -154,12 +265,12 @@ export default function AlbumView({
   }, []);
   const prevPhoto = useCallback(() => {
     setLightboxIndex((i) =>
-      i !== null ? (i - 1 + album.photos.length) % album.photos.length : null,
+      i !== null ? (i - 1 + filteredPhotos.length) % filteredPhotos.length : null,
     );
-  }, [album.photos.length]);
+  }, [filteredPhotos.length]);
   const nextPhoto = useCallback(() => {
-    setLightboxIndex((i) => (i !== null ? (i + 1) % album.photos.length : null));
-  }, [album.photos.length]);
+    setLightboxIndex((i) => (i !== null ? (i + 1) % filteredPhotos.length : null));
+  }, [filteredPhotos.length]);
 
   const startSlideshow = useCallback(() => {
     setLightboxIndex(0);
@@ -170,14 +281,14 @@ export default function AlbumView({
     if (isSlideshow && lightboxIndex !== null) {
       slideshowTimer.current = setInterval(() => {
         setLightboxIndex((i) =>
-          i !== null ? (i + 1) % album.photos.length : null,
+          i !== null ? (i + 1) % filteredPhotos.length : null,
         );
       }, SLIDESHOW_INTERVAL_MS);
     }
     return () => {
       if (slideshowTimer.current) clearInterval(slideshowTimer.current);
     };
-  }, [isSlideshow, lightboxIndex, album.photos.length]);
+  }, [isSlideshow, lightboxIndex, filteredPhotos.length]);
 
   // Selection
   const toggleSelect = useCallback((src: string) => {
@@ -324,9 +435,12 @@ export default function AlbumView({
     [zip, batch, pref, runDownload],
   );
 
+  // What is on screen, not what is in the gallery. With a filter active,
+  // "Download all" quietly including the photographs it is hiding is the kind
+  // of surprise that costs someone a 900 MB transfer.
   const downloadAll = useCallback(
-    () => requestDownload(album.photos),
-    [requestDownload, album.photos],
+    () => requestDownload(filteredPhotos),
+    [requestDownload, filteredPhotos],
   );
 
   const downloadSelected = useCallback(
@@ -518,6 +632,43 @@ export default function AlbumView({
         </p>
       )}
 
+      {/* Filter — client galleries only, and only once something can be
+          filtered. Rendering five chips that all say 0 over an unreviewed
+          gallery would be a control with nothing to control. */}
+      {onMark && (
+        <div className="px-4 pt-4 sm:px-6">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0">
+            {MARK_FILTERS.map((value) => {
+              const active = markFilter === value;
+              const count = markCounts[value];
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => chooseFilter(value)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+                    active
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                  }`}
+                >
+                  {tx(FILTER_KEYS[value], FILTER_FALLBACK[value])}
+                  <span
+                    className={`tabular-nums ${active ? "text-black/50" : "text-white/40"}`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {markHint && (
+            <p className="mt-2 text-xs leading-relaxed text-white/40">{markHint}</p>
+          )}
+        </div>
+      )}
+
       {/* Photo grid */}
       <div className="pb-4 pt-4">
         <PhotoGrid
@@ -529,8 +680,19 @@ export default function AlbumView({
           selected={selected}
           onToggleSelect={toggleSelect}
           onLongPress={enterSelection}
+          onMark={onMark ? handleMark : undefined}
+          markBusy={markBusy}
+          tx={tx}
         />
       </div>
+
+      {/* A filter that matches nothing has to say so, or it reads as a gallery
+          that lost its photographs. */}
+      {onMark && filteredPhotos.length === 0 && (
+        <p className="px-6 py-16 text-center text-sm text-white/40">
+          {tx("gallery.filterEmpty", "Nothing marked this way yet.")}
+        </p>
+      )}
 
       {/* Load more */}
       {hasMore && (
@@ -631,10 +793,10 @@ export default function AlbumView({
       )}
 
       {/* Lightbox */}
-      {lightboxIndex !== null && (
+      {lightboxIndex !== null && filteredPhotos[lightboxIndex] && (
         <>
           <Lightbox
-            photos={album.photos}
+            photos={filteredPhotos}
             index={lightboxIndex}
             onClose={closeLightbox}
             onPrev={() => {
@@ -653,7 +815,12 @@ export default function AlbumView({
             downloadLabel={
               pref ? tx(`download.tier.${pref.tier}`, TIER_FALLBACK[pref.tier]) : undefined
             }
-            isSelected={selected.has(album.photos[lightboxIndex].src)}
+            onMark={onMark ? handleMark : undefined}
+            markBusy={
+              onMark ? (markBusy?.has(filteredPhotos[lightboxIndex].id ?? "") ?? false) : false
+            }
+            tx={tx}
+            isSelected={selected.has(filteredPhotos[lightboxIndex].src)}
             onToggleSelect={(src) => {
               setSelectionMode(true);
               toggleSelect(src);

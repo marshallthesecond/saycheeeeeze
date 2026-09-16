@@ -36,6 +36,7 @@ import {
   type LadderSources,
 } from "./ladder";
 import { getPhotosByPaths } from "./albums";
+import { parseMark, type PhotoMark } from "./photo-marks";
 
 // Untyped clients. Kept even after regenerating database.types.ts: the picker
 // query embeds a `photos(count)` aggregate, whose inferred type fights with the
@@ -98,8 +99,20 @@ export interface ClientGallery {
   photoCount: number;
 }
 
+/**
+ * A signed photograph plus the two fields only a client gallery has.
+ *
+ * `id` is required here, unlike on AlbumPhoto: the marking UI is keyed on it,
+ * and a client gallery that shipped photographs without ids would render three
+ * buttons that silently mark nothing.
+ */
+export type GalleryPhoto = SignedPhoto & {
+  id: string;
+  mark: PhotoMark | null;
+};
+
 export interface GalleryContent {
-  photos: SignedPhoto[];
+  photos: GalleryPhoto[];
   /** Falls back to the first photo when no cover_path is set, because
    *  AlbumView's hero always renders an image. */
   cover: string | null;
@@ -276,7 +289,7 @@ export async function getGalleryContent(
 ): Promise<GalleryContent> {
   const { data, error } = await untypedAdmin()
     .from("photos")
-    .select("storage_path, alt, sort_order, id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes")
+    .select("storage_path, alt, sort_order, id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, client_mark")
     .eq("gallery_id", gallery.id)
     .order("sort_order", { ascending: true });
 
@@ -355,6 +368,14 @@ export async function getGalleryContent(
       }),
       ladder: ladderFor(p),
       thumbhash: (p.thumbhash as string | null) ?? undefined,
+      // String(), because the untyped client hands these back as `any` and an
+      // id that arrived as a number would stop matching the one the API route
+      // compares against.
+      id: String(p.id),
+      // parseMark rather than a cast: the column has a CHECK constraint, so an
+      // unrecognised value means the constraint moved and this code did not.
+      // Rendering that photograph as unmarked is the conservative reading.
+      mark: parseMark(p.client_mark),
     })),
     cover: coverPath ? signBunnyUrl(coverPath, { expiresAt }) : null,
     coverLadder: heroRow ? ladderFor(heroRow) : undefined,

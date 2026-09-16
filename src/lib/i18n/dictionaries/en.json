@@ -323,7 +323,19 @@
     "shareUnavailable": "Sharing isn't available in this browser",
     "filesUnsupported": "Photos can't be shared here — gallery link copied instead",
     "downloadFailed": "Download failed — try again",
-    "downloadPartial": "{saved} saved, {failed} could not be — your browser may have blocked the rest"
+    "downloadPartial": "{saved} saved, {failed} could not be — your browser may have blocked the rest",
+    "markKeep": "Keep",
+    "markPublish": "Publish",
+    "markDelete": "Delete",
+    "markedKeep": "Marked to keep",
+    "markedPublish": "Marked as OK to publish",
+    "markedDelete": "Marked for deletion",
+    "markCleared": "Mark removed",
+    "markFailed": "Couldn’t save that — try again",
+    "markHint": "These marks are a note to your photographer. Nothing happens to a photograph until he acts on it — you can change your mind any time.",
+    "filterAll": "All",
+    "filterUnmarked": "Unmarked",
+    "filterEmpty": "Nothing marked this way yet."
   },
   "gate": {
     "eyebrow": "Private gallery",

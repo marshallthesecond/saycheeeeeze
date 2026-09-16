@@ -12,6 +12,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import { bunnyUrl } from "./bunny-url";
+import type { PhotoMark } from "./photo-marks";
 import { getExcludeManifest, isPathExcluded } from "./bunny";
 import { supabaseRead, withRetry } from "./supabase";
 import {
@@ -26,6 +27,17 @@ import type { Database } from "./database.types";
 
 export interface AlbumPhoto {
   src: string;
+  /**
+   * The `photos` row id. THE stable handle for one photograph.
+   *
+   * Everything else here changes: `src` on a client gallery is a signed URL
+   * that is re-issued every six hours, which is exactly why selection — keyed
+   * on src — quietly loses its selection across a refresh. Anything that has to
+   * survive that, like a client's mark, is keyed on this.
+   *
+   * Optional because portfolio albums have never needed it.
+   */
+  id?: string;
   alt?: string;
   thumbSrc?: string;
   /**
@@ -47,6 +59,14 @@ export interface AlbumPhoto {
   ladder?: LadderSources;
   /** ThumbHash, base64 — the inline placeholder. */
   thumbhash?: string;
+  /**
+   * What the client asked be done with this photograph — client galleries only.
+   *
+   * Advisory. Nothing in the app acts on it; see src/lib/photo-marks.ts.
+   * `undefined` means this photograph came from a surface that has no marks
+   * (a portfolio album); `null` means it has one and it is unset.
+   */
+  mark?: PhotoMark | null;
 }
 
 export interface AlbumData {

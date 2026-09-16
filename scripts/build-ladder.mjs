@@ -564,6 +564,10 @@ function readAhead(photo) {
 }
 
 async function processPhoto(photo, src) {
+  // Where the seconds actually go. A photo that takes three minutes is either
+  // a slow link, a slow CPU or a slow uplink, and those have nothing in common
+  // except the number on the end of the line — so report them apart.
+  const tEncodeStart = Date.now();
   const checksum8 = createHash("sha256").update(src).digest("hex").slice(0, 8);
 
   // .rotate() with NO argument bakes EXIF orientation into the pixels and then
@@ -641,7 +645,11 @@ async function processPhoto(photo, src) {
     type: "image/jpeg",
   });
 
+  const msEncode = Date.now() - tEncodeStart;
+
+  const tUploadStart = Date.now();
   await pool(uploads, EFFECTIVE_UPLOADS, (u) => upload(u.path, u.body, u.type));
+  const msUpload = Date.now() - tUploadStart;
 
   const totalOut = uploads.reduce((n, u) => n + u.body.length, 0);
 
@@ -656,6 +664,8 @@ async function processPhoto(photo, src) {
     srcBytes: src.length,
     totalOut,
     fileCount: uploads.length,
+    msEncode,
+    msUpload,
   };
 }
 
@@ -996,7 +1006,12 @@ async function main() {
     }
 
     try {
+      const tDownloadStart = Date.now();
       const got = await incoming;
+      // With --read-ahead or --jobs this download may have started earlier, so
+      // it undercounts rather than overcounts. Serial and unprefetched, it is
+      // the real figure.
+      const msDownload = Date.now() - tDownloadStart;
       clearProgress();
       if (got.err) throw got.err;
       const r = await processPhoto(photo, got.buf);
@@ -1029,10 +1044,16 @@ async function main() {
 
       const secs = ((Date.now() - started) / 1000).toFixed(1);
       const tail = JOBS > 1 ? `  [${done}/${queue.length} done]` : "";
+      const s = (ms) => `${(ms / 1000).toFixed(1)}s`;
+      const rate = (bytes, ms) =>
+        ms > 0 ? `${(bytes / 1024 / 1024 / (ms / 1000)).toFixed(1)} MB/s` : "—";
       console.log(
         `${label}\n      ${r.width}×${r.height}  ${human(r.srcBytes)} → ` +
           `${r.fileCount} files, ${human(r.totalOut)}  ` +
-          `(share ${human(r.share_bytes)}, full ${human(r.delivery_bytes)})  ${secs}s${tail}`,
+          `(share ${human(r.share_bytes)}, full ${human(r.delivery_bytes)})  ${secs}s${tail}\n` +
+          `      down ${s(msDownload)} ${rate(r.srcBytes, msDownload)}  ·  ` +
+          `encode ${s(r.msEncode)}  ·  ` +
+          `up ${s(r.msUpload)} ${rate(r.totalOut, r.msUpload)}`,
       );
     } catch (err) {
       failed++;
