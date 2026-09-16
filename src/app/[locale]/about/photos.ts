@@ -32,24 +32,22 @@ export type WorksCategory =
 
 /** The filterable works grid. */
 export const MY_WORKS: { path: string; cat: WorksCategory }[] = [
-  { path: "WIUT/5I9A3020.png", cat: "WIUT" },
-
-  { path: "Portraits/Radmir/3M0A0607.png", cat: "Portrait" },
-  { path: "Portraits/Radmir/3M0A0549.png", cat: "Portrait" },
+  
   { path: "Portraits/Radmir/3M0A0772.png", cat: "Portrait" },
-  { path: "Portraits/Radmir/3M0A0675.png", cat: "Portrait" },
-
+  { path: "WIUT/5I9A3020.png", cat: "WIUT" },
   { path: "Portraits/Sara/3M0A1047.png", cat: "Portrait" },
-  { path: "Portraits/Sara/3M0A1255.png", cat: "Portrait" },
-
   { path: "WIUT/5I9A3029.png", cat: "WIUT" },
-
-  { path: "Portraits/Sara/3M0A1333.png", cat: "Portrait" },
+  { path: "Portraits/Radmir/3M0A0675.png", cat: "Portrait" },
   { path: "Portraits/Sara/3M0A1432.png", cat: "Portrait" },
-  { path: "Portraits/Sara/3M0A1105.png", cat: "Portrait" },
-
+  { path: "Nature/damnbby.jpg", cat: "Nature" },
   { path: "Portraits/Radmir/3M0A0759.png", cat: "Portrait" },
-  { path: "Portraits/Radmir/3M0A0568.png", cat: "Portrait" },
+  { path: "Portraits/9O6A2264.png", cat: "Portrait" },
+  { path: "Nature/youcanseeit.jpg", cat: "Nature" },
+  { path: "Portraits/076A0384.png", cat: "Portrait" },
+  { path: "WIUT/400A6607.png", cat: "WIUT" },
+  { path: "random/400A6607.png", cat: "Nature" },
+  { path: "WIUT-Fashion-Show/3M0A2669.png", cat: "Fashion" },
+  { path: "WIUT-Fashion-Show/3M0A3551.png", cat: "Fashion" },
 ];
 
 /** The service cards. All storage paths, so nothing here has to distinguish
