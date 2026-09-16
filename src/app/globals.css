@@ -210,6 +210,30 @@
     }
 }
 
+/*
+  The service hero's photo stack settling into place, one frame after another.
+
+  `both` rather than `forwards`: the backwards half is what holds a delayed
+  frame at opacity 0 until its turn, and it also means the element's own styles
+  are the resting state — so if animations never run at all (a browser that
+  ignores them, a print stylesheet), the frames are simply visible rather than
+  invisible forever. The rotation is on the PARENT, because this keyframe owns
+  `transform` and would otherwise discard it.
+
+  The global reduced-motion rule collapses the duration to 0.01ms, which lands
+  on the final frame immediately — correct here, unlike the nav trace, which
+  had to be hidden outright.
+*/
+@keyframes scRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+.sc-rise {
+  animation: scRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Scroll hint on the landing hero. */
 @keyframes scDrift {
   0% { transform: translateY(0); }

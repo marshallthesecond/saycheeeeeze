@@ -43,7 +43,10 @@ import ServiceEventBlock from './ServiceEventBlock';
 import ServicePackages from './ServicePackages';
 import ServiceNotice from './ServiceNotice';
 import ServiceHero from './ServiceHero';
+import ServiceHeroStack from './ServiceHeroStack';
+import type { HeroFrame, HeroImage } from './ServiceHeroStack';
 import {
+  AudienceOnly,
   AudienceProvider,
   AudienceText,
   AudienceToggle,
@@ -121,6 +124,39 @@ const RAIL_COUNT = 8;
 const AUDIENCE_BACKDROP_MAX = 720;
 
 /**
+ * Caps for the stack hero.
+ *
+ * The ground is full-bleed but sits at 55% opacity under two gradients and a
+ * fan of photographs, so the 2048 rung buys nothing a 1440 one does not — and
+ * it is the LCP image, where those bytes are the most expensive on the page.
+ * The frames are 96px on a phone and 152px on a laptop; 480 covers both at 2x
+ * with a rung to spare.
+ */
+const HERO_GROUND_MAX = 1440;
+const HERO_FRAME_MAX = 480;
+
+/** Frames in the fan. Also how many the rail gives up to it — see below. */
+const HERO_STACK_COUNT = 3;
+
+/**
+ * A photo row → the plain strings a presentational component needs.
+ *
+ * `undefined` for a photograph with no ladder row, and every caller treats that
+ * as "render no image". Never bunnyUrl(): the Optimizer is off on the pull
+ * zone, so a fallback URL serves the untouched source — which for this library
+ * means a PNG in the tens of megabytes, at the top of the page.
+ */
+function ladderSources(photo: AlbumPhoto | undefined, maxWidth: number): HeroImage | undefined {
+  if (!photo || !hasLadder(photo.ladder)) return undefined;
+  return {
+    avif: srcSetUpTo(photo.ladder, 'avif', maxWidth),
+    webp: srcSetUpTo(photo.ladder, 'webp', maxWidth),
+    fallback: fallbackSrcUpTo(photo.ladder, maxWidth),
+    thumbhash: photo.thumbhash,
+  };
+}
+
+/**
  * The photographs shown under "Best picks", in order of preference:
  *
  *   1. galleryPaths     — curated frame by frame, order preserved
@@ -142,6 +178,7 @@ const AUDIENCE_BACKDROP_MAX = 720;
 async function pickExamples(
   service: ServiceData,
   pool: PortfolioPhoto[],
+  count: number,
   cover?: AlbumPhoto,
 ): Promise<AlbumPhoto[]> {
   if (service.galleryPaths?.length) {
@@ -151,17 +188,17 @@ async function pickExamples(
     const picked = service.galleryPaths
       .map((path) => byPath[path])
       .filter(Boolean);
-    if (picked.length > 0) return picked.slice(0, RAIL_COUNT);
+    if (picked.length > 0) return picked.slice(0, count);
   }
 
   const visible = pool.filter((p) => !p.hidden);
 
   if (service.galleryCategory) {
     const scoped = visible.filter((p) => p.category === service.galleryCategory);
-    if (scoped.length > 0) return spread(scoped, RAIL_COUNT);
+    if (scoped.length > 0) return spread(scoped, count);
   }
 
-  if (visible.length > 0) return spread(visible, RAIL_COUNT);
+  if (visible.length > 0) return spread(visible, count);
   return cover ? [cover] : [];
 }
 
@@ -198,26 +235,40 @@ export default async function ServicePage({
   // paths is one round trip, and a second getPhotosByPaths() would be a second
   // cache entry for one extra row.
   const backdropPath = service.audience?.backdropPath;
+  const groundPath = service.hero?.groundPath;
+  // One query for every path this page resolves by hand. Duplicates are
+  // harmless — `in` takes a set — and the graduation page deliberately reuses
+  // the campus frame as both the hero ground and the audience band's texture.
   const photoRows = await getPhotosByPaths(
-    backdropPath ? [service.coverPath, backdropPath] : [service.coverPath],
+    [service.coverPath, backdropPath, groundPath].filter((p): p is string => Boolean(p)),
   );
   const cover = photoRows[service.coverPath];
-  const galleryPicks = await pickExamples(service, albumPool, cover);
 
-  // No ladder row means NO IMAGE, deliberately — not bunnyUrl(). The Optimizer
-  // is off on the pull zone, so the fallback would serve the untouched source,
-  // and these are PNGs in the tens of megabytes. An accent-only band is a fine
-  // outcome; a 30 MB download behind one line of text is not.
-  const backdropRow = backdropPath ? photoRows[backdropPath] : undefined;
-  const audienceBackdrop =
-    backdropRow && hasLadder(backdropRow.ladder)
-      ? {
-          avif: srcSetUpTo(backdropRow.ladder, 'avif', AUDIENCE_BACKDROP_MAX),
-          webp: srcSetUpTo(backdropRow.ladder, 'webp', AUDIENCE_BACKDROP_MAX),
-          fallback: fallbackSrcUpTo(backdropRow.ladder, AUDIENCE_BACKDROP_MAX),
-          thumbhash: backdropRow.thumbhash,
-        }
-      : undefined;
+  // The hero's fan takes the first three, and the rail asks for three more to
+  // compensate rather than showing the same photographs twice on one page.
+  // When the folder does not HAVE that many, the rail keeps its full eight and
+  // the overlap is accepted: a five-photograph rail is a worse outcome than a
+  // repeat, and this is precisely the case of a service whose folder is thin.
+  const wantsStack = service.hero?.graphic === 'stack';
+  const picks = await pickExamples(
+    service,
+    albumPool,
+    wantsStack ? RAIL_COUNT + HERO_STACK_COUNT : RAIL_COUNT,
+    cover,
+  );
+  const galleryPicks =
+    wantsStack && picks.length > RAIL_COUNT ? picks.slice(HERO_STACK_COUNT) : picks.slice(0, RAIL_COUNT);
+
+  const audienceBackdrop = ladderSources(
+    backdropPath ? photoRows[backdropPath] : undefined,
+    AUDIENCE_BACKDROP_MAX,
+  );
+  // Falls back to the cover when no ground is named — the cover is the one
+  // photograph every service is guaranteed to have.
+  const heroGround = ladderSources(
+    photoRows[groundPath ?? service.coverPath],
+    HERO_GROUND_MAX,
+  );
 
   // packageGroups wins where both exist; a flat list is wrapped in one unnamed
   // group so the render path below is the same either way.
@@ -231,6 +282,20 @@ export default async function ServicePage({
   const title = L(service.title);
   const tagline = L(service.tagline);
   const description = L(service.description);
+
+  // Down here rather than beside `picks` because the alt text needs the
+  // resolved title, and an alt that says "Graduation Photography" on a Russian
+  // page is the same bug as a heading that does.
+  //
+  // flatMap rather than map+filter: an empty array drops a photograph with no
+  // ladder row outright. A hole in a three-card fan is a visible gap in the
+  // composition, which a hole in an eight-card rail is not.
+  const heroFrames: HeroFrame[] = wantsStack
+    ? picks.slice(0, HERO_STACK_COUNT).flatMap((photo, i) => {
+        const sources = ladderSources(photo, HERO_FRAME_MAX);
+        return sources ? [{ ...sources, alt: `${title} — ${i + 1}` }] : [];
+      })
+    : [];
   const includes = service.includes.map(L);
   const howToPrepare = service.howToPrepare.map(L);
   const faqs: ResolvedFAQ[] = service.faqs.map((f) => ({
@@ -298,6 +363,30 @@ export default async function ServicePage({
     };
   }
 
+  // Built here rather than inline in the JSX because it is rendered through
+  // one of two wrappers depending on whether this service has an audience
+  // switch, and duplicating eight props across both arms of a ternary is how
+  // the two copies start to disagree.
+  const eventBlock = service.event ? (
+    <ServiceEventBlock
+      date={service.event.date || undefined}
+      label={L(service.event.label)}
+      venue={pickLocaleOpt(service.event.venue, locale)}
+      note={pickLocaleOpt(service.event.note, locale)}
+      capacity={service.event.capacity}
+      booked={service.event.booked}
+      accent={service.accentColor}
+      labels={{
+        daysToGo: s.eventDaysToGo,
+        today: s.eventToday,
+        passed: s.eventPassed,
+        dateTba: s.eventDateTba,
+        spotsLeft: s.eventSpotsLeft,
+        fullyBooked: s.eventFullyBooked,
+      }}
+    />
+  ) : null;
+
   // The FAQs are already written and on the page; the schema is the free
   // half. Without it, a page that answers "how much is a graduation photoshoot
   // in Tashkent" exactly is invisible to the result that asks it.
@@ -323,7 +412,18 @@ export default async function ServicePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
-      {service.hero ? (
+      {wantsStack ? (
+        // A place, the work, the title. See ServiceHeroStack.
+        <ServiceHeroStack
+          title={title}
+          tagline={tagline}
+          Icon={Icon}
+          eyebrow={<AudienceText base={heroEyebrow} alt={audience?.eyebrow} />}
+          accent={service.accentColor}
+          ground={heroGround}
+          frames={heroFrames}
+        />
+      ) : service.hero ? (
         // No photograph — see ServiceHero for why, and for when to drop it.
         <ServiceHero
           title={title}
@@ -416,56 +516,70 @@ export default async function ServicePage({
 
       <main className="relative z-10 px-4 sm:px-8 pt-8 pb-32">
 
-        <div className="mb-12 sm:mb-14 max-w-2xl space-y-5">
-          <p className="text-sm text-white/70 leading-relaxed">
-            <AudienceText base={description} alt={audience?.description} />
-          </p>
-
-          {/* Directly under the description, before the offers: it changes how
-              everything below reads, so it has to be answered before that,
-              and it is the first question a WIUT student would want asked. */}
-          {audience && (
-            <AudienceToggle
-              prompt={audience.prompt}
-              accent={service.accentColor}
-              backdrop={audienceBackdrop}
-            />
-          )}
-
-          {service.event && (
-            <ServiceEventBlock
-              date={service.event.date || undefined}
-              label={L(service.event.label)}
-              venue={pickLocaleOpt(service.event.venue, locale)}
-              note={pickLocaleOpt(service.event.note, locale)}
-              capacity={service.event.capacity}
-              booked={service.event.booked}
-              accent={service.accentColor}
-              labels={{
-                daysToGo: s.eventDaysToGo,
-                today: s.eventToday,
-                passed: s.eventPassed,
-                dateTba: s.eventDateTba,
-                spotsLeft: s.eventSpotsLeft,
-                fullyBooked: s.eventFullyBooked,
-              }}
-            />
-          )}
-        </div>
-
         {/* minmax(0,1fr), not 1fr: a grid track's automatic minimum is the
             min-content width of what's inside it, so one wide child (the photo
             rail) makes the first column refuse to shrink, pushes the 380px
             packages column past the right edge, and the page's overflow clip
             hides it entirely. minmax(0,…) plus min-w-0 lets the column shrink
-            and keeps the sidebar on screen. */}
-        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10 lg:items-start">
+            and keeps the sidebar on screen.
+
+            THREE grid items on desktop, not two. The intro used to sit above
+            this grid as a full-width block, which pushed the prices a whole
+            screen down the right-hand side: on a laptop you landed on the page
+            and the only thing in the right column was empty background. It is
+            now the first row of the left column, so the packages start level
+            with "Four years, one afternoon" — the offer and the reason to want
+            it, side by side, both above the fold.
+
+            Placement is explicit (col-start / row-start) rather than implicit
+            flow, because the reading order differs by layout: desktop is
+            two columns, phone is intro → prices → everything else, and `order`
+            on the flex fallback keeps that. Getting the prices in front of a
+            phone before the FAQ was the original decision and it survives. */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-10 lg:gap-y-0">
+
+          <div className="order-1 mb-12 min-w-0 max-w-2xl sm:mb-14 lg:col-start-1 lg:row-start-1">
+            <p className="text-sm text-white/70 leading-relaxed">
+              <AudienceText base={description} alt={audience?.description} />
+            </p>
+
+            {/* Directly under the description, before the offers: it changes how
+                everything below reads, so it has to be answered before that,
+                and it is the first question a WIUT student would want asked. */}
+            {audience && (
+              <div className="mt-5">
+                <AudienceToggle
+                  prompt={audience.prompt}
+                  accent={service.accentColor}
+                  backdrop={audienceBackdrop}
+                />
+              </div>
+            )}
+
+            {/* The ceremony is WIUT's, at a WIUT venue, on WIUT's schedule.
+                To everyone else it is a paragraph about a university they do
+                not attend sitting between them and the prices, so it waits
+                behind the switch — and the padding lives INSIDE the collapsing
+                wrapper, or a closed block would still hold a margin open and
+                leave a gap under the toggle with nothing in it.
+
+                A service with an event but no audience switch shows it
+                outright; nothing to gate it on. */}
+            {eventBlock &&
+              (audience ? (
+                <AudienceOnly>
+                  <div className="pt-4">{eventBlock}</div>
+                </AudienceOnly>
+              ) : (
+                <div className="mt-5">{eventBlock}</div>
+              ))}
+          </div>
 
           {/* 40px between sections read as one continuous wall of text on a
               phone. At 64 the headings do the work headings are for — you can
               see where one idea stops and the next starts while scrolling past
               at speed. */}
-          <div className="space-y-16 sm:space-y-20 min-w-0 order-2 lg:order-1">
+          <div className="space-y-16 sm:space-y-20 min-w-0 order-3 lg:col-start-1 lg:row-start-2">
 
             <section>
               <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.included}</h2>
@@ -587,7 +701,14 @@ export default async function ServicePage({
             </section>
           </div>
 
-          <div className="min-w-0 order-1 lg:order-2 mb-16 sm:mb-20 lg:mb-0 lg:mt-0">
+          {/* Spans both rows of the left column, and `self-stretch` overrides
+              the container's items-start for this one item. Without it the
+              grid item shrinks to its content — and a sticky element can only
+              travel inside its containing block, so the sidebar would pin for
+              its own height and then scroll away with the rest of the page.
+              items-start still applies to the other two, which is what keeps
+              the intro from stretching down the whole column. */}
+          <div className="min-w-0 order-2 mb-16 sm:mb-20 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:mb-0 lg:self-stretch">
             <div className="lg:sticky lg:top-6 space-y-4">
               {/* The notice lives HERE, not inline under the description. It
                   explains why the prices look the way they do, so it belongs

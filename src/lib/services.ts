@@ -304,17 +304,30 @@ export interface ServiceData {
    */
   keywords?: string[];
   /**
-   * Replaces the photo hero with a drawn one.
+   * Replaces the plain full-bleed cover photo with a composed hero.
    *
-   * For a service with no representative photographs yet — a stand-in frame of
-   * something else says "photography" and nothing about WHICH kind. Remove this
-   * once there is real work to lead with; `coverPath` is still used for the
-   * social preview image either way.
+   *   'mortarboard'  drawn only. For a service with no representative
+   *                  photographs yet — a stand-in frame of something else says
+   *                  "photography" and nothing about WHICH kind.
+   *   'stack'        a darkened ground photograph with real frames fanned over
+   *                  it, drawn from the same pool as the examples rail. Use it
+   *                  once the service's folder holds work worth leading with.
+   *
+   * `coverPath` is still the social preview image under either, and is the
+   * default ground for 'stack'.
    */
   hero?: {
-    graphic: 'mortarboard';
+    graphic: 'mortarboard' | 'stack';
     /** Overrides the category line. "GRADUATION · TASHKENT" beats "moments". */
     eyebrow?: Localized;
+    /**
+     * The ground photograph for 'stack'. Bunny STORAGE PATH. Defaults to
+     * `coverPath` — override when the frame that works as a 1200×630 social
+     * card is not the one that works pushed to near-black behind three others,
+     * which is most of the time: the social card wants a subject, this wants a
+     * place.
+     */
+    groundPath?: string;
   };
   includes: Localized[];
   howToPrepare: Localized[];
@@ -722,7 +735,16 @@ export const servicesData: ServiceData[] = [
     coverPath: 'WIUT/5Y2A4401.png',
     galleryCategory: 'WIUT',
     hero: {
-      graphic: 'mortarboard',
+      // The drawn cap stays, demoted to a watermark behind the photographs.
+      // Its own comment said to drop it the moment there was real work to lead
+      // with; this is that, one step early — the frames are portrait work
+      // rather than gown work, which is honest about what it is and still
+      // shows a person rather than a rhombus.
+      graphic: 'stack',
+      // The campus, not the cover. coverPath is chosen to survive being cropped
+      // to a social card; the ground is chosen to survive being taken to 55%
+      // opacity under two gradients, which is a different job.
+      groundPath: 'WIUT/5I9A3029.png',
       eyebrow: {
         en: 'Graduation · Tashkent',
         ru: 'Выпускной · Ташкент',

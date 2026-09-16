@@ -16,21 +16,7 @@
 // Every gradient stop is mixed from `accent`, so a second service adopting
 // this hero gets a coherent palette from its own colour with no new CSS.
 
-/** #1B4F9C → [27, 79, 156]. Returns null for anything not a 6-digit hex. */
-function parseHex(hex: string): [number, number, number] | null {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/** Mixes toward white (amount > 0) or black (amount < 0), as an rgba() string. */
-function shade(rgb: [number, number, number], amount: number, alpha = 1): string {
-  const t = amount >= 0 ? 255 : 0;
-  const k = Math.abs(amount);
-  const [r, g, b] = rgb.map((c) => Math.round(c + (t - c) * k)) as [number, number, number];
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+import { accentRgb, shade } from './accent';
 
 interface Props {
   title: string;
@@ -41,7 +27,7 @@ interface Props {
 }
 
 export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: Props) {
-  const rgb = parseHex(accent) ?? [27, 79, 156];
+  const rgb = accentRgb(accent);
 
   // Two layers: a glow anchored where the cap sits, over a diagonal wash.
   // Ends transparent rather than at black, so the page background shows
@@ -100,8 +86,11 @@ export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: P
  * passes through x=58; start it higher and the crown pokes out above the board
  * as two stray stubs. The tassel runs from the centre button along the board
  * and over the right corner, where a real one hangs from.
+ *
+ * Exported because the photographic hero uses it too, at a far lower contrast —
+ * there it is a watermark behind the frames rather than the subject.
  */
-function Mortarboard({
+export function Mortarboard({
   className,
   stroke,
   fill,

@@ -46,6 +46,43 @@ export function AudienceText({ base, alt }: { base: string; alt?: string }) {
 }
 
 /**
+ * Content that belongs to the selected audience only — the ceremony block, in
+ * practice. A WIUT ceremony at a named venue is either the most useful thing on
+ * the page or noise about someone else's university, and which one it is has an
+ * answer sitting directly above it.
+ *
+ * Collapsed, NOT unmounted, for three reasons. The children stay in the
+ * server-rendered HTML, so a crawler reading this page for "where is the WIUT
+ * graduation held" still finds the venue and the slots. The height animates —
+ * a block that appears instantly under the control you just pressed reads as
+ * the page jumping rather than as an answer. And the countdown inside keeps its
+ * mounted clock instead of restarting on every toggle.
+ *
+ * `grid-template-rows: 0fr → 1fr` is the only way to transition to a height the
+ * content decides; `height: auto` does not animate, and a fixed max-height is a
+ * guess that clips the moment the Russian copy runs one line longer. The inner
+ * element needs both `min-h-0` and `overflow-hidden` or the 0fr row refuses to
+ * shrink below its content.
+ *
+ * aria-hidden alone is enough here: ServiceEventBlock is text and icons with
+ * nothing focusable in it, so there is no tab stop to strand inside a collapsed
+ * box. Put anything clickable in here and this needs `inert` as well.
+ */
+export function AudienceOnly({ children }: { children: ReactNode }) {
+  const { on } = useAudience();
+
+  return (
+    <div
+      aria-hidden={!on}
+      className="grid transition-[grid-template-rows,opacity] duration-500 ease-out motion-reduce:transition-none"
+      style={{ gridTemplateRows: on ? '1fr' : '0fr', opacity: on ? 1 : 0 }}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+/**
  * A backdrop photograph, already resolved to plain strings by the page.
  *
  * The island stays ignorant of the ladder, the database and the locale — same
