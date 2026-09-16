@@ -287,12 +287,33 @@ export interface ServiceData {
    */
   coverPath: string;
   /**
-   * Where the example rail's photographs come from. Without it every service
-   * showed the same eight portfolio images.
+   * Where the example rail's photographs come from — "My best picks" at the
+   * bottom of the page. Without it every service showed the same eight
+   * portfolio images.
    *
-   * `galleryPaths` wins and keeps its order, for a page curated frame by frame.
-   * `galleryCategory` is the cheap version: one top-level Bunny folder. Neither
-   * set falls back to an even spread of the portfolio.
+   * THREE SOURCES, IN THIS ORDER:
+   *
+   *   1. `galleryPaths`     curated frame by frame, order preserved. This is
+   *                         the one to use. A path with no row is skipped
+   *                         rather than rendering a hole, so a typo costs one
+   *                         photograph, not the rail.
+   *   2. `galleryCategory`  one top-level Bunny folder, sampled evenly. What
+   *                         you get by default, and why the rail looks
+   *                         arbitrary: nothing chose those frames.
+   *   3. neither            an even spread of the whole portfolio. A service
+   *                         still on this has nothing of its own to show —
+   *                         it once put an espresso machine on the graduation
+   *                         page.
+   *
+   * On a service with `hero.graphic: 'stack'` the FIRST THREE also become the
+   * hero's fan, and the rail starts from the fourth. So the order here is the
+   * order of importance: best frame first.
+   *
+   * These are Bunny STORAGE PATHS, the same shape as `coverPath`. To see every
+   * path you have:
+   *
+   *     node --env-file=.env.local scripts/list-photos.mjs
+   *     node --env-file=.env.local scripts/list-photos.mjs --folder Portraits
    */
   galleryPaths?: string[];
   galleryCategory?: string;
@@ -350,6 +371,67 @@ export interface ServiceData {
   accentColor: string;
 }
 
+/**
+ * The standard ladder. Every service except graduation's ceremony-day pair
+ * sells the same three sessions at the same three prices.
+ *
+ *     1 hour     250 000 so'm    25-40 frames, next day
+ *     1.5 hours  400 000 so'm    40-60 frames, two days     <- recommended
+ *     2.5 hours  700 000 so'm    80-120 frames, three days
+ *
+ * ONE FUNCTION, NOT FIFTEEN COPIES. These prices move together by definition,
+ * and a price list duplicated fifteen times is a price list that will
+ * eventually disagree with itself. Change a number here and every service page
+ * changes with it.
+ *
+ * `id` is what makes a tier bookable AT THIS PRICE. Without one the booking
+ * form falls through SERVICE_TO_PACKAGE to the four generic session packages
+ * in packages.ts - which is how a page advertising 250 000 hands somebody a
+ * form quoting 800 000. Pass `bookable: false` only where that fallthrough is
+ * deliberate: a wedding is not a ninety-minute slot you click a button for.
+ *
+ * Ids are written into `bookings` rows, so never renumber one.
+ *
+ * To give one service prices of its own, replace the call with a literal
+ * array - the field takes either.
+ */
+function standardTiers(
+  slug: string,
+  opts: { bookable?: boolean; of?: PhotoCount['of'] } = {},
+): ServicePackage[] {
+  const { bookable = true, of } = opts;
+  // Spread rather than `id: undefined`: catalogForService() filters on
+  // `p.id` being truthy, and "not bookable" has to mean the key is absent
+  // rather than present and empty.
+  const id = (suffix: string) => (bookable ? { id: `${slug}-${suffix}` } : {});
+  const noun = of ? { of } : {};
+
+  return [
+    {
+      ...id('1h'),
+      durationMinutes: 60,
+      photos: { min: 25, max: 40, ...noun },
+      delivery: { days: 1 },
+      priceUzs: 250000,
+    },
+    {
+      ...id('90m'),
+      durationMinutes: 90,
+      photos: { min: 40, max: 60, ...noun },
+      delivery: { days: 2 },
+      priceUzs: 400000,
+      highlight: true,
+    },
+    {
+      ...id('150m'),
+      durationMinutes: 150,
+      photos: { min: 80, max: 120, ...noun },
+      delivery: { days: 3 },
+      priceUzs: 700000,
+    },
+  ];
+}
+
 export const servicesData: ServiceData[] = [
   // COMMERCIAL
   {
@@ -361,6 +443,10 @@ export const servicesData: ServiceData[] = [
       'Clean, intentional images that put your product front and center. Whether you need e-commerce flats, lifestyle context shots, or a full brand campaign, we build a visual story around what you sell.',
     iconName: 'Camera',
     coverPath: 'Random/espressomachine.jpg',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Random',
     includes: [
       'Full pre-shoot mood board & concept call',
@@ -373,11 +459,7 @@ export const servicesData: ServiceData[] = [
       'Have a rough idea of where the images will be used (Instagram, website, ads)',
       'Share any reference images or brand guidelines beforehand',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 15, max: 25 },   delivery: { days: 1 },  priceUzs: 150000 },
-      { durationMinutes: 180, photos: { min: 40, max: 60 },   delivery: { days: 2 }, priceUzs: 350000, highlight: true },
-      { durationMinutes: 360, photos: { min: 80, max: 120 },  delivery: { days: 3 }, priceUzs: 600000 },
-    ],
+    packages: standardTiers('brand-product'),
     faqs: [
       { question: 'Can I bring multiple products?', answer: 'Yes — up to 3 variations are included. Additional products can be added for a small fee.' },
       { question: 'Do you offer video too?', answer: 'Short Reels-style clips can be added to any package. Ask about pricing when booking.' },
@@ -394,6 +476,10 @@ export const servicesData: ServiceData[] = [
       'Professional portraits for LinkedIn profiles, company websites, speaker bios, and press kits. The focus is a confident, approachable image that represents you and your brand honestly.',
     iconName: 'User',
     coverPath: 'Portraits/Radmir/3M0A0675.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
       'Wardrobe and posing guidance before the shoot',
@@ -406,11 +492,7 @@ export const servicesData: ServiceData[] = [
       "Get a good night's sleep and stay hydrated the day before",
       'Avoid heavy patterns or logos that distract from your face',
     ],
-    packages: [
-      { durationMinutes: 30,  photos: { min: 5, max: 10, of: 'portraits' },  delivery: { days: 1 },  priceUzs: 80000 },
-      { durationMinutes: 60,  photos: { min: 15, max: 25, of: 'portraits' }, delivery: { days: 1 },  priceUzs: 140000, highlight: true },
-      { durationMinutes: 120, photos: { min: 30, max: 50, of: 'portraits' }, delivery: { days: 2 }, priceUzs: 240000 },
-    ],
+    packages: standardTiers('business-portraits', { of: 'portraits' }),
     faqs: [
       { question: 'Can I bring a colleague for a joint portrait?', answer: 'Absolutely. Group rates are available — mention this when booking.' },
       { question: 'Where is the shoot?', answer: 'My studio or an outdoor location in Tashkent — your choice.' },
@@ -427,6 +509,10 @@ export const servicesData: ServiceData[] = [
       'Batch content creation for Instagram, Telegram, TikTok, or whatever platform you publish on. We plan the shoot around your calendar, captions, and aesthetic so everything is ready to post.',
     iconName: 'CalendarDays',
     coverPath: 'Random/capp.jpg',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Random',
     includes: [
       'Content plan & shot list created together before the day',
@@ -439,11 +525,7 @@ export const servicesData: ServiceData[] = [
       'Bring props, packaging, or anything that tells your brand story',
       'Wear outfits that match your brand palette',
     ],
-    packages: [
-      { durationMinutes: 120, photos: { min: 20, max: 30 },   delivery: { days: 2 }, priceUzs: 200000 },
-      { durationMinutes: 240, photos: { min: 50, max: 70 },   delivery: { days: 3 }, priceUzs: 380000, highlight: true },
-      { durationMinutes: 480, photos: { min: 100, max: 140 }, delivery: { days: 5 }, priceUzs: 650000 },
-    ],
+    packages: standardTiers('social-media-content'),
     faqs: [
       { question: 'Can you help me with the content plan?', answer: 'Yes — a short planning call is included in every package.' },
       { question: 'Do you deliver vertical and horizontal versions?', answer: 'Yes, crops for Stories (9:16), Feed (1:1), and landscape (4:3) are all included.' },
@@ -462,6 +544,10 @@ export const servicesData: ServiceData[] = [
       'Documentary-style wedding coverage that captures real emotion — not just posed shots. From the morning getting-ready chaos to the last dance, I stay in the background and let the story unfold naturally.',
     iconName: 'Camera',
     coverPath: 'Portraits/Sara/3M0A1333.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Pre-wedding location scouting or engagement session',
       'Full-day coverage (up to 10 hours)',
@@ -473,11 +559,9 @@ export const servicesData: ServiceData[] = [
       'Create a short list of must-have shots (family groupings, details)',
       'Assign a point-of-contact on the day to help coordinate family shots',
     ],
-    packages: [
-      { durationMinutes: 240,  photos: { min: 100, max: 150 }, delivery: { days: 7 },  priceUzs: 500000 },
-      { durationMinutes: 480,  photos: { min: 250, max: 350 }, delivery: { days: 10 }, priceUzs: 900000, highlight: true },
-      { duration: { en: 'Full day', ru: 'Полный день', uz: 'To‘liq kun' }, durationMinutes: 600, photos: { min: 400 },    delivery: { days: 14 }, priceUzs: 1500000 },
-    ],
+    // SERVICE_TO_PACKAGE maps this to null: a wedding is quoted, not clicked.
+    // The ladder is what it costs; the CTA still goes to an enquiry.
+    packages: standardTiers('wedding-love-story', { bookable: false }),
     faqs: [
       { question: 'Do you travel outside Tashkent?', answer: 'Yes. Travel costs are added to the package — ask for a quote.' },
       { question: 'Can we add an engagement shoot?', answer: 'Yes, and I recommend it — it helps you relax in front of the camera before the big day.' },
@@ -494,6 +578,10 @@ export const servicesData: ServiceData[] = [
       'Relaxed, natural family portraits that capture who you actually are right now — not a stiff lineup. Kids welcome, chaos included.',
     iconName: 'Users',
     coverPath: 'Portraits/Radmir/3M0A0568.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Location consultation (park, home, studio)',
       'Gentle direction for natural, un-posed moments',
@@ -505,11 +593,7 @@ export const servicesData: ServiceData[] = [
       'Schedule the shoot around nap times for young children',
       'Bring a snack or small toy if you have toddlers',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 20, max: 30 },  delivery: { days: 2 }, priceUzs: 150000 },
-      { durationMinutes: 120, photos: { min: 40, max: 60 },  delivery: { days: 3 }, priceUzs: 260000, highlight: true },
-      { durationMinutes: 180, photos: { min: 70, max: 100 }, delivery: { days: 4 }, priceUzs: 380000 },
-    ],
+    packages: standardTiers('family-portraits'),
     faqs: [
       { question: 'How many people can you shoot?', answer: 'Any size — extended families, multiple generations, no limit.' },
       { question: "What if the kids won't cooperate?", answer: 'It happens. I build buffer time into every family session for exactly this.' },
@@ -526,6 +610,10 @@ export const servicesData: ServiceData[] = [
       'Conferences, product launches, team-building days, and corporate galas. I work fast, stay unobtrusive, and deliver images you can share within 24 hours.',
     iconName: 'CalendarDays',
     coverPath: 'WIUT/3M0A0363.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'WIUT',
     includes: [
       'Pre-event briefing to understand key moments',
@@ -538,11 +626,8 @@ export const servicesData: ServiceData[] = [
       'Identify 3–5 VIP faces I should prioritise',
       'Let me know any moments that are strictly off the record',
     ],
-    packages: [
-      { durationMinutes: 120,  photos: { min: 50, max: 80 },   delivery: { days: 1 },  priceUzs: 250000 },
-      { durationMinutes: 240,  photos: { min: 100, max: 150 }, delivery: { days: 2 }, priceUzs: 420000, highlight: true },
-      { duration: { en: 'Full day', ru: 'Полный день', uz: 'To‘liq kun' }, durationMinutes: 600, photos: { min: 200, max: 300 }, delivery: { days: 3 }, priceUzs: 750000 },
-    ],
+    // Same as the wedding: advertised at the standard ladder, booked by asking.
+    packages: standardTiers('events-corporate', { bookable: false }),
     faqs: [
       { question: 'Can you shoot in low-light venues?', answer: 'Yes — I use fast lenses and off-camera flash when needed.' },
       { question: 'Do you provide a photo booth?', answer: 'Not directly, but I can recommend a partner service.' },
@@ -559,6 +644,10 @@ export const servicesData: ServiceData[] = [
       'A personal portrait session built entirely around you. No special occasion needed — just great, honest photos of who you are right now.',
     iconName: 'User',
     coverPath: 'Portraits/Sara/3M0A1432.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
       'Location scouting or studio session',
@@ -571,11 +660,7 @@ export const servicesData: ServiceData[] = [
       'Hair and makeup can be arranged — ask when booking',
       'Think of a mood or vibe you want the photos to have',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 15, max: 25 }, delivery: { days: 2 }, priceUzs: 100000 },
-      { durationMinutes: 120, photos: { min: 30, max: 45 }, delivery: { days: 3 }, priceUzs: 180000, highlight: true },
-      { durationMinutes: 180, photos: { min: 50, max: 70 }, delivery: { days: 4 }, priceUzs: 260000 },
-    ],
+    packages: standardTiers('individual-portraits', { of: 'portraits' }),
     faqs: [
       { question: 'Do I need experience in front of a camera?', answer: 'Not at all — I will guide every pose.' },
       { question: 'Can we shoot in multiple locations?', answer: 'Yes — 2 spots within Tashkent are typical for longer sessions.' },
@@ -592,6 +677,10 @@ export const servicesData: ServiceData[] = [
       'Portrait sessions for couples, best friends, or a full friend group. Relaxed direction that captures real connection, not stiff lineup energy.',
     iconName: 'Users',
     coverPath: 'WIUT/5I9A3029.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Location scouting or studio session',
       'Posing guidance for pairs and groups',
@@ -603,11 +692,7 @@ export const servicesData: ServiceData[] = [
       'Let everyone know the rough timeline in advance',
       'A shared playlist or activity helps everyone relax on camera',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 20, max: 30 },  delivery: { days: 2 }, priceUzs: 130000 },
-      { durationMinutes: 120, photos: { min: 40, max: 60 },  delivery: { days: 3 }, priceUzs: 230000, highlight: true },
-      { durationMinutes: 180, photos: { min: 70, max: 100 }, delivery: { days: 4 }, priceUzs: 330000 },
-    ],
+    packages: standardTiers('pair-group'),
     faqs: [
       { question: 'How many people can you shoot?', answer: 'Any size — couples, small friend groups, no strict limit.' },
       { question: 'Can my friend join for a few shots only?', answer: 'Yes — friends can jump in for a few frames at no extra cost.' },
@@ -624,6 +709,10 @@ export const servicesData: ServiceData[] = [
       "A relaxed walk through Tashkent's most photogenic spots — Old City, Chorsu, Amir Timur Square, and more. Casual, spontaneous, and full of authentic city energy.",
     iconName: 'MapPin',
     coverPath: 'Nature/streetlights.jpg',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Nature',
     includes: [
       'Curated route through 3–5 Tashkent locations',
@@ -636,10 +725,7 @@ export const servicesData: ServiceData[] = [
       'Bring a bag for personal items',
       "Dress for the weather; layers if it's an evening walk",
     ],
-    packages: [
-      { durationMinutes: 90, photos: { min: 25, max: 35 }, delivery: { days: 2 }, priceUzs: 130000 },
-      { durationMinutes: 180,   photos: { min: 50, max: 80 }, delivery: { days: 3 }, priceUzs: 230000, highlight: true },
-    ],
+    packages: standardTiers('photowalk-tashkent'),
     faqs: [
       { question: 'What time of day works best?', answer: 'Golden hour (1–2 hours before sunset) is the most flattering light.' },
       { question: 'Can I bring friends?', answer: 'Yes — group photowalks are some of the most fun sessions.' },
@@ -656,6 +742,10 @@ export const servicesData: ServiceData[] = [
       'Gentle, warm sessions celebrating pregnancy and the first weeks of a new life. Shot with patience, softness, and an eye for the quiet moments that pass too fast.',
     iconName: 'Baby',
     coverPath: 'Portraits/Sara/3M0A1105.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Newborn sessions scheduled within 5–14 days after birth',
       'Warm, safe environment — studio temperature controlled',
@@ -667,11 +757,7 @@ export const servicesData: ServiceData[] = [
       'Bring a swaddle or blanket with sentimental value',
       'For maternity: schedule in the 28–34 week window for best results',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 20, max: 30 }, delivery: { days: 3 }, priceUzs: 160000 },
-      { durationMinutes: 120, photos: { min: 40, max: 60 }, delivery: { days: 4 }, priceUzs: 280000, highlight: true },
-      { durationMinutes: 180, photos: { min: 70, max: 90 }, delivery: { days: 5 }, priceUzs: 400000 },
-    ],
+    packages: standardTiers('newborn-maternity'),
     faqs: [
       { question: 'Is the studio safe for a newborn?', answer: 'Absolutely. I maintain a clean, temperature-controlled environment and have experience handling newborns.' },
       { question: 'Can we use props we bring?', answer: 'Yes — personal items like a toy, blanket, or heirloom add beautiful meaning to the images.' },
@@ -689,6 +775,10 @@ export const servicesData: ServiceData[] = [
       "Solo, duo, or a full friend group — shot in-studio or as a relaxed photowalk through Tashkent's best backdrops instead of a fixed location. One flexible service built around however you want to show up on camera.",
     iconName: 'User',
     coverPath: 'Portraits/Radmir/3M0A0772.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
       'Choice of studio session or on-location / photowalk format',
@@ -701,11 +791,7 @@ export const servicesData: ServiceData[] = [
       'For groups, coordinate (not match) colours across everyone',
       'Choosing the photowalk format? Wear comfortable shoes',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 20, max: 30 },  delivery: { days: 2 }, priceUzs: 130000 },
-      { durationMinutes: 120, photos: { min: 40, max: 60 },  delivery: { days: 3 }, priceUzs: 230000, highlight: true },
-      { durationMinutes: 180, photos: { min: 70, max: 100 }, delivery: { days: 4 }, priceUzs: 330000 },
-    ],
+    packages: standardTiers('portraits', { of: 'portraits' }),
     faqs: [
       { question: 'Studio or outdoors — which should I pick?', answer: 'Studio gives full lighting control; a photowalk through Tashkent adds movement and real backdrops. Tell me your vibe and I will recommend a spot.' },
       { question: 'How many people can join?', answer: 'Solo sessions to full friend groups — just let me know the headcount when booking so I can plan timing.' },
@@ -733,6 +819,10 @@ export const servicesData: ServiceData[] = [
     },
     iconName: 'GraduationCap',
     coverPath: 'WIUT/5Y2A4401.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'WIUT',
     hero: {
       // The drawn cap stays, demoted to a watermark behind the photographs.
@@ -1057,6 +1147,10 @@ export const servicesData: ServiceData[] = [
       'A focused portfolio shoot for models looking to build or refresh their book. Strong variety: editorial, commercial, and beauty shots that show range to agencies and clients.',
     iconName: 'Camera',
     coverPath: 'WIUT-Fashion-Show/3M0A1946.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'WIUT-Fashion-Show',
     includes: [
       'Pre-shoot concept meeting',
@@ -1069,11 +1163,7 @@ export const servicesData: ServiceData[] = [
       'Come with natural makeup — we can layer up from there',
       'Have your current comp card if you have one',
     ],
-    packages: [
-      { durationMinutes: 120, photos: { min: 20, max: 30 },  delivery: { days: 3 }, priceUzs: 200000 },
-      { durationMinutes: 240, photos: { min: 40, max: 60 },  delivery: { days: 4 }, priceUzs: 380000, highlight: true },
-      { durationMinutes: 360, photos: { min: 80, max: 100 }, delivery: { days: 5 }, priceUzs: 580000 },
-    ],
+    packages: standardTiers('models', { of: 'portraits' }),
     faqs: [
       { question: 'Do you work with beginner models?', answer: 'Yes. I work with models at all levels and provide full direction throughout.' },
       { question: 'Can a makeup artist be arranged?', answer: 'Yes — a hair and makeup artist can be added to any package.' },
@@ -1090,6 +1180,10 @@ export const servicesData: ServiceData[] = [
       "Editorial and street-style shoots for brands, designers, boutiques, or individuals with something to say through what they wear. Shot on location in Tashkent's most visually interesting districts.",
     iconName: 'Shirt',
     coverPath: 'WIUT-Fashion-Show/3M0A2669.png',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     galleryCategory: 'WIUT-Fashion-Show',
     includes: [
       "Location scouting in Tashkent's key visual districts",
@@ -1102,11 +1196,7 @@ export const servicesData: ServiceData[] = [
       'Think about the feeling the clothes should communicate',
       "If you're a brand, bring lookbook context (season, campaign direction)",
     ],
-    packages: [
-      { durationMinutes: 120, photos: { min: 30, max: 50 },   delivery: { days: 2 }, priceUzs: 220000 },
-      { durationMinutes: 240, photos: { min: 60, max: 100 },  delivery: { days: 3 }, priceUzs: 400000, highlight: true },
-      { durationMinutes: 480, photos: { min: 120, max: 180 }, delivery: { days: 5 }, priceUzs: 700000 },
-    ],
+    packages: standardTiers('fashion-streetstyle'),
     faqs: [
       { question: 'Do you work with brands or just individuals?', answer: 'Both — I have experience with brand lookbooks and personal style shoots.' },
       { question: 'Can you match a specific editorial reference?', answer: 'Yes. Share references beforehand and we will nail the aesthetic.' },
@@ -1123,6 +1213,10 @@ export const servicesData: ServiceData[] = [
       'Portraits and editorial shoots celebrating Uzbek national dress and cultural identity — chapan, atlas, ikat, surkh-kiyim. Shot with pride, with an eye for detail that honours the craftsmanship.',
     iconName: 'Globe',
     coverPath: 'Nature/fountainalayskiy.jpg',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Cultural context consultation — making sure the styling tells the right story',
       'Location options: Old City Tashkent, Chorsu, or studio',
@@ -1134,11 +1228,7 @@ export const servicesData: ServiceData[] = [
       'Jewellery and accessories make a huge difference — bring options',
       'Share any occasion context (Navruz, wedding, family portrait)',
     ],
-    packages: [
-      { durationMinutes: 60,  photos: { min: 20, max: 30 },  delivery: { days: 2 }, priceUzs: 140000 },
-      { durationMinutes: 120, photos: { min: 40, max: 60 },  delivery: { days: 3 }, priceUzs: 250000, highlight: true },
-      { durationMinutes: 180, photos: { min: 70, max: 100 }, delivery: { days: 4 }, priceUzs: 360000 },
-    ],
+    packages: standardTiers('uzb-national'),
     faqs: [
       { question: 'Can I bring multiple outfits?', answer: 'Yes — changing between looks is common and encouraged.' },
       { question: 'Do you shoot in Old City Tashkent?', answer: 'Yes — it is one of my favourite locations for this genre.' },
@@ -1155,6 +1245,10 @@ export const servicesData: ServiceData[] = [
       'Conceptual, experimental, and artistic shoots for people who have an idea they want to realise. Double exposures, dramatic lighting, set builds, and surreal concepts — bring your vision and we will make it work.',
     iconName: 'Wand2',
     coverPath: 'Nature/frozenbutnotreally.jpg',
+    // "My best picks", in this order. EMPTY = the page picks for you.
+    // Bunny storage paths, same shape as coverPath above.
+    //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
+    galleryPaths: [],
     includes: [
       'Full pre-shoot concept development session',
       'Prop and set styling support',
@@ -1166,11 +1260,7 @@ export const servicesData: ServiceData[] = [
       'Think about colour palette, mood, and the feeling the image should leave',
       'Be ready to experiment — creative shoots evolve in the moment',
     ],
-    packages: [
-      { durationMinutes: 120, photos: { min: 10, max: 20 }, delivery: { days: 4 }, priceUzs: 250000 },
-      { durationMinutes: 240, photos: { min: 20, max: 35 }, delivery: { days: 5 }, priceUzs: 450000, highlight: true },
-      { durationMinutes: 480, photos: { min: 40, max: 60 }, delivery: { days: 7 }, priceUzs: 800000 },
-    ],
+    packages: standardTiers('creative-photography'),
     faqs: [
       { question: "What if I don't know exactly what I want?", answer: 'That is fine — we can start with a mood and develop the concept together.' },
       { question: 'Can you source props?', answer: 'Basic props are included. Specialised items may have an additional cost.' },
