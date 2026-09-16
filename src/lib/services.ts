@@ -822,7 +822,11 @@ export const servicesData: ServiceData[] = [
     // "My best picks", in this order. EMPTY = the page picks for you.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
-    galleryPaths: [],
+    galleryPaths: [
+      'Portraits/9O6A2264.png',
+      'Portraits/Radmir/3M0A0549.png',
+      'Portraits/Diora/076A0398.png',
+    ],
     galleryCategory: 'WIUT',
     hero: {
       // The drawn cap stays, demoted to a watermark behind the photographs.
