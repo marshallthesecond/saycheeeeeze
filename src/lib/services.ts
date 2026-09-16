@@ -825,7 +825,7 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [
       'Portraits/ShirinGrad.png',
       'Portraits/RadmirGrad.png',
-      'Portraits/DioraGrad.png',
+      'Portraits/DiyoraGrad.png',
     ],
     galleryCategory: 'WIUT',
     hero: {
