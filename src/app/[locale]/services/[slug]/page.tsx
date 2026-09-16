@@ -29,7 +29,15 @@ import { isLocale, defaultLocale } from '@/src/lib/i18n/config';
 import { getPhotosByPaths, getPortfolioPhotos } from '@/src/lib/albums';
 import type { AlbumPhoto, PortfolioPhoto } from '@/src/lib/albums';
 import { bunnyUrl } from '@/src/lib/bunny-url';
-import { blurStyle, downloadSrc, fallbackSrc, hasLadder, srcSet } from '@/src/lib/ladder';
+import {
+  blurStyle,
+  downloadSrc,
+  fallbackSrc,
+  fallbackSrcUpTo,
+  hasLadder,
+  srcSet,
+  srcSetUpTo,
+} from '@/src/lib/ladder';
 import FAQList from './FAQList';
 import ServiceEventBlock from './ServiceEventBlock';
 import ServicePackages from './ServicePackages';
@@ -100,6 +108,17 @@ export async function generateMetadata({
 }
 
 const RAIL_COUNT = 8;
+
+/**
+ * The widest rung the audience band may load.
+ *
+ * That band is roughly 80px tall, the photograph inside it never rises above
+ * 0.9 opacity, and a gradient runs over the whole thing. 720 is the top of
+ * GRID_WIDTHS — "never displayed above ~720 CSS px" — which is exactly this
+ * band's case, and it keeps the file in the tens of kilobytes instead of
+ * letting a retina desktop pull the 2048 rung for decoration.
+ */
+const AUDIENCE_BACKDROP_MAX = 720;
 
 /**
  * The photographs shown under "Best picks", in order of preference:
@@ -175,9 +194,30 @@ export default async function ServicePage({
 
   // A storage path, so the hero goes through the same ladder as everything
   // else rather than being a 39 MB file in public/ resized on every cold
-  // request.
-  const cover = (await getPhotosByPaths([service.coverPath]))[service.coverPath];
+  // request. The audience band's backdrop rides along in the SAME query — two
+  // paths is one round trip, and a second getPhotosByPaths() would be a second
+  // cache entry for one extra row.
+  const backdropPath = service.audience?.backdropPath;
+  const photoRows = await getPhotosByPaths(
+    backdropPath ? [service.coverPath, backdropPath] : [service.coverPath],
+  );
+  const cover = photoRows[service.coverPath];
   const galleryPicks = await pickExamples(service, albumPool, cover);
+
+  // No ladder row means NO IMAGE, deliberately — not bunnyUrl(). The Optimizer
+  // is off on the pull zone, so the fallback would serve the untouched source,
+  // and these are PNGs in the tens of megabytes. An accent-only band is a fine
+  // outcome; a 30 MB download behind one line of text is not.
+  const backdropRow = backdropPath ? photoRows[backdropPath] : undefined;
+  const audienceBackdrop =
+    backdropRow && hasLadder(backdropRow.ladder)
+      ? {
+          avif: srcSetUpTo(backdropRow.ladder, 'avif', AUDIENCE_BACKDROP_MAX),
+          webp: srcSetUpTo(backdropRow.ladder, 'webp', AUDIENCE_BACKDROP_MAX),
+          fallback: fallbackSrcUpTo(backdropRow.ladder, AUDIENCE_BACKDROP_MAX),
+          thumbhash: backdropRow.thumbhash,
+        }
+      : undefined;
 
   // packageGroups wins where both exist; a flat list is wrapped in one unnamed
   // group so the render path below is the same either way.
@@ -252,7 +292,6 @@ export default async function ServicePage({
     }
     audience = {
       prompt: pickLocale(service.audience.prompt, locale),
-      hint: pickLocaleOpt(service.audience.hint, locale),
       eyebrow: pickLocaleOpt(service.audience.eyebrow, locale),
       description: pickLocaleOpt(service.audience.description, locale),
       groups,
@@ -388,8 +427,8 @@ export default async function ServicePage({
           {audience && (
             <AudienceToggle
               prompt={audience.prompt}
-              hint={audience.hint}
               accent={service.accentColor}
+              backdrop={audienceBackdrop}
             />
           )}
 
@@ -589,6 +628,8 @@ export default async function ServicePage({
                   perPersonShort: s.perPersonShort,
                   bookShort: s.bookShort,
                   telegramShort: s.telegramShort,
+                  privateGalleryTitle: s.privateGalleryTitle,
+                  privateGalleryBody: s.privateGalleryBody,
                 }}
               />
 

@@ -201,7 +201,9 @@
     "eventFullyBooked": "Мест нет — напишите, если появится отмена",
     "perPersonShort": "{suffix} с чел.",
     "sharedShort": "на {n} человек",
-    "close": "Закрыть"
+    "close": "Закрыть",
+    "privateGalleryTitle": "Личная галерея только для вас",
+    "privateGalleryBody": "В каждом пакете — ссылка под кодом доступа, только ваша, а не общая папка на диске."
   },
   "notFound": {
     "title": "Такой страницы нет",

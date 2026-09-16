@@ -6,6 +6,7 @@
 //   node --env-file=.env.local scripts/build-ladder.mjs --dry-run      # encode, upload nothing
 //   node --env-file=.env.local scripts/build-ladder.mjs --retry-failed --retry-stale --stale-after 1
 //   node --env-file=.env.local scripts/build-ladder.mjs --force --gallery Sara
+//   node --env-file=.env.local scripts/build-ladder.mjs --jobs 4         # N photos at once
 //   node --env-file=.env.local scripts/build-ladder.mjs --prune-legacy # orphans from an
 //                                       older path layout (--dry-run first)
 //
@@ -20,9 +21,10 @@
 // derivativePrefix() for why the root is keyed on gallery kind and why the
 // revision travels in the path.
 //
-// Safe to interrupt: Ctrl-C loses at most the photo in flight. Rows go 'ready'
-// only after every byte is uploaded, so a half-finished photo stays
-// 'processing' and --retry-stale requeues it. Paths carry the content hash and
+// Safe to interrupt: Ctrl-C loses at most the photos in flight — one normally,
+// --jobs N of them with N workers. Rows go 'ready' only after every byte is
+// uploaded, so a half-finished photo stays 'processing' and --retry-stale
+// requeues it. Paths carry the content hash and
 // the ladder revision, so a re-run can never serve a stale mix — anything that
 // changes the output changes the directory.
 //
@@ -31,8 +33,17 @@
 // link rather than your CPU. --read-ahead overlaps the next download with the
 // current encode; it is off by default because on a constrained uplink it
 // starves this photo's own uploads (see readAhead()).
+//
+// --jobs N is the bigger lever on a long-haul link. A single TCP stream from
+// Tashkent to Falkenstein never fills the pipe — the limit is the round trip,
+// not the bandwidth — so N photos in flight move roughly N×0.7 as many bytes
+// per second up to about 4. It is NOT free: every worker holds a decoded 24 MP
+// frame, and every worker's uploads compete with every other worker's
+// download, which is the same starvation --read-ahead warns about. See the
+// JOBS block below for what is scaled back to compensate.
 
 import { createHash } from "node:crypto";
+import { cpus } from "node:os";
 import process from "node:process";
 
 import sharp from "sharp";
@@ -76,6 +87,11 @@ const SHARE_JPEG = { quality: 82, mozjpeg: true, chromaSubsampling: "4:2:0" };
 // domestic connection; four parallel uploads do not go four times faster, they
 // just take sockets away from the download that is running at the same time.
 const UPLOAD_CONCURRENCY = Number(process.env.UPLOAD_CONCURRENCY ?? 2);
+
+// Whether that number came from the environment or from the line above. With
+// --jobs the default is divided between the workers; an explicit value is
+// taken as deliberate and left alone.
+const UPLOAD_CONCURRENCY_PINNED = process.env.UPLOAD_CONCURRENCY != null;
 
 // Two timeouts, because one whole-request deadline cannot serve both halves of
 // this job: a 300 KB upload taking 60 s is broken, a 38 MB download taking
@@ -132,6 +148,63 @@ const CHECK = has("check");
 const READ_AHEAD = has("read-ahead");
 const PRUNE = has("prune-legacy");
 const ADD_SHARE = has("add-share");
+
+// How many photographs are in flight at once. 1 keeps the original strictly
+// serial path, byte-for-byte — pool() with a limit of 1 is the same loop.
+const JOBS = (() => {
+  const raw = val("jobs");
+  // `--jobs` with nothing after it reads as absent, and silently running
+  // serially for nine hours when you asked for four workers is not a thing to
+  // discover at the end.
+  if (raw === null) {
+    if (has("jobs")) {
+      console.error("--jobs needs a number after it, e.g. --jobs 4.");
+      process.exit(1);
+    }
+    return 1;
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`--jobs must be a whole number of 1 or more (got "${raw}").`);
+    process.exit(1);
+  }
+  if (n > 8) {
+    console.error(
+      `--jobs ${n} is past the point where it helps. Beyond about 4 the ` +
+        `uploads start timing out against their own downloads and the run ` +
+        `gets slower AND less reliable. Capping at 8 if you insist; 3-4 is ` +
+        `the number.`,
+    );
+  }
+  return Math.min(n, 8);
+})();
+
+// Two implementations of one idea. --read-ahead keeps a single extra download
+// in flight; --jobs keeps N whole photos in flight, which already overlaps
+// downloads with encodes. Together they hold N+1 downloads open and starve the
+// uploads, so refuse rather than half-work.
+if (JOBS > 1 && READ_AHEAD) {
+  console.error(
+    "--read-ahead and --jobs do the same job and fight over the same uplink.\n" +
+      "Use one: --jobs 4 on a slow link, --read-ahead on a fast one.",
+  );
+  process.exit(1);
+}
+
+// Sockets are the scarce resource, not workers. Four workers each uploading
+// two files is eight concurrent PUTs competing with four concurrent GETs on a
+// domestic connection, which is exactly the UND_ERR_CONNECT_TIMEOUT that
+// readAhead() warns about. Divide the default rather than multiply the pain.
+const EFFECTIVE_UPLOADS = UPLOAD_CONCURRENCY_PINNED
+  ? UPLOAD_CONCURRENCY
+  : Math.max(1, Math.floor(UPLOAD_CONCURRENCY / JOBS));
+
+// libvips sizes its own thread pool to the core count, per operation. Leave it
+// alone and four concurrent photos ask for 4× the cores the machine has, which
+// costs more in context switching than it wins in parallelism. Share them out.
+if (JOBS > 1) {
+  sharp.concurrency(Math.max(1, Math.floor((cpus().length || 2) / JOBS)));
+}
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -455,6 +528,10 @@ function downloadProgress(total, expected) {
 }
 
 function clearProgress() {
+  // Nothing to clear when nothing was drawn: downloadProgress() is only wired
+  // up on the serial path, and four workers each blanking the shared line
+  // smears 60 spaces through everyone else's output.
+  if (JOBS > 1) return;
   process.stdout.write(`\r${" ".repeat(60)}\r`);
 }
 
@@ -564,7 +641,7 @@ async function processPhoto(photo, src) {
     type: "image/jpeg",
   });
 
-  await pool(uploads, UPLOAD_CONCURRENCY, (u) => upload(u.path, u.body, u.type));
+  await pool(uploads, EFFECTIVE_UPLOADS, (u) => upload(u.path, u.body, u.type));
 
   const totalOut = uploads.reduce((n, u) => n + u.body.length, 0);
 
@@ -872,26 +949,41 @@ async function main() {
     return;
   }
 
-  console.log(`${queue.length} photo(s) to build\n`);
+  console.log(
+    `${queue.length} photo(s) to build` +
+      (JOBS > 1
+        ? `, ${JOBS} at a time (uploads ${EFFECTIVE_UPLOADS} per worker)\n`
+        : `\n`),
+  );
 
   let ok = 0;
   let failed = 0;
   let bytesIn = 0;
   let bytesOut = 0;
+  let done = 0;
   const startedAll = Date.now();
 
-  // Kick off the first download before entering the loop; from then on each
-  // iteration starts the NEXT one before doing its own encoding.
-  let pending = readAhead(queue[0]);
+  // Serial path only: kick off the first download before the loop, and from
+  // then on each iteration starts the NEXT one before doing its own encoding.
+  // With --jobs the workers overlap each other and there is no slot to pass.
+  let pending = JOBS === 1 ? readAhead(queue[0]) : null;
 
-  for (const [i, photo] of queue.entries()) {
+  // Counters are read-modify-written without a lock, which is safe because
+  // this is one event loop: ++ and += never yield. Nothing here awaits between
+  // reading a counter and writing it back.
+  async function buildOne(photo, i) {
     const label = `${String(i + 1).padStart(3)}/${queue.length}  ${photo.storage_path}`;
     const started = Date.now();
 
-    // Without --read-ahead, `pending` is always null and the download happens
-    // inline, with a progress line so a slow big file does not look like a hang.
-    const incoming = pending ?? fetchOriginal(photo, true);
-    pending = readAhead(queue[i + 1]);
+    // Progress is a \r line rewriting itself in place, so it only makes sense
+    // with one writer. With --jobs the photos report as they finish instead.
+    let incoming;
+    if (JOBS === 1) {
+      incoming = pending ?? fetchOriginal(photo, true);
+      pending = readAhead(queue[i + 1]);
+    } else {
+      incoming = fetchOriginal(photo, false);
+    }
 
     if (!DRY_RUN) {
       // Not fatal if it fails — a row that never got claimed simply stays
@@ -933,22 +1025,27 @@ async function main() {
       bytesIn += r.srcBytes;
       bytesOut += r.totalOut;
       ok++;
+      done++;
 
       const secs = ((Date.now() - started) / 1000).toFixed(1);
+      const tail = JOBS > 1 ? `  [${done}/${queue.length} done]` : "";
       console.log(
         `${label}\n      ${r.width}×${r.height}  ${human(r.srcBytes)} → ` +
           `${r.fileCount} files, ${human(r.totalOut)}  ` +
-          `(share ${human(r.share_bytes)}, full ${human(r.delivery_bytes)})  ${secs}s`,
+          `(share ${human(r.share_bytes)}, full ${human(r.delivery_bytes)})  ${secs}s${tail}`,
       );
     } catch (err) {
       failed++;
+      done++;
       clearProgress();
       const message = sanitize(err instanceof Error ? err.message : String(err));
       console.error(`${label}\n      FAILED  ${message}`);
 
       if (!DRY_RUN) {
-        // attempts is incremented by reading first — there is one worker, so
-        // there is no race to lose here.
+        // attempts is incremented by reading first. pool() hands each row to
+        // exactly one worker, so even with --jobs there is no race to lose
+        // here — but two build-ladder PROCESSES against the same gallery would
+        // race, because claiming is a plain UPDATE and not a compare-and-swap.
         const { data: row } = await db
           .from("photos")
           .select("attempts")
@@ -976,6 +1073,9 @@ async function main() {
       }
     }
   }
+
+  // A limit of 1 makes this the original sequential loop, index for index.
+  await pool(queue, JOBS, buildOne);
 
   const mins = ((Date.now() - startedAll) / 1000 / 60).toFixed(1);
   console.log(

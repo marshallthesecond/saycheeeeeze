@@ -27,7 +27,7 @@
 // subtree keeps the rest of the page server-rendered.
 
 import { useEffect, useId, useState } from 'react';
-import { CalendarDays, Check, Send } from 'lucide-react';
+import { CalendarDays, Check, Lock, Send } from 'lucide-react';
 import Link from 'next/link';
 
 import type { ResolvedPackage, ResolvedPackageGroup } from '@/src/lib/services';
@@ -61,6 +61,13 @@ interface Props {
      */
     bookShort: string;
     telegramShort: string;
+    /**
+     * How the photographs actually arrive. Stated ONCE for the whole list
+     * rather than repeated as a perk inside every package — see the strip
+     * below for why.
+     */
+    privateGalleryTitle: string;
+    privateGalleryBody: string;
   };
 }
 
@@ -270,6 +277,38 @@ export default function ServicePackages({
               </div>
             );
           })}
+        </div>
+
+        {/* Delivery, stated once for the whole list.
+
+            It is true of every package, and a perk repeated in all five rows
+            stops being read as a benefit somewhere around the second one — it
+            becomes the line your eye skips to get to the price. It would also
+            cost five lines inside a list whose entire design goal was fitting
+            on one screen.
+
+            Between the prices and the buttons on purpose. "Where do the
+            photographs actually end up, and who else can see them?" is the last
+            question before booking, not the first: nobody wonders about
+            delivery until they have chosen a package. Sitting here it answers
+            that question in the half-second it exists.
+
+            It is also the one place this site is plainly better than the
+            alternative the visitor has in mind, which is a Telegram forward or
+            a link to someone's Drive folder. */}
+        <div
+          className="mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-3"
+          style={{ borderColor: `${accentColor}3d`, background: `${accentColor}14` }}
+        >
+          <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />
+          <span className="min-w-0">
+            <span className="block text-[12.5px] font-bold leading-tight text-white">
+              {labels.privateGalleryTitle}
+            </span>
+            <span className="mt-1 block text-[11.5px] leading-snug text-white/60">
+              {labels.privateGalleryBody}
+            </span>
+          </span>
         </div>
 
         {/* Side by side, and smaller. Two stacked full-width buttons read as one

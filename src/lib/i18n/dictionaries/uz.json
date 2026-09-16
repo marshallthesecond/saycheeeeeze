@@ -201,7 +201,9 @@
     "eventFullyBooked": "Joy qolmadi — bekor qilinsa, yozaman",
     "perPersonShort": "{suffix} har biriga",
     "sharedShort": "{n} kishiga",
-    "close": "Yopish"
+    "close": "Yopish",
+    "privateGalleryTitle": "Faqat sizniki bo‘lgan shaxsiy galereya",
+    "privateGalleryBody": "Har bir paketda — kirish kodi bilan himoyalangan havola, faqat sizniki, umumiy disk papkasi emas."
   },
   "notFound": {
     "title": "Bu sahifa mavjud emas",

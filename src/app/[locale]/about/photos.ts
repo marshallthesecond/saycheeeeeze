@@ -33,7 +33,6 @@ export type WorksCategory =
 /** The filterable works grid. */
 export const MY_WORKS: { path: string; cat: WorksCategory }[] = [
   { path: "WIUT/5I9A3020.png", cat: "WIUT" },
-  { path: "WIUT/5I9A3029.png", cat: "WIUT" },
 
   { path: "Portraits/Radmir/3M0A0607.png", cat: "Portrait" },
   { path: "Portraits/Radmir/3M0A0549.png", cat: "Portrait" },
@@ -42,6 +41,9 @@ export const MY_WORKS: { path: string; cat: WorksCategory }[] = [
 
   { path: "Portraits/Sara/3M0A1047.png", cat: "Portrait" },
   { path: "Portraits/Sara/3M0A1255.png", cat: "Portrait" },
+
+  { path: "WIUT/5I9A3029.png", cat: "WIUT" },
+
   { path: "Portraits/Sara/3M0A1333.png", cat: "Portrait" },
   { path: "Portraits/Sara/3M0A1432.png", cat: "Portrait" },
   { path: "Portraits/Sara/3M0A1105.png", cat: "Portrait" },

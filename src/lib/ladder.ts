@@ -142,6 +142,36 @@ export function fallbackSrc(l: LadderSources): string {
   return `${l.base}/${widest}.webp${l.query}`;
 }
 
+/**
+ * The rungs at or below `maxWidth`, for a photograph that is DECORATION rather
+ * than the subject — a band behind a line of text, a texture under a heading.
+ *
+ * srcSet() offers every rung up to 2048, and a retina desktop will happily pull
+ * the 2048 one for a strip 80px tall under an opaque gradient: bytes paid for
+ * and never seen. Capping at a grid rung keeps that surface in the tens of
+ * kilobytes.
+ *
+ * Never returns an empty srcset — a cap below the narrowest rung falls back to
+ * that rung, because "no srcset" means the browser uses the <img> src and the
+ * point of the cap is lost exactly when it matters most.
+ */
+function cappedWidths(l: LadderSources, maxWidth: number): number[] {
+  const within = l.widths.filter((w) => w <= maxWidth);
+  return within.length > 0 ? within : l.widths.slice(0, 1);
+}
+
+export function srcSetUpTo(l: LadderSources, ext: "avif" | "webp", maxWidth: number): string {
+  return cappedWidths(l, maxWidth)
+    .map((w) => `${l.base}/${w}.${ext}${l.query} ${w}w`)
+    .join(", ");
+}
+
+/** The <img> fallback for srcSetUpTo — the widest rung still under the cap. */
+export function fallbackSrcUpTo(l: LadderSources, maxWidth: number): string {
+  const widths = cappedWidths(l, maxWidth);
+  return `${l.base}/${widths[widths.length - 1]}.webp${l.query}`;
+}
+
 /** The delivery JPEG. Full resolution, q92 — the "full" download tier. */
 export function downloadSrc(l: LadderSources): string {
   return `${l.base}/download.jpg${l.query}`;

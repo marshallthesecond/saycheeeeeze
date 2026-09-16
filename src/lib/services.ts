@@ -212,8 +212,20 @@ export interface ServiceEvent {
 export interface ServiceAudience {
   /** The switch's label — a question, because the visitor answers it. */
   prompt: Localized;
-  /** Shown under the label once the switch is on, so the tap has a receipt. */
-  hint?: Localized;
+  /**
+   * Bunny STORAGE PATH for the photograph behind the switch — the place this
+   * audience recognises on sight. There is no explanatory line under the label
+   * any more: a band that visibly lights up when you tap it is the receipt, and
+   * a sentence telling you what just happened to a page you are looking at was
+   * reading homework for a control that had already answered itself.
+   *
+   * Resolved through the derivative ladder like every other photograph and
+   * CAPPED at the grid rungs — see AUDIENCE_BACKDROP_MAX in the page. A path
+   * with no ladder row renders no image at all rather than falling back to the
+   * original, which for these files is a multi-megabyte PNG sitting behind one
+   * line of text.
+   */
+  backdropPath?: string;
   eyebrow?: Localized;
   description?: Localized;
   /** Keyed by ServicePackageGroup.key. */
@@ -223,7 +235,6 @@ export interface ServiceAudience {
 /** The same, after pickLocale() has run. */
 export interface ResolvedAudience {
   prompt: string;
-  hint?: string;
   eyebrow?: string;
   description?: string;
   groups?: Record<string, { title?: string; blurb?: string }>;
@@ -757,16 +768,19 @@ export const servicesData: ServiceData[] = [
     },
 
     audience: {
+      // "Are you a WIUTerian?" — what the cohort calls itself, kept as a proper
+      // noun in all three languages rather than translated. "Студент WIUT?" is
+      // a category a form would put you in; WIUTerian is a thing people call
+      // themselves, and the point of this switch is that the visitor recognises
+      // themselves in it before they read anything else on the page.
       prompt: {
-        en: 'WIUT student?',
-        ru: 'Студент WIUT?',
-        uz: 'WIUT talabasimisiz?',
+        en: 'Are you a WIUTerian?',
+        ru: 'Вы WIUTerian?',
+        uz: 'Siz WIUTerianmisiz?',
       },
-      hint: {
-        en: 'Showing everything in WIUT terms — campus, gowns and the ceremony at Panorama.',
-        ru: 'Показываю всё применительно к WIUT — кампус, мантии и церемония в «Панораме».',
-        uz: 'Hammasini WIUT bo‘yicha ko‘rsatyapman — kampus, mantiya va «Panorama»dagi marosim.',
-      },
+      // The campus itself, behind the switch. A WIUT student identifies the
+      // building faster than they read the question above it.
+      backdropPath: 'WIUT/5I9A3029.png',
       eyebrow: {
         en: 'WIUT Graduation · Tashkent',
         ru: 'Выпускной WIUT · Ташкент',

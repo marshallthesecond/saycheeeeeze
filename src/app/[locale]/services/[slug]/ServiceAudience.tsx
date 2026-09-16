@@ -19,6 +19,8 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
+import { blurStyle } from '@/src/lib/ladder';
+
 interface AudienceState {
   on: boolean;
   setOn: (v: boolean) => void;
@@ -43,18 +45,63 @@ export function AudienceText({ base, alt }: { base: string; alt?: string }) {
   return <>{on && alt ? alt : base}</>;
 }
 
-/** The switch itself. A switch rather than a checkbox or link because it
- *  reads as a setting that changes what's on screen, which is what it is.
- *  One button, so the label is part of the tap target. */
+/**
+ * A backdrop photograph, already resolved to plain strings by the page.
+ *
+ * The island stays ignorant of the ladder, the database and the locale — same
+ * rule as every other client component here. Absent means "no ladder row for
+ * that path", and the band renders as accent alone rather than reaching for the
+ * original file.
+ */
+export interface AudienceBackdrop {
+  avif: string;
+  webp: string;
+  fallback: string;
+  thumbhash?: string;
+}
+
+/** The band spans the intro column: full width on a phone, 672px capped. */
+const BACKDROP_SIZES = '(max-width: 704px) 100vw, 672px';
+
+/** Lifted out of the JSX so the two layers below are visibly the same gradient
+ *  with different weights, rather than two long strings to diff by eye. */
+function offGradient(): string {
+  return `linear-gradient(96deg,
+    rgba(6,10,16,0.95) 0%,
+    rgba(6,10,16,0.88) 44%,
+    rgba(6,10,16,0.62) 74%,
+    rgba(6,10,16,0.46) 100%)`;
+}
+
+function onGradient(accent: string): string {
+  return `linear-gradient(96deg,
+    rgba(6,10,16,0.94) 0%,
+    rgba(6,10,16,0.80) 38%,
+    ${accent}8c 72%,
+    ${accent}52 100%)`;
+}
+
+/**
+ * The switch itself — a photograph of the place, the question, and the control.
+ *
+ * A switch rather than a checkbox or link because it reads as a setting that
+ * changes what's on screen, which is what it is. One button, so the whole band
+ * is the tap target.
+ *
+ * The campus behind it does two jobs at once, which is why it is worth the
+ * bytes: it identifies the audience faster than the sentence does, and it gives
+ * the switch a visible ON state — the photograph lifts out of the dark and the
+ * accent washes across it — so nothing has to be written underneath explaining
+ * that a tap worked.
+ */
 export function AudienceToggle({
   prompt,
   accent,
-  hint,
+  backdrop,
 }: {
   prompt: string;
   accent: string;
-  /** Shown once the switch is on, to confirm something actually happened. */
-  hint?: string;
+  backdrop?: AudienceBackdrop;
 }) {
   const { on, setOn } = useAudience();
 
@@ -63,29 +110,73 @@ export function AudienceToggle({
       type="button"
       onClick={() => setOn(!on)}
       aria-pressed={on}
-      className="flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition"
+      className="relative flex min-h-19 w-full items-center gap-4 overflow-hidden rounded-2xl border px-4 py-4 text-left transition active:scale-[0.995] sm:min-h-21 sm:px-5"
       style={{
         borderColor: on ? accent : 'rgba(255,255,255,0.12)',
-        background: on ? `${accent}1f` : 'rgba(255,255,255,0.03)',
+        background: 'rgba(255,255,255,0.03)',
       }}
     >
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-bold text-white">{prompt}</span>
-        {on && hint && (
-          <span className="mt-0.5 block text-[11px] leading-snug text-white/50">{hint}</span>
-        )}
-      </span>
+      {backdrop && (
+        // ThumbHash underneath, so the band is never an empty rectangle that
+        // fills in late — the placeholder is an inline data URL and costs a
+        // request of nothing.
+        <span aria-hidden className="absolute inset-0" style={blurStyle(backdrop.thumbhash)}>
+          <picture>
+            <source type="image/avif" sizes={BACKDROP_SIZES} srcSet={backdrop.avif} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={backdrop.fallback}
+              srcSet={backdrop.webp}
+              sizes={BACKDROP_SIZES}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover object-[center_38%] transition-[opacity,filter] duration-500 motion-reduce:transition-none"
+              style={{
+                opacity: on ? 0.9 : 0.5,
+                filter: on ? 'saturate(1.05)' : 'saturate(0.75)',
+              }}
+            />
+          </picture>
+        </span>
+      )}
 
-      {/* The track and knob are plain divs because a styled checkbox brings
-          more browser inconsistency than it saves; the button carries the
-          semantics via aria-pressed. */}
+      {/* Two gradients cross-faded on opacity rather than one whose stops
+          change. CSS cannot interpolate between two gradient IMAGES, so
+          transitioning `background` snaps from one to the other at whatever
+          frame the toggle lands on; stacked layers at opposite opacities is the
+          only version of this that actually animates. */}
       <span
         aria-hidden
-        className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
-        style={{ background: on ? accent : 'rgba(255,255,255,0.16)' }}
+        className="absolute inset-0 transition-opacity duration-500 motion-reduce:transition-none"
+        style={{ background: offGradient(), opacity: on ? 0 : 1 }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-0 transition-opacity duration-500 motion-reduce:transition-none"
+        style={{ background: onGradient(accent), opacity: on ? 1 : 0 }}
+      />
+
+      {/* The text sits on the 0.94-opaque end of both gradients, never on bare
+          photograph — a question in white over a daylit building is the kind of
+          thing that reads fine on the one frame you tested it against. */}
+      <span className="relative z-10 min-w-0 flex-1">
+        <span className="block text-[15px] font-bold leading-snug tracking-tight text-white sm:text-base">
+          {prompt}
+        </span>
+      </span>
+
+      {/* The track and knob are plain spans because a styled checkbox brings
+          more browser inconsistency than it saves; the button carries the
+          semantics via aria-pressed. The off-state track is brighter than it
+          was — 0.16 white vanished once there was a photograph behind it. */}
+      <span
+        aria-hidden
+        className="relative z-10 h-6 w-11 shrink-0 rounded-full shadow-sm transition-colors"
+        style={{ background: on ? accent : 'rgba(255,255,255,0.32)' }}
       >
         <span
-          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-200 ease-out motion-reduce:transition-none"
+          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-out motion-reduce:transition-none"
           style={{ transform: on ? 'translateX(20px)' : 'none' }}
         />
       </span>
