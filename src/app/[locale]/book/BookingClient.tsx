@@ -31,7 +31,12 @@ import {
   type SessionPackage, formatSom, peopleError, pick,
   pickList,
 } from "@/src/lib/packages";
-import { catalogForService, findCatalogItem, type CatalogItem } from "@/src/lib/booking-catalog";
+import {
+  catalogForService,
+  findCatalogItem,
+  genericCatalog,
+  type CatalogItem,
+} from "@/src/lib/booking-catalog";
 import { quoteBooking } from "@/src/lib/booking-price";
 import {
   BOOKING_LOCATIONS, EXTRA_LOCATION_FEE_UZS, INCLUDED_LOCATIONS, MAX_LOCATIONS,

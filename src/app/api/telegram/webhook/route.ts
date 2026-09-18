@@ -43,6 +43,7 @@ import {
   setBookingStatus,
 } from "@/src/lib/bookings";
 import { formatSom, pick } from "@/src/lib/packages";
+import type { Locale } from "@/src/lib/i18n/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -210,7 +211,13 @@ async function handleDecision(cq: CallbackQuery): Promise<void> {
   // Tell the client, if they ever pressed Start. Most will not have, which is
   // what the phone number on the booking is for.
   if (updated.telegramChatId) {
-    const money = formatSom(updated.priceUzs, updated.locale || "en");
+    // bookings.locale is a plain `string` in the row — the database will hand
+    // back whatever was written — so it has to be narrowed before formatSom,
+    // which takes a Locale. Same three-way check the booking route does on the
+    // way in; anything unrecognised prints English rather than throwing.
+    const lang: Locale =
+      updated.locale === "ru" || updated.locale === "uz" ? updated.locale : "en";
+    const money = formatSom(updated.priceUzs, lang);
     const name = pick(updated.packageName, "en");
     await call("sendMessage", {
       chat_id: updated.telegramChatId,
