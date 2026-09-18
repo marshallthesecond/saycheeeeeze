@@ -8,6 +8,7 @@
 import {
   allPackages,
   servicesData,
+  standardTiers,
   type DeliverySpec,
   type Localized,
   type PhotoCount,
@@ -66,6 +67,56 @@ function toItem(
 }
 
 /**
+ * The ladder for a visitor with no service in mind.
+ *
+ * /book reached from the navigation used to offer the four generic packages
+ * out of the `packages` table — 400k, 800k, 1.2M, 1.6M. After every service
+ * page moved to one ladder, those were four prices that existed nowhere else
+ * on the site, shown to exactly the visitor least equipped to notice. Someone
+ * arriving from a service page saw 250/400/700; someone arriving from the menu
+ * saw 800 000 for the same ninety minutes.
+ *
+ * Built by the SAME standardTiers() the fifteen services call, so it is not a
+ * copy that agrees today — it is the same three numbers.
+ *
+ * `session-*` ids are written into bookings rows, so they are permanent. The
+ * four DB packages are still PRICEABLE — quoteBooking falls through to them and
+ * the route still accepts their ids, so a bookmarked link or an old Telegram
+ * message keeps working — they are simply no longer OFFERED.
+ */
+const GENERIC_TITLE: Localized = {
+  en: "Photo session",
+  ru: "\u0424\u043e\u0442\u043e\u0441\u0435\u0441\u0441\u0438\u044f",
+  uz: "Fotosessiya",
+};
+
+let genericCache: CatalogItem[] | null = null;
+
+export function genericCatalog(): CatalogItem[] {
+  if (genericCache) return genericCache;
+  genericCache = standardTiers("session").map((pkg) => ({
+    id: pkg.id as string,
+    serviceSlug: "session",
+    serviceTitle: GENERIC_TITLE,
+    groupKey: null,
+    groupTitle: null,
+    duration: pkg.duration,
+    durationMinutes: pkg.durationMinutes,
+    photos: pkg.photos,
+    delivery: pkg.delivery,
+    priceUzs: pkg.priceUzs,
+    highlight: pkg.highlight ?? false,
+    perks: pkg.perks ?? [],
+    note: pkg.note ?? null,
+    // No suggested places: a visitor who has not picked a service has not told
+    // us anything about where the shoot happens, so the full list is right.
+    locationIds: [],
+    asksPeople: pkg.asksPeople ?? null,
+  }));
+  return genericCache;
+}
+
+/**
  * Every individually bookable tier, in display order. Empty when a service's
  * packages have no `id` — those are marketing tiers and still route through
  * SERVICE_TO_PACKAGE. Adding an id is what makes a tier bookable.
@@ -86,13 +137,18 @@ export function catalogForService(slug: string): CatalogItem[] {
     .map((p) => toItem(service, p, null, null, []));
 }
 
-/** One tier by id, across every service. */
+/**
+ * One tier by id, across every service and the generic ladder.
+ *
+ * The generic ids are checked LAST and by exact match, so a service that ever
+ * takes the slug "session" shadows nothing.
+ */
 export function findCatalogItem(id: string): CatalogItem | undefined {
   for (const service of servicesData) {
     const found = catalogForService(service.slug).find((i) => i.id === id);
     if (found) return found;
   }
-  return undefined;
+  return genericCatalog().find((i) => i.id === id);
 }
 
 /** Is this id something the catalogue can price? */

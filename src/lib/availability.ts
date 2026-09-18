@@ -31,8 +31,11 @@ export interface AvailabilityConfig {
   pendingHoldHours: number;
 }
 
-const OPEN_EARLY: DayHours = { open: "07:00", close: "18:00" };
-const OPEN_LATE: DayHours = { open: "07:00", close: "23:00" };
+// 09:00, not 07:00. Seven days a week is real — a Sunday graduation shoot is
+// normal here — but nobody was ever going to book a 7am start, and every one of
+// those two dead rows pushed the first real slot further down the list.
+const OPEN_EARLY: DayHours = { open: "09:00", close: "18:00" };
+const OPEN_LATE: DayHours = { open: "09:00", close: "23:00" };
 
 export const DEFAULT_AVAILABILITY: AvailabilityConfig = {
   weeklyHours: {
@@ -215,6 +218,9 @@ export interface StartTime {
 const NOON = 12 * 60;
 const EVENING = 16 * 60;
 
+/** A session ending after this is not golden hour, whatever the clock says. */
+const GOLDEN_LATEST_END = 19 * 60;
+
 /**
  * Legal start times for a package on a given day.
  *
@@ -253,11 +259,15 @@ export function getStartTimes(
     });
   }
 
-  // Best light is at either end of the day. Worth surfacing on a photography
-  // site — it is a reason to pick a slot, not decoration.
+  // Best light is at either end of the DAYLIGHT day, which is not the same as
+  // either end of the booking window. Thursday runs to 23:00, and the old
+  // version put a golden-hour sun on a 20:00 start — in Tashkent in November
+  // the sun is down by half five. A badge that is wrong on the one subject the
+  // client is trusting you about is worse than no badge.
   if (out.length > 0) {
     out[0].goldenHour = true;
-    out[out.length - 1].goldenHour = true;
+    const last = out[out.length - 1];
+    if (toMinutes(last.endsAt) <= GOLDEN_LATEST_END) last.goldenHour = true;
   }
   return out;
 }

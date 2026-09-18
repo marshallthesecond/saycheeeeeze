@@ -1,11 +1,21 @@
-// TRANSITIONAL — delete this file once /api/telegram/webhook is live.
+// THE BACKUP APPROVAL PATH. /api/telegram/webhook is the primary one.
 //
 //   GET /api/booking/status?ref=SC-7F3K2&action=confirm&token=…
 //
-// Token-in-URL approve links are exactly what the webhook replaces: the token
-// lands in browser history and in every logging hop between Telegram and the
-// server, and any prefetcher that opens one silently approves a booking. Kept
-// only so bookings can still be approved in the meantime.
+// This file used to say "TRANSITIONAL — delete once /api/telegram/webhook is
+// live", and the webhook was never built, so for months this was the ONLY way
+// to approve a booking — and nothing ever sent Marshall the URL. The Approve
+// button in Telegram was decoration.
+//
+// The webhook exists now and is what you should use. This stays because it
+// needs no bot, no registered webhook and no Telegram at all: if the token
+// rotates, the webhook registration lapses or Telegram is unreachable, a
+// booking can still be approved from a browser.
+//
+// It is a worse mechanism and always will be. A token in a URL lands in
+// browser history and in every logging hop it passes, and any prefetcher that
+// opens the link silently approves the booking — which is precisely why it is
+// the fallback and not the default. Do not paste these links into a chat.
 
 import { NextRequest, NextResponse } from "next/server";
 import { describeSlot } from "@/src/lib/availability";

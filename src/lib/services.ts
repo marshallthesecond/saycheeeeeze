@@ -394,8 +394,13 @@ export interface ServiceData {
  *
  * To give one service prices of its own, replace the call with a literal
  * array - the field takes either.
+ *
+ * Exported because booking-catalog.ts builds the generic ladder from it too —
+ * the one a visitor sees at /book having arrived from the navigation rather
+ * than a service page. Same function, so that ladder cannot drift from the
+ * fifteen it mirrors.
  */
-function standardTiers(
+export function standardTiers(
   slug: string,
   opts: { bookable?: boolean; of?: PhotoCount['of'] } = {},
 ): ServicePackage[] {

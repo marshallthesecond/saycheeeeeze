@@ -25,7 +25,7 @@ import {
   DEFAULT_AVAILABILITY,
 } from "@/src/lib/availability";
 import {
-  createBooking, listBlackoutDates, listTakenDays, rateLimited,
+  createBooking, expireStalePending, listBlackoutDates, listTakenDays, rateLimited,
 } from "@/src/lib/bookings";
 import { getBookablePackages } from "@/src/lib/packages.server";
 import { formatSom, peopleError, pick, type SessionPackage } from "@/src/lib/packages";
@@ -222,7 +222,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Timing rules
+  //
+  // The sweep runs BEFORE the ledger is read and before the insert, and that
+  // order is the whole point. A pending booking past its hold window still
+  // satisfies the partial unique index on (session_date), so without this a
+  // day abandoned by a stranger two weeks ago rejects a real booking with
+  // 23505 — and the client is told "that day was just taken" about a day
+  // nobody has.
   const now = nowInTashkent();
+  await expireStalePending(DEFAULT_AVAILABILITY.pendingHoldHours);
+
   const fromISO = toISODate(now);
   const [taken, blackouts] = await Promise.all([
     listTakenDays(fromISO),
@@ -380,12 +389,18 @@ async function notifyAdmin(n: AdminNotice): Promise<void> {
     return;
   }
 
-  const esc = (s: string) => s.replace(/[_*[\]()~`>#+=|{}.!-]/g, (c) => `\\${c}`);
+  // HTML, not MarkdownV2. MarkdownV2 reserves eighteen characters EVERYWHERE,
+  // including inside bold and italic, so one unescaped "." in a hard-coded line
+  // rejects the whole message with 400 — which is exactly what happened here.
+  // HTML reserves three, and they cannot appear in a formatting marker by
+  // accident.
+  const esc = (s: string) =>
+    s.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
 
   const lines = [
-    `📸 *New booking* · \`${esc(n.ref)}\``,
+    `📸 <b>New booking</b> · <code>${esc(n.ref)}</code>`,
     ``,
-    `*${esc(n.packageName)}* — ${esc(n.priceLabel)}`,
+    `<b>${esc(n.packageName)}</b> — ${esc(n.priceLabel)}`,
     `📅 ${esc(n.date)} · ${esc(n.slot)}`,
     `📍 ${esc(n.location)}`,
     n.people ? `👥 ${n.people} people` : null,
@@ -396,8 +411,12 @@ async function notifyAdmin(n: AdminNotice): Promise<void> {
     n.serviceSlug ? `🏷 wants: ${esc(n.serviceSlug)}` : null,
     n.notes ? `\n📝 ${esc(n.notes)}` : null,
     ``,
-    `_Held 48h, then the day reopens._`,
-  ].filter(Boolean).join("\n");
+    `<i>Held 48h, then the day reopens.</i>`,
+    // `!== null`, not `Boolean`. The four `` entries above are the blank lines
+    // that separate the booking from the client from the footer, and an empty
+    // string is falsy — filter(Boolean) deleted every one of them, so the
+    // message had no paragraph breaks at all.
+  ].filter((line) => line !== null).join("\n");
 
   const keyboard: { text: string; callback_data?: string; url?: string }[][] = [
     [
@@ -416,11 +435,20 @@ async function notifyAdmin(n: AdminNotice): Promise<void> {
     body: JSON.stringify({
       chat_id: chatId,
       text: lines,
-      parse_mode: "MarkdownV2",
+      parse_mode: "HTML",
       disable_web_page_preview: true,
       reply_markup: { inline_keyboard: keyboard },
     }),
   });
 
-  if (!res.ok) console.error("Telegram sendMessage failed:", await res.text());
+  // Loud on failure. This is fire-and-forget by design — the client must not
+  // wait on Telegram — so the log is the ONLY place a failure surfaces, and the
+  // booking still returns 201 either way. A silent 400 here is how the admin
+  // notification managed to be broken without anyone noticing.
+  if (!res.ok) {
+    console.error(
+      `Telegram sendMessage failed (${res.status}) for ${n.ref}:`,
+      await res.text(),
+    );
+  }
 }

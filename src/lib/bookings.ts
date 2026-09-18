@@ -219,17 +219,62 @@ export async function bindTelegramChat(
   }
 }
 
-export async function markSheetSynced(ref: string): Promise<void> {
+/**
+ * Releases the days held by pending bookings older than the hold window.
+ *
+ * `pendingHoldHours` has been in the config since the beginning and read by
+ * nothing, while the admin notification told Marshall "Held 48h, then the day
+ * reopens." It did not. And because the partial unique index counts
+ * status IN ('pending','confirmed'), a stale hold did not merely grey out a
+ * cell in the calendar — it made the INSERT for that date fail with 23505
+ * forever. Three abandoned submissions, which the daily rate limit permits from
+ * one address, killed three dates permanently with no UI to undo it.
+ *
+ * Flipping the status is what actually frees the day; filtering the calendar
+ * would have left the index blocking a date the client had just been shown as
+ * available, which is the worse of the two failures.
+ *
+ * Called from the booking POST before the insert and from the booking page as
+ * it renders, so it is self-healing without a scheduler: the moment anybody
+ * touches the booking flow, expired holds go. `decided_at` is left alone — no
+ * human decided this.
+ *
+ * Returns how many were released, for the log. Failure is swallowed: a sweep
+ * that cannot run must not stop a booking being taken.
+ */
+export async function expireStalePending(holdHours: number): Promise<number> {
+  const cutoff = new Date(Date.now() - holdHours * 3600_000).toISOString();
   try {
-    await supabaseAdmin().from("bookings").update({ synced_to_sheet: true }).eq("ref", ref);
-  } catch {
-    /* the cron sweep will retry */
+    const { data, error } = await supabaseAdmin()
+      .from("bookings")
+      .update({ status: "expired" })
+      .eq("status", "pending")
+      .lt("created_at", cutoff)
+      .select("ref");
+
+    if (error) {
+      console.error("expireStalePending:", error.message);
+      return 0;
+    }
+    const n = data?.length ?? 0;
+    if (n > 0) console.info(`[bookings] released ${n} expired hold(s)`);
+    return n;
+  } catch (e) {
+    console.error("expireStalePending:", String(e));
+    return 0;
   }
 }
 
 // Rate limiting
 
-const MAX_PER_DAY = 3;
+/**
+ * Per IP HASH, which on Uzbek mobile means per carrier NAT pool — Beeline and
+ * Ucell put thousands of subscribers behind a handful of addresses. At 3 this
+ * was capable of refusing a real client because two strangers on the same
+ * network had enquired that morning. 10 still stops a script and is a number no
+ * honest visitor reaches.
+ */
+const MAX_PER_DAY = 10;
 
 /**
  * Replaces the module-scope Map, which on serverless reset on every cold start
@@ -245,8 +290,13 @@ export async function rateLimited(ipHash: string): Promise<boolean> {
       .eq("ip_hash", ipHash)
       .gte("attempted_at", since);
 
-    await db.from("booking_attempts").insert({ ip_hash: ipHash });
-    return (count ?? 0) >= MAX_PER_DAY;
+    const over = (count ?? 0) >= MAX_PER_DAY;
+    // Only log attempts that were actually allowed through. Recording the
+    // refused ones inflates the count that refused them, which turns a rolling
+    // 24-hour window into a ban that extends itself every time the client
+    // retries.
+    if (!over) await db.from("booking_attempts").insert({ ip_hash: ipHash });
+    return over;
   } catch {
     // Fail open — a logging outage must not block a real customer.
     return false;

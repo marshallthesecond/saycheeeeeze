@@ -6,7 +6,7 @@
 
 import type { Metadata } from "next";
 import { DEFAULT_AVAILABILITY, toISODate, todayInTashkent } from "@/src/lib/availability";
-import { listBlackoutDates, listTakenDays } from "@/src/lib/bookings";
+import { expireStalePending, listBlackoutDates, listTakenDays } from "@/src/lib/bookings";
 import { getBookablePackages } from "@/src/lib/packages.server";
 import BookingClient from "./BookingClient";
 
@@ -27,6 +27,13 @@ export const revalidate = 60;
 
 export default async function BookingPage() {
   const fromISO = toISODate(todayInTashkent());
+
+  // Awaited, not fired and forgotten: the ledger read below has to happen
+  // after it, or the calendar greys out days this call just released. There is
+  // no cron — the booking flow sweeps itself, so a stale hold lives exactly
+  // until the next person looks at the page, and can never block a booking
+  // because the POST route sweeps again before inserting.
+  await expireStalePending(DEFAULT_AVAILABILITY.pendingHoldHours);
 
   const [packages, taken, blackouts] = await Promise.all([
     getBookablePackages(),

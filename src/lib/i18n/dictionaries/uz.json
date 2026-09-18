@@ -168,7 +168,8 @@
     "locationsIncluded": "{n} tagacha lokatsiya kiradi. Undan keyingi har biri {fee} qo‘shadi.",
     "locationsMax": "Bitta suratga olishga bundan ko‘pi sig‘maydi — almashtirish uchun bittasini olib tashlang.",
     "extraLocations": "Qo‘shimcha lokatsiya ×{n}",
-    "peopleFlatPrice": "Nechta odam kutishni bilishim uchun — narxga ta'sir qilmaydi."
+    "peopleFlatPrice": "Nechta odam kutishni bilishim uchun — narxga ta'sir qilmaydi.",
+    "basePrice": "Suratga olish narxi"
   },
   "cat": {
     "commercial": "Tijorat",

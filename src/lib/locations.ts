@@ -90,7 +90,16 @@ export function locationsCost(
   };
 }
 
-/** True when this location costs extra, so the UI can say so. */
+/**
+ * True when this location costs extra, so the UI can say so.
+ *
+ * Takes a location ID. The booking route also calls it on the free-text box to
+ * stop someone typing their way out of the studio fee, which catches the exact
+ * string "studio" and nothing else — not "Studio 21", not "студия". That is
+ * deliberate rather than thorough: nothing here charges a card, every booking
+ * is confirmed by hand, and the price is corrected then. Do not read the call
+ * site as a guarantee.
+ */
 export function hasSurcharge(locationId: string | null | undefined): boolean {
   const location = getLocation(locationId);
   return !!location && location.surchargePerHourUzs > 0;

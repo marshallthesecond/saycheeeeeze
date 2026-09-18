@@ -25,10 +25,10 @@ import {
 import StickyHeader from "@/src/components/common/StickyHeader";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import {
-  type AvailabilityConfig, type TakenDay, todayInTashkent,
+  type AvailabilityConfig, type TakenDay, earliestBookableDate, todayInTashkent,
 } from "@/src/lib/availability";
 import {
-  type SessionPackage, SERVICE_TO_PACKAGE, formatSom, peopleError, pick,
+  type SessionPackage, formatSom, peopleError, pick,
   pickList,
 } from "@/src/lib/packages";
 import { catalogForService, findCatalogItem, type CatalogItem } from "@/src/lib/booking-catalog";
@@ -95,22 +95,51 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   const slugParam = searchParams.get("service");
   const packageParam = searchParams.get("package");
 
-  // Order matters: an explicit `package` is the exact tier the client tapped
-  // and must beat the service-wide fallback, which only knows the broad
-  // category. Otherwise a 250 000 click arrives at a 400 000 form.
+  // An explicit `package` is the exact tier the client tapped and wins.
+  //
+  // The third arm used to be SERVICE_TO_PACKAGE[slug], which mapped a service
+  // to one of the four generic database packages. That was how a page showing
+  // 250 000 handed over a form quoting 800 000 — and, once every service grew
+  // its own tiers, how the picker came to render three options with NONE
+  // highlighted while the price bar quoted a fourth, invisible one. There is
+  // nothing to fall back to now: a service whose tiers we cannot name leaves
+  // the client on the generic ladder below, which is the same three prices its
+  // page just showed them.
   const presetPackage =
     (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
-    (packages.some((p) => p.id === packageParam) ? packageParam : null) ??
-    (slugParam ? SERVICE_TO_PACKAGE[slugParam] : null);
+    (packages.some((p) => p.id === packageParam) ? packageParam : null);
 
   // Every tier of the service they came from, so the form offers the same list
   // they were just reading rather than four generic ones.
-  const serviceCatalog = useMemo(
-    () => (slugParam ? catalogForService(slugParam) : []),
-    [slugParam]
-  );
+  /**
+   * The tiers to offer.
+   *
+   * The service's own where it has them, so the form shows the list the client
+   * was just reading. Otherwise the generic ladder — identical numbers, built
+   * by the same function — rather than the four generic database packages,
+   * whose prices exist nowhere else on the site.
+   */
+  const serviceCatalog = useMemo(() => {
+    const own = slugParam ? catalogForService(slugParam) : [];
+    return own.length > 0 ? own : genericCatalog();
+  }, [slugParam]);
 
   const today = useMemo(() => todayInTashkent(), []);
+
+  /**
+   * The month the calendar opens on — the first one with a bookable day in it,
+   * not necessarily this one.
+   *
+   * With leadTimeDays: 1, opening the form on the 31st put the client in front
+   * of a grid where every cell was greyed out and the back arrow was disabled,
+   * because the earliest bookable date was already in the next month. The page
+   * looked broken and the only way forward was a chevron nobody had a reason
+   * to press.
+   */
+  const firstOpenMonth = useMemo(
+    () => earliestBookableDate(availability, today),
+    [availability, today],
+  );
 
   // A campus session is on campus; a ceremony is at the venue. The package
   // answered this already, so it's preselected rather than asked again —
@@ -123,8 +152,8 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
     peopleCount: null,
     serviceSlug: slugParam,
     selectedISO: null,
-    month: today.getMonth(),
-    year: today.getFullYear(),
+    month: firstOpenMonth.getMonth(),
+    year: firstOpenMonth.getFullYear(),
     startTime: null,
     locationIds: presetLocation ? [presetLocation] : [],
     locationCustom: "",
@@ -310,7 +339,7 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
           setOpenStep(1);
           setState({
             packageId: null, peopleCount: null, serviceSlug: null,
-            selectedISO: null, month: today.getMonth(), year: today.getFullYear(),
+            selectedISO: null, month: firstOpenMonth.getMonth(), year: firstOpenMonth.getFullYear(),
             startTime: null, locationIds: [], locationCustom: "",
             name: "", telegram: "", phone: "", notes: "", consent: false,
           });
@@ -378,10 +407,10 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
             onToggle={() => setOpenStep(1)}
             summary={selected ? `${selected.name} · ${formatSom(quote?.totalUzs ?? 0, locale)}` : ""}
           >
-            {serviceCatalog.length > 0 ? (
-              // The tiers of the service they came from: same list, same
-              // prices, same order they were just reading. Falling back to the
-              // generic packages here makes a specific choice evaporate.
+            {
+              // Always the catalogue now. The PackagePicker branch that stood
+              // here rendered the four `packages` rows, and there is no longer
+              // a case where those are the right thing to show.
               <CatalogPicker
                 items={serviceCatalog}
                 selectedId={state.packageId}
@@ -406,15 +435,7 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
                   }
                 }}
               />
-            ) : (
-              <PackagePicker
-                packages={packages}
-                selectedId={state.packageId}
-                peopleCount={state.peopleCount}
-                onSelect={(id) => { set("packageId", id); set("peopleCount", null); }}
-                onPeople={(n) => set("peopleCount", n)}
-              />
-            )}
+            }
           </Step>
 
           {/* 2 ─ When */}
@@ -628,8 +649,12 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
                       made, not only in the section where it was chosen. */}
                   {(quote.locationSurchargeUzs > 0 || quote.extraLocationUzs > 0) && (
                     <>
+                      {/* Not t("book.session") — that label is already on the
+                          row above carrying the package NAME, and two rows
+                          reading "Session" with different values is a summary
+                          arguing with itself. */}
                       <SummaryRow
-                        label={t("book.session")}
+                        label={t("book.basePrice")}
                         value={formatSom(quote.basePriceUzs, locale)}
                       />
                       {quote.locationSurchargeUzs > 0 && (
@@ -753,115 +778,16 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
 
 // Package picker
 
-function PackagePicker({ packages, selectedId, peopleCount, onSelect, onPeople }: {
-  packages: SessionPackage[];
-  selectedId: string | null;
-  peopleCount: number | null;
-  onSelect: (id: string) => void;
-  onPeople: (n: number | null) => void;
-}) {
-  const { t, locale } = useT();
-  const selected = packages.find((p) => p.id === selectedId) ?? null;
-
-  return (
-    <div className="flex flex-col gap-3">
-      {packages.map((p) => {
-        const active = p.id === selectedId;
-        const images =
-          p.editedMin === p.editedMax
-            ? t("book.editedImages").replace("{n}", String(p.editedMin))
-            : t("book.editedRange")
-                .replace("{min}", String(p.editedMin))
-                .replace("{max}", String(p.editedMax));
-
-        return (
-          <button
-            key={p.id}
-            onClick={() => onSelect(p.id)}
-            aria-pressed={active}
-            className={`text-left rounded-2xl p-4 border transition active:scale-[0.99]
-              ${active
-                ? "border-accent-warm bg-accent-warm/10"
-                : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-base">{pick(p.name, locale)}</p>
-                <p className="text-xs text-white/45 mt-0.5">{pick(p.tagline, locale)}</p>
-              </div>
-              <p className="text-sm font-bold shrink-0">{formatSom(p.priceUzs, locale)}</p>
-            </div>
-
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-white/50">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" /> {pick(p.durationLabel, locale)}
-              </span>
-              <span>{images}</span>
-              <span>{t("book.deliveryIn").replace("{h}", String(p.deliveryHours))}</span>
-            </div>
-
-            {active && pickList(p.includes, locale).length > 0 && (
-              <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
-                {pickList(p.includes, locale).map((line) => (
-                  <li key={line} className="flex items-start gap-2 text-xs text-white/60">
-                    <Check className="w-3 h-3 text-accent-warm mt-0.5 shrink-0" />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </button>
-        );
-      })}
-
-      {/* Head count, only for packages that price on it. */}
-      {selected?.maxPeople != null && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
-          <p className="text-xs font-semibold flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-white/40" />
-            {t("book.peopleLabel")}
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {countOptions(selected.maxPeopleHard ?? selected.maxPeople).map((n) => (
-              <button
-                key={n}
-                onClick={() => onPeople(n)}
-                aria-pressed={peopleCount === n}
-                className={`h-10 min-w-11 px-3 rounded-lg text-xs font-medium transition active:scale-95
-                  ${peopleCount === n
-                    ? "bg-accent-warm text-accent-ink font-bold"
-                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.14] hover:text-white"}`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          {selected.extraPeopleBlock && selected.extraPeoplePriceUzs != null && (
-            <p className="text-[11px] text-white/35 mt-3 leading-relaxed">
-              {t("book.peopleHelp")
-                .replace("{included}", String(selected.maxPeople))
-                .replace("{price}", formatSom(selected.extraPeoplePriceUzs, locale))
-                .replace("{block}", String(selected.extraPeopleBlock))}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** 1…8 individually, then in fives — a 25-button row helps nobody. */
-function countOptions(max: number): number[] {
-  const out: number[] = [];
-  for (let n = 1; n <= Math.min(8, max); n++) out.push(n);
-  for (let n = 10; n <= max; n += 5) out.push(n);
-  return out;
-}
-
-// Catalogue picker. The service tiers rendered the way the service page
-// rendered them — price first in a fixed column so the numbers line up,
-// details under the selected one. Somebody who has just chosen a tier should
-// recognise this screen, not have to re-read it.
+/*
+ * PackagePicker and countOptions lived here.
+ *
+ * They rendered the four generic `packages` rows with a head-count stepper.
+ * Nothing reaches them any more: every path through step 1 shows the catalogue
+ * now, because after the site moved to one price ladder those four rows were
+ * the only place a visitor could be quoted a price that appears nowhere else.
+ * The four packages are still PRICEABLE by id so old links keep working — see
+ * booking-catalog.ts — they are simply never offered.
+ */
 
 function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
   items: CatalogItem[];
@@ -1302,11 +1228,28 @@ function BookingSkeleton() {
 
 // Helpers
 
+/**
+ * "marshall" / "@marshall" / "https://t.me/marshall" -> "@marshall".
+ *
+ * EMPTY IN, EMPTY OUT. The previous version rebuilt `"@" + body` on every
+ * keystroke, so a field the client had cleared came back as a lone "@" that
+ * could never be deleted. That was not cosmetic: "@" is truthy, so `hasContact`
+ * said a contact had been given; it fails TELEGRAM_RE, so `telegramOk` was
+ * false; and it is one character long, so the `length > 1` guard never marked
+ * the field invalid. The result was a Confirm button that greyed out with
+ * nothing on screen explaining why, recoverable only by reloading the page.
+ *
+ * The t.me prefix is stripped too — a client asked for their Telegram is at
+ * least as likely to paste their profile link as to type the handle.
+ */
 function normaliseTelegram(raw: string): string {
-  let v = raw;
-  if (v && !v.startsWith("@")) v = "@" + v;
-  v = "@" + v.slice(1).replace(/[^a-zA-Z0-9_]/g, "");
-  return v.length > 33 ? v.slice(0, 33) : v;
+  const body = raw
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:t(?:elegram)?\.me\/)/i, "")
+    .replace(/^@+/, "")
+    .replace(/[^a-zA-Z0-9_]/g, "");
+
+  return body === "" ? "" : `@${body}`.slice(0, 33);
 }
 
 function normalisePhone(raw: string): string {

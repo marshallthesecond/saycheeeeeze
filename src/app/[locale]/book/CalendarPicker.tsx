@@ -31,11 +31,30 @@ import {
 // One place for the palette, read from the design tokens — globals.css says
 // there is one accent.
 const STATUS_STYLE: Record<DayStatus, string> = {
-  open:    "hover:bg-white/12 active:bg-white/16 text-white/85",
+  // An available day now has a FILL. Before this it was the only state drawn
+  // with nothing at all — no background, just brighter text — so the calendar
+  // read as a grid of disabled cells with a few slightly-less-grey ones in it,
+  // and the thing the client came to find was the one thing not marked.
+  open:    "bg-white/12 hover:bg-white/20 active:bg-white/25 text-white/90",
   pending: "bg-white/[0.04] text-white/25 cursor-not-allowed",
   booked:  "bg-white/[0.04] text-white/25 cursor-not-allowed line-through",
   closed:  "opacity-20 cursor-not-allowed",
 };
+
+/**
+ * The legend's swatches, next to the cell styles they claim to explain.
+ *
+ * They did not match. The first swatch was `bg-accent-warm` under the label
+ * "Available", but accent is the SELECTED day — so a client comparing the key
+ * to the grid found no available days at all until they had already picked
+ * one, and the state actually painted in accent had no entry. Keeping the two
+ * maps adjacent is the only thing that stops them drifting again.
+ */
+const LEGEND_SWATCH = {
+  available: "bg-white/12",
+  taken: "bg-white/[0.05]",
+  closed: "ring-1 ring-white/12",
+} as const;
 
 interface CalendarProps {
   selectedISO: string | null;
@@ -155,9 +174,12 @@ export function CalendarPicker({
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 pt-3 border-t border-white/10 text-[10px] text-white/40">
-        <Legend className="bg-accent-warm" label={t("book.available")} />
-        <Legend className="bg-white/15" label={t("book.legendBooked")} />
-        <Legend className="bg-white/6" label={t("book.legendClosed")} />
+        <Legend className={LEGEND_SWATCH.available} label={t("book.available")} />
+        {/* One entry for pending and confirmed both: to a client they are the
+            same fact — that day is gone. Which of the two it is matters to
+            Marshall, not to them. */}
+        <Legend className={LEGEND_SWATCH.taken} label={t("book.legendBooked")} />
+        <Legend className={LEGEND_SWATCH.closed} label={t("book.legendClosed")} />
       </div>
     </div>
   );

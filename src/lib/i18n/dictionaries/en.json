@@ -168,7 +168,8 @@
     "locationsIncluded": "Up to {n} locations are included. Each one after that adds {fee}.",
     "locationsMax": "That is the most I can fit into one session — remove one to swap it.",
     "extraLocations": "Extra location ×{n}",
-    "peopleFlatPrice": "Just so I know how many to expect — the price is the same either way."
+    "peopleFlatPrice": "Just so I know how many to expect — the price is the same either way.",
+    "basePrice": "Session price"
   },
   "cat": {
     "commercial": "Commercial",
