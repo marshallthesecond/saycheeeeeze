@@ -320,7 +320,20 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
         }
         return;
       }
-      if (!res.ok) throw new Error(data?.error ?? "failed");
+      if (!res.ok) {
+        // The client gets one calm sentence, which is right. But the reason
+        // belonged nowhere at all — a 400 "bad package", a 429 rate limit and
+        // a 503 failed insert were indistinguishable from the browser, so the
+        // only way to tell them apart was reading the Vercel logs. Now the
+        // console says which it was, and scripts/probe-booking.mjs asks the
+        // same question from the terminal.
+        console.error(
+          `[booking] POST /api/booking -> ${res.status}`,
+          data?.error ?? "(no error code)",
+          data?.message ?? "",
+        );
+        throw new Error(data?.error ?? "failed");
+      }
 
       setDone({ ref: data.reference, botLink: data.botLink ?? null });
     } catch {

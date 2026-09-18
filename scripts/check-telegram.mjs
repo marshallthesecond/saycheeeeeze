@@ -118,13 +118,44 @@ if (!r.url) {
 } else {
   ok(`registered: ${r.url}`);
   if (r.pending_update_count) info(`pending updates: ${r.pending_update_count}`);
+  // Telegram keeps last_error_message FOREVER — it is not cleared by a later
+  // successful delivery. Reporting it as news sends you chasing a problem you
+  // already fixed, so probe the endpoint ourselves before saying anything.
+  //
+  // A Next route that exports only POST answers GET with 405. 404 means the
+  // file genuinely is not in the deployed build.
+  let live = null;
+  try {
+    const probe = await fetch(r.url, { method: "GET", signal: AbortSignal.timeout(15000) });
+    live = probe.status;
+  } catch {
+    live = null;
+  }
+  if (live === 405 || live === 200) {
+    ok(`endpoint is live (GET → ${live}, which is what a POST-only route answers)`);
+  } else if (live === 404) {
+    bad("endpoint returns 404 — the route is not in the deployed build.");
+  } else if (live === null) {
+    bad("endpoint unreachable from here.");
+  } else {
+    info(`endpoint answered GET with ${live}`);
+  }
+
   if (r.last_error_message) {
-    bad(`last delivery error: ${r.last_error_message}`);
+    const stale = live === 405 || live === 200;
+    (stale ? info : bad)(
+      `${stale ? "historic" : "last"} delivery error: ${r.last_error_message}`,
+    );
     info(`at ${new Date((r.last_error_date ?? 0) * 1000).toISOString()}`);
     // The status code says which of three very different problems it is, so
     // guessing at one of them is worse than useless.
     const err = String(r.last_error_message);
-    if (/404/.test(err)) {
+    if (stale) {
+      info("");
+      info("The endpoint answers now, so this is a record of a past failure and not");
+      info("a current one. Telegram never clears it; it will sit here until the next");
+      info("genuine failure overwrites it. Nothing to do.");
+    } else if (/404/.test(err)) {
       info("");
       info("404 = the route is not on the deployed site. The webhook is pointing at a");
       info("build that predates src/app/api/telegram/webhook/route.ts. Commit, push,");
@@ -142,6 +173,9 @@ if (!r.url) {
       info("");
       info(`Telegram is still holding ${r.pending_update_count} update(s) and will retry`);
       info("them once the endpoint answers, so nothing tapped so far is lost.");
+    } else if (!stale) {
+      info("");
+      info("No updates queued, so nothing is waiting to be retried.");
     }
   }
   if (SITE && !String(r.url).startsWith(SITE)) {
