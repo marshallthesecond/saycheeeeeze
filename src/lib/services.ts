@@ -318,6 +318,22 @@ export interface ServiceData {
   galleryPaths?: string[];
   galleryCategory?: string;
   /**
+   * What that rail is CALLED, per service. Default `'bestPicks'` — "My best
+   * picks" / "Лучшие работы" / "Eng yaxshi ishlarim".
+   *
+   * `'references'` retitles it "References" / "Референсы" / "Referenslar" and
+   * changes the line under it, because the two headings promise different
+   * things: "my best picks" is the photographer showing off, "references" is an
+   * invitation to point at one and say *that one*. Use it where the rail is
+   * there to be chosen FROM rather than admired — a page whose visitor is
+   * deciding what they want their own photographs to look like.
+   *
+   * Strings live in the dictionaries under `service.references` /
+   * `service.referencesSub`; this only picks which pair is read, so adding a
+   * third heading means a third dictionary pair and a third case here.
+   */
+  galleryHeading?: 'bestPicks' | 'references';
+  /**
    * Search terms specific to THIS service, in the languages the search happens
    * in. The root layout already carries the site-wide set; this is the page's
    * own. For graduation that means English, Russian and Uzbek — the student
@@ -833,6 +849,11 @@ export const servicesData: ServiceData[] = [
       'Portraits/DiyoraGrad.png',
     ],
     galleryCategory: 'WIUT',
+    // "References", not "My best picks" — a graduating student arrives knowing
+    // they want graduation photographs and not what they should look like, so
+    // the rail is a menu to choose from rather than a portfolio to admire.
+    // Graduation only; every other service keeps the default heading.
+    galleryHeading: 'references',
     hero: {
       // The drawn cap stays, demoted to a watermark behind the photographs.
       // Its own comment said to drop it the moment there was real work to lead

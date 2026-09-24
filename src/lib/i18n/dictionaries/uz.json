@@ -187,6 +187,8 @@
     "questions": "Savollar bormi? Telegramda yozing yoki qo'ng'iroq qiling.",
     "bestPicks": "Eng yaxshi ishlarim",
     "bestPicksSub": "Shu turdagi suratlardan bir nechtasi.",
+    "references": "Referenslar",
+    "referencesSub": "Yoqqanlarini ko‘rsating — shu yo‘nalishda suratga olamiz.",
     "session": "sessiya",
     "perPerson": "Har biriga {price}",
     "sharedBy": "Jami {total}, {n} kishiga bo‘linadi",

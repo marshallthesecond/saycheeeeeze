@@ -187,6 +187,8 @@
     "questions": "Have questions? DM on Telegram or call directly.",
     "bestPicks": "My best picks",
     "bestPicksSub": "A few favourite shots from this type of session.",
+    "references": "References",
+    "referencesSub": "Point at the ones you like and we'll shoot in that direction.",
     "session": "session",
     "perPerson": "{price} each",
     "sharedBy": "{total} total, shared by {n}",

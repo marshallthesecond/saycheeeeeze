@@ -259,6 +259,14 @@ export default async function ServicePage({
   const galleryPicks =
     wantsStack && picks.length > RAIL_COUNT ? picks.slice(HERO_STACK_COUNT) : picks.slice(0, RAIL_COUNT);
 
+  // What the rail is called. Per-service, because "my best picks" and
+  // "references" ask the reader to do different things with the same
+  // photographs — see `galleryHeading` in services.ts.
+  const railHeading =
+    service.galleryHeading === 'references'
+      ? { title: s.references, sub: s.referencesSub }
+      : { title: s.bestPicks, sub: s.bestPicksSub };
+
   const audienceBackdrop = ladderSources(
     backdropPath ? photoRows[backdropPath] : undefined,
     AUDIENCE_BACKDROP_MAX,
@@ -618,9 +626,9 @@ export default async function ServicePage({
             <section>
               <div className="flex items-end justify-between mb-5">
                 <div>
-                  <h2 className="text-2xl font-extrabold tracking-tight">{s.bestPicks}</h2>
+                  <h2 className="text-2xl font-extrabold tracking-tight">{railHeading.title}</h2>
                   <p className="text-sm text-white/40 mt-1">
-                    {s.bestPicksSub}
+                    {railHeading.sub}
                   </p>
                 </div>
               </div>
