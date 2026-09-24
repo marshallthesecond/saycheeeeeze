@@ -45,11 +45,17 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const gallery = new URL(req.url).searchParams.get("gallery");
+  const params = new URL(req.url).searchParams;
+
+  if (params.get("only") === "revalidate") {
+    revalidate([]);
+    return Response.json({ ok: true, revalidated: ["albums", "client-galleries"] });
+  }
+
+  const gallery = params.get("gallery");
 
   try {
-    // One gallery at a time: syncing everything can outrun the function
-    // timeout on a first run, when nothing has dimensions yet.
+    // One gallery at a time: syncing everything can outrun the function timeout on a first run
     const results =
       !gallery || gallery === "all"
         ? await syncAllGalleries()

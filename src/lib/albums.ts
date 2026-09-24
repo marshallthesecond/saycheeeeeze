@@ -13,7 +13,12 @@ import { unstable_cache } from "next/cache";
 
 import { bunnyUrl } from "./bunny-url";
 import type { PhotoMark } from "./photo-marks";
-import { getExcludeManifest, isPathExcluded } from "./bunny";
+import {
+  getExcludeManifest,
+  isAlbumHidden,
+  isPhotoExcluded,
+  type ExcludeManifest,
+} from "./bunny";
 import { supabaseRead, withRetry } from "./supabase";
 import {
   derivativePrefix,
@@ -205,6 +210,39 @@ function toAlbum(g: GalleryRow, photos: PhotoRow[], count?: number): AlbumData {
   };
 }
 
+// Curation
+//
+// portfolio-exclude.json is the one place that says what the public sees, and
+// it has to be applied on EVERY surface or it means nothing: hiding a tile
+// while /albums/that-slug still serves the photographs is not hiding it, and
+// dropping a photograph from the grid while its album page still shows it is
+// not dropping it. So every read below consults the manifest.
+//
+// See src/lib/bunny.ts — the manifest lives in the Bunny storage zone, not in
+// this repo, and scripts/portfolio-exclude.mjs is how it gets edited.
+
+type HasPath = { storage_path: string };
+
+/** Drop every photograph the manifest hides. */
+function curate<T extends HasPath>(rows: T[], manifest: ExcludeManifest): T[] {
+  return rows.filter((row) => !isPhotoExcluded(row.storage_path, manifest));
+}
+
+/**
+ * An album whose cover you just hid must not keep showing it on its tile.
+ * Falls back to the first surviving photograph, and to nothing when there is
+ * none — which only happens on an album that is about to be dropped anyway.
+ */
+function coverAfterCuration(
+  coverPath: string | null,
+  visible: HasPath[],
+  manifest: ExcludeManifest,
+): string | null {
+  if (!coverPath) return null;
+  if (!isPhotoExcluded(coverPath, manifest)) return coverPath;
+  return visible[0]?.storage_path ?? null;
+}
+
 // Reads
 //
 // Errors throw rather than returning empty. A build that silently produces a
@@ -216,24 +254,48 @@ async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
   // ILIKE treats % and _ as wildcards and slugs may contain _, so escape first.
   const pattern = slug.replace(/([%_\\])/g, "\\$1");
 
-  const { data, error } = await supabaseRead()
-    .from("galleries")
-    // Explicit column list rather than photos(*), because photos is readable
-    // by the anon role and photos(*) shipped the worker's operational columns —
-    // status, attempts, claimed_at and the error text — to every browser that
-    // opened an album page. One string literal: supabase-js parses this at the
-    // type level and its parser only understands literals.
-    .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes)")
-    .eq("kind", "album")  
-    .ilike("slug", pattern)
-    .limit(1)
-    .maybeSingle();
+  const [manifest, { data, error }] = await Promise.all([
+    getExcludeManifest(),
+    supabaseRead()
+      .from("galleries")
+      // Explicit column list rather than photos(*), because photos is readable
+      // by the anon role and photos(*) shipped the worker's operational columns —
+      // status, attempts, claimed_at and the error text — to every browser that
+      // opened an album page. One string literal: supabase-js parses this at the
+      // type level and its parser only understands literals.
+      .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes)")
+      .eq("kind", "album")
+      .ilike("slug", pattern)
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (error) throw new Error(`Supabase: failed to load album "${slug}": ${error.message}`);
   if (!data) return undefined;
 
   const { photos, ...gallery } = data;
-  return toAlbum(gallery, photos ?? []);
+
+  // A hidden album returns undefined, which the page turns into a 404. Anything
+  // less and the tile is off the Portfolio while the URL still works — and that
+  // URL is in the sitemap, in Google, and in whatever link you sent someone.
+  if (gallery.is_published === false) return undefined;
+  if (isAlbumHidden({ slug: gallery.slug, folder: gallery.bunny_folder }, manifest)) {
+    return undefined;
+  }
+
+  // Annotated, not inferred: `photos ?? []` widens enough that curate()'s type
+  // parameter falls back to its HasPath constraint and the result stops being
+  // assignable to toAlbum(). Saying PhotoRow here keeps every photo column.
+  const all: PhotoRow[] = photos ?? [];
+  const visible = curate(all, manifest);
+
+  // Every photograph excluded = there is no album left to look at. 404 rather
+  // than an empty page. Guarded on `all.length` so a genuinely photo-less
+  // hand-curated gallery behaves exactly as it did before.
+  if (all.length > 0 && visible.length === 0) return undefined;
+
+  gallery.cover_path = coverAfterCuration(gallery.cover_path, visible, manifest);
+  return toAlbum(gallery, visible);
 }
 
 /**
@@ -274,15 +336,24 @@ export const getAllAlbumSlugs = unstable_cache(
     // first hit and nothing worse. The page-level reads below still throw,
     // because a page that renders with no photographs IS worth failing on.
     try {
-      const { data, error } = await supabaseRead()
-        .from("galleries")
-        .select("slug")
-        .eq("kind", "album")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
+      const [manifest, { data, error }] = await Promise.all([
+        getExcludeManifest(),
+        supabaseRead()
+          .from("galleries")
+          .select("slug, bunny_folder, is_published")
+          .eq("kind", "album")
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: false }),
+      ]);
 
       if (error) throw new Error(error.message);
-      return (data ?? []).map((r) => r.slug);
+      // Hidden albums leave the sitemap and stop being prerendered. The route
+      // still exists and still 404s — this just stops us advertising it to
+      // Google and building a page we intend to refuse.
+      return (data ?? [])
+        .filter((r) => r.is_published !== false)
+        .filter((r) => !isAlbumHidden({ slug: r.slug, folder: r.bunny_folder }, manifest))
+        .map((r) => r.slug);
     } catch (e) {
       console.warn(
         `[albums] Could not prerender album slugs, falling back to on-demand rendering: ${
@@ -300,27 +371,51 @@ export const getAllAlbumSlugs = unstable_cache(
  * Replaces the exported `albumsData` array for card grids.
  *
  * Returns metadata only — `photos` is always [], but `photoCount` is real.
- * The card grids read cover/title/color/slug plus a photo count, so this asks
- * Postgres to COUNT the rows instead of shipping them. `photos(count)` is a
- * PostgREST aggregate on the embedded table; RLS still applies to it, so
- * unpublished galleries are not counted.
+ * The card grids read cover/title/color/slug plus a photo count.
+ *
+ * This used to ask for `photos(count)` and ship one integer per album. It now
+ * asks for `photos(storage_path)` instead, because a count Postgres computes
+ * cannot have the manifest applied to it: an album with nine hidden photographs
+ * advertised "24 photos" and showed 15. Paths are the cheapest thing that can
+ * be filtered — no dimensions, no ThumbHash, no ladder columns — and they also
+ * tell us when an album has nothing visible left, which is what makes
+ * `"Portraits/*"` remove the tile on its own.
+ *
+ * Caveat worth knowing: if an album ever exceeds PostgREST's row limit the
+ * embedded array truncates and the count goes low. At a few hundred photographs
+ * per album that is not close.
  */
 const loadAllAlbums = unstable_cache(
   async (): Promise<AlbumData[]> => {
-    const { data, error } = await supabaseRead()
-      .from("galleries")
-      .select("*, photos(count)")
-      .eq("kind", "album")
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false });
+    const [manifest, { data, error }] = await Promise.all([
+      getExcludeManifest(),
+      supabaseRead()
+        .from("galleries")
+        .select("*, photos(storage_path)")
+        .eq("kind", "album")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (error) throw new Error(`Supabase: failed to load albums: ${error.message}`);
 
-    return (data ?? []).map((row) => {
+    const out: AlbumData[] = [];
+    for (const row of data ?? []) {
       const { photos, ...gallery } = row;
-      const count = Array.isArray(photos) ? (photos[0]?.count ?? 0) : 0;
-      return toAlbum(gallery, [], count);
-    });
+
+      if (gallery.is_published === false) continue;
+      if (isAlbumHidden({ slug: gallery.slug, folder: gallery.bunny_folder }, manifest)) continue;
+
+      const all = Array.isArray(photos) ? photos : [];
+      const visible = curate(all, manifest);
+      // Nothing left to show → no tile. An album emptied by curation and an
+      // album whose folder you hid should look the same from out here.
+      if (all.length > 0 && visible.length === 0) continue;
+
+      gallery.cover_path = coverAfterCuration(gallery.cover_path, visible, manifest);
+      out.push(toAlbum(gallery, [], visible.length));
+    }
+    return out;
   },
   ["albums-all"],
   { revalidate: REVALIDATE_SECONDS, tags: ["albums"] },
@@ -392,9 +487,10 @@ const loadPortfolioPhotos = unstable_cache(
     for (const row of data ?? []) {
       const path = row.storage_path;
 
-      // Same rules the storage walk applied, now against a path we already have.
-      if (isPathExcluded(path, manifest.excludedFolders)) continue;
-      if (manifest.excludedFiles.includes(path)) continue;
+      // Same rules the storage walk applied, now against a path we already
+      // have — and the same single call every other surface makes, so a folder,
+      // a `Folder/*` and a single file behave identically everywhere.
+      if (isPhotoExcluded(path, manifest)) continue;
 
       // "Portraits/Sara/3M0A1432.png" → "Portraits". A file at the root has no
       // folder to be grouped under, which is what "Other" is for.
