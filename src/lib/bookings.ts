@@ -64,6 +64,33 @@ const PG_UNIQUE_VIOLATION = "23505";
  * server-side during render and hands the client the minimum it needs to grey
  * out cells.
  */
+/**
+ * Which start times on ONE date are already sold.
+ *
+ * For the fixed-slot events only. Every other product is one-a-day and asks
+ * listTakenDays() instead — a day is free or it is not, and no caller needs to
+ * know which hour of it went.
+ *
+ * Fails open for the same reason listTakenDays() does: the unique index on
+ * (session_date, start_time) is the real lock, so the cost of a Supabase blip
+ * is a 409 on submit rather than eight slots that cannot be booked at all.
+ */
+export async function listTakenSlots(dateISO: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("bookings")
+      .select("start_time")
+      .eq("session_date", dateISO)
+      .in("status", ["pending", "confirmed"]);
+
+    if (error || !data) return [];
+    // "15:00:00" from Postgres, "15:00" everywhere in the app.
+    return data.map((r) => String(r.start_time).slice(0, 5));
+  } catch {
+    return [];
+  }
+}
+
 export async function listTakenDays(fromISO: string): Promise<TakenDay[]> {
   try {
     const { data, error } = await supabaseAdmin()

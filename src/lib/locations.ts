@@ -12,18 +12,50 @@ export interface BookingLocation {
   id: string;
   /** Per hour, rounded up. Zero for anywhere outdoors or on a campus. */
   surchargePerHourUzs: number;
+  /**
+   * Quoted by hand, so the form shows no number and the total stays the
+   * package price. The client is told to ask rather than shown a figure that
+   * would be wrong.
+   *
+   * This is NOT "free". It is "we don't know yet" — different thing, and the
+   * dictionary line `book.loc.<id>.consult` is what says so.
+   */
+  consultFirst?: boolean;
+  /**
+   * Only offered when the chosen package names it, or when it is already
+   * selected. Keeps a venue that belongs to exactly one product out of
+   * everybody else's list — Panorama is the graduation ceremony's hall, and a
+   * portrait client had no business being offered it.
+   *
+   * Still priceable and still labelled, so historical bookings read correctly.
+   */
+  restricted?: boolean;
 }
 
-// TODO(marshall): 100 000/hr for the studio is a placeholder, not a real rate.
 export const BOOKING_LOCATIONS: BookingLocation[] = [
   { id: "wiut", surchargePerHourUzs: 0 },
-  // The WIUT ceremony is held here, not on campus.
-  { id: "panorama", surchargePerHourUzs: 0 },
-  { id: "studio", surchargePerHourUzs: 100_000 },
+  // The WIUT ceremony is held here, not on campus. Ceremony packages only.
+  { id: "panorama", surchargePerHourUzs: 0, restricted: true },
+  // The CCA mini-sessions happen here and nothing else does.
+  { id: "cca", surchargePerHourUzs: 0, restricted: true },
+  // Hire is arranged per studio and per hour and Marshall does not have one
+  // rate. The 100 000/hr that used to sit here was a placeholder being charged
+  // to real clients on the total line, which is worse than no number at all.
+  { id: "studio", surchargePerHourUzs: 0, consultFirst: true },
   { id: "botanical", surchargePerHourUzs: 0 },
   { id: "lokomotiv", surchargePerHourUzs: 0 },
   { id: "city", surchargePerHourUzs: 0 },
 ];
+
+/** Places a client may pick without being sent there by their package. */
+export function openLocations(): BookingLocation[] {
+  return BOOKING_LOCATIONS.filter((l) => !l.restricted);
+}
+
+/** Does this location need a word with the photographer before it has a price? */
+export function needsConsult(id: string | null | undefined): boolean {
+  return getLocation(id)?.consultFirst === true;
+}
 
 export function getLocation(id: string | null | undefined): BookingLocation | undefined {
   if (!id) return undefined;

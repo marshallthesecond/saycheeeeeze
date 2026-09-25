@@ -134,7 +134,8 @@
       },
       "studio": {
         "label": "Studio",
-        "sub": "Professional photo studio"
+        "sub": "Professional photo studio",
+        "consult": "Studio hire is arranged per studio — message me and we'll agree it before your booking is confirmed. Nothing is added to the total here."
       },
       "botanical": {
         "label": "Botanical Garden",
@@ -147,6 +148,10 @@
       "city": {
         "label": "Tashkent City",
         "sub": "Modern architecture"
+      },
+      "cca": {
+        "label": "CCA Tashkent",
+        "sub": "Centre for Contemporary Art"
       }
     },
     "telegramHint": "How I'll send you updates — recommended.",
@@ -169,7 +174,16 @@
     "locationsMax": "That is the most I can fit into one session — remove one to swap it.",
     "extraLocations": "Extra location ×{n}",
     "peopleFlatPrice": "Just so I know how many to expect — the price is the same either way.",
-    "basePrice": "Session price"
+    "basePrice": "Session price",
+    "wiuterian": "Are you a WIUTerian?",
+    "wiuterianHint": "WIUT students get the ceremony-day options too.",
+    "atCeremony": "During the ceremony?",
+    "atCeremonyHint": "Coverage on graduation day itself, at the ceremony hall.",
+    "ceremonyTimeNote": "The date is fixed. The university runs two blocks on the day and we'll agree your exact call time once your booking is confirmed — no need to guess now.",
+    "timeTbc": "time to be confirmed",
+    "eventDateLabel": "One day only",
+    "eventSlotsLeft": "{n} slots left",
+    "eventSoldOut": "Every slot has gone. Message me on Telegram and I'll tell you when the next one is."
   },
   "cat": {
     "commercial": "Commercial",

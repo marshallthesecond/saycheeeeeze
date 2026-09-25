@@ -5,6 +5,9 @@
 // services.ts rather than the database for the same reason — the cost is that
 // changing one needs a deploy.
 
+// One-off events. mini-sessions.ts takes only the CatalogItem TYPE back from
+// here, with `import type`, so this pair is not a runtime cycle.
+import { miniCatalog } from "./mini-sessions";
 import {
   allPackages,
   servicesData,
@@ -138,7 +141,13 @@ export function catalogForService(slug: string): CatalogItem[] {
 }
 
 /**
- * One tier by id, across every service and the generic ladder.
+ * One tier by id, across every service, the one-off events and the generic
+ * ladder.
+ *
+ * This is the function the API route prices a booking with, so anything the
+ * form can offer MUST be findable here or the booking is rejected with
+ * "package". That is why the mini-sessions are checked too: they have no
+ * service page and would otherwise be unpriceable.
  *
  * The generic ids are checked LAST and by exact match, so a service that ever
  * takes the slug "session" shadows nothing.
@@ -148,6 +157,8 @@ export function findCatalogItem(id: string): CatalogItem | undefined {
     const found = catalogForService(service.slug).find((i) => i.id === id);
     if (found) return found;
   }
+  const event = miniCatalog().find((i) => i.id === id);
+  if (event) return event;
   return genericCatalog().find((i) => i.id === id);
 }
 

@@ -25,8 +25,11 @@ import {
   DEFAULT_AVAILABILITY,
 } from "@/src/lib/availability";
 import {
-  createBooking, expireStalePending, listBlackoutDates, listTakenDays, rateLimited,
+  createBooking, expireStalePending, listBlackoutDates, listTakenDays,
+  listTakenSlots, rateLimited,
 } from "@/src/lib/bookings";
+import { isCeremonyPackage, reservedDatesFor } from "@/src/lib/booking-services";
+import { MINI_EVENT, isMiniPackage, miniSlotBookable } from "@/src/lib/mini-sessions";
 import { getBookablePackages } from "@/src/lib/packages.server";
 import { formatSom, peopleError, pick, type SessionPackage } from "@/src/lib/packages";
 import { quoteBooking } from "@/src/lib/booking-price";
@@ -196,14 +199,14 @@ export async function POST(req: NextRequest) {
     ? `${pickLocale(catalogItem.serviceTitle, "en")} — ${packageDuration(catalogItem, "en")}`
     : pick((pkg as SessionPackage).name, "en");
 
-  // A surcharged location typed into the free-text box rather than picked
-  // would dodge the fee, so the rule is that it has to be selected to count.
-  if (
-    locationIds.length === 0 &&
-    hasSurcharge(body.locationCustom?.trim().toLowerCase())
-  ) {
-    return NextResponse.json({ error: "location" }, { status: 400 });
-  }
+  // This used to reject "studio" typed into the free-text box, because typing
+  // it rather than picking it dodged the 100 000/hr surcharge. There is no
+  // surcharge any more — studio hire is quoted by hand and adds nothing to the
+  // total — so the rule now guards a fee that does not exist, and rejecting a
+  // real booking to protect it would be the more expensive mistake.
+  //
+  // hasSurcharge() stays in locations.ts and stays correct; this call site is
+  // what was wrong. Restore the check the day a venue charges again.
 
   // A price change while the form was open should be surfaced and
   // re-confirmed, not quietly charged.
@@ -238,18 +241,49 @@ export async function POST(req: NextRequest) {
     listBlackoutDates(fromISO),
   ]);
 
-  const check = canBook(
-    date,
-    body.startTime ?? "",
-    durationMinutes,
-    DEFAULT_AVAILABILITY,
-    toTakenMap(taken),
-    new Set(blackouts),
-    now
-  );
-  if (!check.ok) {
-    const status = check.code === "dayTaken" ? 409 : 400;
-    return NextResponse.json({ error: check.code, message: check.reason }, { status });
+  // Two gates, because there are two shapes of booking and the normal one
+  // cannot describe the other.
+  //
+  // canBook() derives everything from the weekday's opening hours and the
+  // package's duration: one session a day, starting on the hour, finishing
+  // before close. A mini-session is none of those — eight blocks 35 minutes
+  // apart on one Sunday, the last of them running past the hour the calendar
+  // thinks the day ends. Passing it through canBook() would reject the last
+  // two slots for "running past close", which is true and irrelevant.
+  if (isMiniPackage(body.packageId)) {
+    if (body.isoDate !== MINI_EVENT.dateISO) {
+      return NextResponse.json({ error: "dayClosed", message: "Wrong date for this event" }, { status: 400 });
+    }
+    // The pre-booked list plus the live ledger. Checked here and not only in
+    // the browser, because the browser's copy is as old as the page.
+    const booked = await listTakenSlots(MINI_EVENT.dateISO);
+    if (!miniSlotBookable(body.startTime ?? "", booked)) {
+      return NextResponse.json(
+        { error: "dayTaken", message: "That slot has gone" },
+        { status: 409 },
+      );
+    }
+    if (toISODate(date) < toISODate(now)) {
+      return NextResponse.json({ error: "inThePast", message: "That date has passed" }, { status: 400 });
+    }
+  } else {
+    // An event's date belongs to the event. Merged into the blackout set
+    // rather than checked separately, so there is one answer to "can this day
+    // be booked" and the calendar and the route reach it the same way.
+    const closed = new Set([...blackouts, ...reservedDatesFor(null)]);
+    const check = canBook(
+      date,
+      body.startTime ?? "",
+      durationMinutes,
+      DEFAULT_AVAILABILITY,
+      toTakenMap(taken),
+      closed,
+      now
+    );
+    if (!check.ok) {
+      const status = check.code === "dayTaken" ? 409 : 400;
+      return NextResponse.json({ error: check.code, message: check.reason }, { status });
+    }
   }
 
   // Write. The unique index is the lock.
@@ -331,7 +365,12 @@ export async function POST(req: NextRequest) {
     packageName: packageLabel,
     serviceSlug: body.serviceSlug ?? null,
     date: body.isoDate as string,
-    slot: describeSlot(body.startTime as string, durationMinutes),
+    // A ceremony booking's start_time is a placeholder — the university sets
+    // the hour and the client usually does not know it yet. Printing
+    // "11:00–13:00" would read as a fact Marshall could turn up on.
+    slot: isCeremonyPackage(body.packageId)
+      ? "ceremony day — time to be confirmed"
+      : describeSlot(body.startTime as string, durationMinutes),
     // Every place, joined. This notification is how Marshall finds out where
     // to turn up, so listing only the first would be misleading.
     location:

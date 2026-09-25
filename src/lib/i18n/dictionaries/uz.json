@@ -134,7 +134,8 @@
       },
       "studio": {
         "label": "Studiya",
-        "sub": "Professional fotostudiya"
+        "sub": "Professional fotostudiya",
+        "consult": "Studiya ijarasi alohida kelishiladi — menga yozing, buyurtma tasdiqlanishidan oldin kelishamiz. Bu yerda umumiy summaga hech narsa qo‘shilmaydi."
       },
       "botanical": {
         "label": "Botanika bog'i",
@@ -147,6 +148,10 @@
       "city": {
         "label": "Tashkent City",
         "sub": "Zamonaviy arxitektura"
+      },
+      "cca": {
+        "label": "CCA Toshkent",
+        "sub": "Zamonaviy san’at markazi"
       }
     },
     "telegramHint": "Yangiliklarni shu yerga yuboraman — tavsiya qilaman.",
@@ -169,7 +174,16 @@
     "locationsMax": "Bitta suratga olishga bundan ko‘pi sig‘maydi — almashtirish uchun bittasini olib tashlang.",
     "extraLocations": "Qo‘shimcha lokatsiya ×{n}",
     "peopleFlatPrice": "Nechta odam kutishni bilishim uchun — narxga ta'sir qilmaydi.",
-    "basePrice": "Suratga olish narxi"
+    "basePrice": "Suratga olish narxi",
+    "wiuterian": "Siz WIUTerianmisiz?",
+    "wiuterianHint": "WIUT talabalari uchun marosim kuni variantlari ham bor.",
+    "atCeremony": "Marosim vaqtidami?",
+    "atCeremonyHint": "Bitiruv kunining o‘zida, marosim zalida suratga olish.",
+    "ceremonyTimeNote": "Sana aniq. O‘sha kuni universitet ikki blok o‘tkazadi — aniq vaqtni buyurtma tasdiqlangach kelishamiz, hozir taxmin qilish shart emas.",
+    "timeTbc": "vaqt keyin aniqlanadi",
+    "eventDateLabel": "Faqat bir kun",
+    "eventSlotsLeft": "{n} ta slot qoldi",
+    "eventSoldOut": "Barcha slotlar band. Telegramda yozing — keyingisi qachonligini aytaman."
   },
   "cat": {
     "commercial": "Tijorat",

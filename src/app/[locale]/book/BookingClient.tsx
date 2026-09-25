@@ -16,7 +16,7 @@
 //     email address.
 //   • Colours come from the design tokens, never hardcoded.
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Check, ChevronDown, Clock, MapPin, MessageCircle, Phone, Send, User, Users,
@@ -25,34 +25,62 @@ import {
 import StickyHeader from "@/src/components/common/StickyHeader";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import {
-  type AvailabilityConfig, type TakenDay, earliestBookableDate, todayInTashkent,
+  type AvailabilityConfig, type TakenDay, earliestBookableDate, fromISODate,
+  toISODate, todayInTashkent,
 } from "@/src/lib/availability";
 import {
   type SessionPackage, formatSom, peopleError, pick,
   pickList,
 } from "@/src/lib/packages";
 import {
-  catalogForService,
   findCatalogItem,
-  genericCatalog,
   type CatalogItem,
 } from "@/src/lib/booking-catalog";
+import {
+  CEREMONY_DATE_ISO,
+  CEREMONY_PLACEHOLDER_START,
+  catalogForBooking,
+  isCeremonyPackage,
+  offeredServices,
+  reservedDatesFor,
+  type BookingServiceOption,
+} from "@/src/lib/booking-services";
+import { MINI_EVENT, isMiniPackage, miniSlotStates } from "@/src/lib/mini-sessions";
 import { quoteBooking } from "@/src/lib/booking-price";
 import {
   BOOKING_LOCATIONS, EXTRA_LOCATION_FEE_UZS, INCLUDED_LOCATIONS, MAX_LOCATIONS,
-  getLocation, locationSurchargeUzs,
+  getLocation, locationSurchargeUzs, needsConsult,
 } from "@/src/lib/locations";
 import { pickLocale } from "@/src/lib/services";
 import {
   formatDelivery, formatPhotoCount, packageDuration,
 } from "@/src/lib/service-format";
-import { CalendarPicker, StartTimePicker } from "./CalendarPicker";
+import { CalendarPicker, EventSlotPicker, StartTimePicker } from "./CalendarPicker";
 
 // Types
 
 type StepId = 1 | 2 | 3 | 4;
 
 interface BookingState {
+  /**
+   * WHAT IS BEING SHOT — the first question now, and the one that shapes every
+   * step below it. Previously the form opened on three durations, which is not
+   * a product but a dimension of one, and which step 2 then asked about again.
+   */
+  serviceId: string | null;
+  /**
+   * The graduation page's audience switch, repeated here. Off, a client is
+   * offered the campus tiers only; the ceremony is a WIUT event and there is
+   * nothing to sell a non-WIUT graduate on that date.
+   */
+  isWiuterian: boolean;
+  /**
+   * Ceremony day rather than a campus session. Changes the PRICE LIST, not
+   * only the date: the two are separate groups in services.ts at 500k/900k
+   * against 250/400/700, and pinning a campus tier to 22 October would be
+   * selling an hour on campus at the ceremony hall.
+   */
+  atCeremony: boolean;
   packageId: string | null;
   peopleCount: number | null;
   serviceSlug: string | null;
@@ -81,6 +109,8 @@ interface Props {
   packages: SessionPackage[];
   taken: TakenDay[];
   blackouts: string[];
+  /** Start times already sold on the fixed-slot event day. */
+  eventSlots: string[];
   availability: AvailabilityConfig;
 }
 
@@ -92,7 +122,7 @@ export default function BookingClient(props: Props) {
   );
 }
 
-function BookingInner({ packages, taken, blackouts, availability }: Props) {
+function BookingInner({ packages, taken, blackouts, eventSlots, availability }: Props) {
   const { t, locale } = useT();
   const searchParams = useSearchParams();
 
@@ -114,22 +144,34 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
     (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
     (packages.some((p) => p.id === packageParam) ? packageParam : null);
 
-  // Every tier of the service they came from, so the form offers the same list
-  // they were just reading rather than four generic ones.
-  /**
-   * The tiers to offer.
-   *
-   * The service's own where it has them, so the form shows the list the client
-   * was just reading. Otherwise the generic ladder — identical numbers, built
-   * by the same function — rather than the four generic database packages,
-   * whose prices exist nowhere else on the site.
-   */
-  const serviceCatalog = useMemo(() => {
-    const own = slugParam ? catalogForService(slugParam) : [];
-    return own.length > 0 ? own : genericCatalog();
-  }, [slugParam]);
-
   const today = useMemo(() => todayInTashkent(), []);
+  const todayISO = useMemo(() => toISODate(today), [today]);
+
+  /**
+   * The three things on offer, plus whatever service the client arrived from.
+   *
+   * A "Book this" button on any of the other fourteen service pages still
+   * works — that service is appended rather than the form losing the tier the
+   * client just tapped — while a visitor arriving cold sees three options
+   * instead of sixteen. The mini-session option removes itself the day after
+   * the event.
+   */
+  const options = useMemo(
+    () => offeredServices(todayISO, slugParam),
+    [todayISO, slugParam],
+  );
+
+  /**
+   * Which one they are booking.
+   *
+   * A `?package=` link is the strongest signal — it names a tier, and the tier
+   * knows its own service. Then `?service=`. Then nothing, and step 1 asks.
+   */
+  const presetService = useMemo(() => {
+    const fromPackage = packageParam ? findCatalogItem(packageParam)?.serviceSlug : null;
+    const candidate = fromPackage ?? slugParam;
+    return candidate && options.some((o) => o.id === candidate) ? candidate : null;
+  }, [packageParam, slugParam, options]);
 
   /**
    * The month the calendar opens on — the first one with a bookable day in it,
@@ -153,6 +195,11 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
     (presetPackage ? findCatalogItem(presetPackage)?.locationIds[0] : null) ?? null;
 
   const [state, setState] = useState<BookingState>({
+    serviceId: presetService,
+    // A ceremony link is by definition a WIUTerian one, so arriving on it with
+    // the switch off would show a price list the toggle above says is hidden.
+    isWiuterian: isCeremonyPackage(presetPackage),
+    atCeremony: isCeremonyPackage(presetPackage),
     packageId: presetPackage,
     peopleCount: null,
     serviceSlug: slugParam,
@@ -177,6 +224,41 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
 
   const set = <K extends keyof BookingState>(k: K, v: BookingState[K]) =>
     setState((prev) => ({ ...prev, [k]: v }));
+
+  // What this service is, once chosen
+  //
+  // Three shapes of booking now share one form, and everything below reads
+  // these rather than re-testing the service id:
+  //
+  //   normal     pick a day, pick an hour              portrait, campus grad
+  //   ceremony   one known date, no hour yet           graduation on the day
+  //   event      one known date, eight fixed blocks    mini-sessions at CCA
+
+  const isEvent = state.serviceId === MINI_EVENT.id;
+  const isGraduation = state.serviceId === "graduation";
+  const isCeremony = isGraduation && state.isWiuterian && state.atCeremony;
+
+  /** The tiers for step 1. Graduation forks on the ceremony switch. */
+  const offered = useMemo(
+    () => catalogForBooking(state.serviceId, { atCeremony: isCeremony }),
+    [state.serviceId, isCeremony],
+  );
+
+  /**
+   * Every date this booking may not land on.
+   *
+   * Merged into the blackout set the calendar and canBook() already take, so
+   * "27 September belongs to the mini-sessions" needs no new concept — it is
+   * the same mechanism as a day Marshall blacked out by hand. An event's own
+   * date is not in its own list.
+   */
+  const closedDates = useMemo(
+    () => [...blackouts, ...reservedDatesFor(state.serviceId)],
+    [blackouts, state.serviceId],
+  );
+
+  /** Which of the event's eight blocks are still free, live ledger included. */
+  const slotStates = useMemo(() => miniSlotStates(eventSlots), [eventSlots]);
 
   const pkg = useMemo(
     () => packages.find((p) => p.id === state.packageId) ?? null,
@@ -248,8 +330,11 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
     : pkg
       ? peopleError(pkg, state.peopleCount) === null
       : false;
-  const step1Done = !!selected && peopleOk;
-  const step2Done = !!(state.selectedISO && state.startTime);
+  const step1Done = !!state.serviceId && !!selected && peopleOk;
+  // A ceremony booking has a date and no hour — the university sets the hour,
+  // and until Marshall knows which of the two slots the client is in there is
+  // nothing honest to put on a button. Everything else still needs both.
+  const step2Done = !!state.selectedISO && (isCeremony || !!state.startTime);
   const step3Done = !!(state.locationIds.length > 0 || state.locationCustom.trim());
 
   const telegramOk = state.telegram === "" || TELEGRAM_RE.test(state.telegram);
@@ -274,6 +359,76 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
   // the working day.
   useEffect(() => { set("startTime", null); }, [state.packageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Changing the answer to "what are we shooting?" invalidates every answer
+  // below it — the tier, the date, and the place, which the old tier chose.
+  // Leaving any of them would let a client submit a portrait date against a
+  // mini-session package.
+  //
+  // The ref is not optional. React runs every effect after the first render
+  // too, and without it a `?package=grad-ceremony-2h` link would arrive with
+  // its tier chosen and have it wiped before the client saw it.
+  const serviceSettled = useRef(false);
+  useEffect(() => {
+    if (!serviceSettled.current) {
+      serviceSettled.current = true;
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      packageId: null,
+      peopleCount: null,
+      selectedISO: null,
+      startTime: null,
+      locationIds: [],
+      locationCustom: "",
+      atCeremony: prev.serviceId === "graduation" ? prev.atCeremony : false,
+      isWiuterian: prev.serviceId === "graduation" ? prev.isWiuterian : false,
+    }));
+  }, [state.serviceId]);
+
+  // A service with exactly one tier is not a choice. The mini-sessions have
+  // one price; making a client tap it to continue is a step that asks nothing.
+  useEffect(() => {
+    if (offered.length === 1 && state.packageId !== offered[0].id) {
+      set("packageId", offered[0].id);
+    }
+  }, [offered]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The event decides its own date and place.
+  useEffect(() => {
+    if (!isEvent) return;
+    setState((prev) => ({
+      ...prev,
+      selectedISO: MINI_EVENT.dateISO,
+      locationIds: [MINI_EVENT.locationId],
+      locationCustom: "",
+    }));
+  }, [isEvent]);
+
+  // Ceremony day is a date, not a choice. Pin it, move the calendar to the
+  // month it is in so the client can see WHICH date they have been given, and
+  // drop any hour picked before the switch went on. Turning the switch back
+  // off releases the date rather than leaving 22 October sitting there looking
+  // like the client's own choice.
+  useEffect(() => {
+    if (isCeremony) {
+      const d = fromISODate(CEREMONY_DATE_ISO);
+      setState((prev) => ({
+        ...prev,
+        selectedISO: CEREMONY_DATE_ISO,
+        startTime: null,
+        month: d ? d.getMonth() : prev.month,
+        year: d ? d.getFullYear() : prev.year,
+      }));
+      return;
+    }
+    setState((prev) =>
+      prev.selectedISO === CEREMONY_DATE_ISO
+        ? { ...prev, selectedISO: null, startTime: null }
+        : prev,
+    );
+  }, [isCeremony]);
+
   const handleSubmit = async () => {
     if (!canSubmit || !selected || !quote) return;
     setSubmitting(true);
@@ -285,9 +440,15 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
         body: JSON.stringify({
           packageId: selected.id,
           peopleCount: state.peopleCount,
-          serviceSlug: state.serviceSlug,
+          serviceSlug: state.serviceId ?? state.serviceSlug,
           isoDate: state.selectedISO,
-          startTime: state.startTime,
+          // A ceremony booking has no hour yet. The column is NOT NULL and a
+          // whole nullable-time model is more change than "for now" is worth,
+          // so the row records the ceremony's own published start and the
+          // route prints "time to be confirmed" instead of a range wherever
+          // Marshall reads it. Anything reading start_time on these rows must
+          // treat it as a placeholder, not a promise.
+          startTime: state.startTime ?? (isCeremony ? CEREMONY_PLACEHOLDER_START : null),
           locationIds: state.locationIds,
           // Keeps the existing bookings row shape: first place is the primary
           // one, the rest travel in locationIds and the route records them as
@@ -355,7 +516,9 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
         onReset={() => {
           setDone(null);
           setOpenStep(1);
+          serviceSettled.current = false;
           setState({
+            serviceId: null, isWiuterian: false, atCeremony: false,
             packageId: null, peopleCount: null, serviceSlug: null,
             selectedISO: null, month: firstOpenMonth.getMonth(), year: firstOpenMonth.getFullYear(),
             startTime: null, locationIds: [], locationCustom: "",
@@ -425,12 +588,38 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
             onToggle={() => setOpenStep(1)}
             summary={selected ? `${selected.name} · ${formatSom(quote?.totalUzs ?? 0, locale)}` : ""}
           >
-            {
-              // Always the catalogue now. The PackagePicker branch that stood
-              // here rendered the four `packages` rows, and there is no longer
-              // a case where those are the right thing to show.
+            <div className="flex flex-col gap-4">
+              <ServicePicker
+                options={options}
+                selectedId={state.serviceId}
+                onSelect={(id) => set("serviceId", id)}
+              />
+
+              {/* The graduation page's own switch, in the same position
+                  relative to the thing it changes: directly under the options,
+                  above the prices it decides. Off, the ceremony is not on
+                  offer at all — it is a WIUT event at a WIUT venue and there is
+                  nothing to sell a graduate of anywhere else on that date. */}
+              {isGraduation && (
+                <Switch
+                  label={t("book.wiuterian")}
+                  hint={t("book.wiuterianHint")}
+                  on={state.isWiuterian}
+                  onChange={(on) => {
+                    set("isWiuterian", on);
+                    if (!on) set("atCeremony", false);
+                  }}
+                />
+              )}
+
+              {/* One tier is not a choice — the event has a single price, and
+                  it is already selected. Show what it includes instead of a
+                  list of one. */}
+              {state.serviceId && offered.length === 1 && selected ? (
+                <SingleTier item={offered[0]} />
+              ) : state.serviceId ? (
               <CatalogPicker
-                items={serviceCatalog}
+                items={offered}
                 selectedId={state.packageId}
                 peopleCount={state.peopleCount}
                 onPeople={(count) => set("peopleCount", count)}
@@ -453,7 +642,8 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
                   }
                 }}
               />
-            }
+              ) : null}
+            </div>
           </Step>
 
           {/* 2 ─ When */}
@@ -465,37 +655,89 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
             onToggle={() => setOpenStep(2)}
             locked={!step1Done}
             summary={
-              state.selectedISO && state.startTime
-                ? `${formatISO(state.selectedISO, locale)} · ${state.startTime}`
+              state.selectedISO
+                ? `${formatISO(state.selectedISO, locale)}${
+                    state.startTime ? ` · ${state.startTime}` : isCeremony ? ` · ${t("book.timeTbc")}` : ""
+                  }`
                 : ""
             }
           >
             <div className="flex flex-col gap-5">
-              <CalendarPicker
-                selectedISO={state.selectedISO}
-                viewMonth={state.month}
-                viewYear={state.year}
-                onSelect={(iso) => { set("selectedISO", iso); set("startTime", null); }}
-                onViewChange={(m, y) => { set("month", m); set("year", y); }}
-                availability={availability}
-                taken={taken}
-                blackouts={blackouts}
-              />
-              <div>
-                <p className="text-[11px] text-white/40 mb-3 font-medium">
-                  {t("book.startTime")}
-                  {selected && (
-                    <span className="text-white/25"> · {selected.durationLabel}</span>
+              {/* The event owns its date, so there is no grid to show — just
+                  the day, stated, and the blocks that are left. */}
+              {isEvent ? (
+                <>
+                  <FixedDate
+                    iso={MINI_EVENT.dateISO}
+                    label={t("book.eventDateLabel")}
+                    locale={locale}
+                  />
+                  <div>
+                    <p className="text-[11px] text-white/40 mb-3 font-medium">
+                      {t("book.startTime")}
+                      {selected && (
+                        <span className="text-white/25"> · {selected.durationLabel}</span>
+                      )}
+                    </p>
+                    <EventSlotPicker
+                      slots={slotStates}
+                      startTime={state.startTime}
+                      onChange={(time) => set("startTime", time)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Above the calendar, because it decides what the calendar
+                      is for. Only a WIUTerian sees it. */}
+                  {isGraduation && state.isWiuterian && (
+                    <Switch
+                      label={t("book.atCeremony")}
+                      hint={t("book.atCeremonyHint")}
+                      on={state.atCeremony}
+                      onChange={(on) => set("atCeremony", on)}
+                    />
                   )}
-                </p>
-                <StartTimePicker
-                  selectedISO={state.selectedISO}
-                  durationMinutes={selected?.durationMinutes ?? 120}
-                  startTime={state.startTime}
-                  onChange={(time) => set("startTime", time)}
-                  availability={availability}
-                />
-              </div>
+
+                  <CalendarPicker
+                    selectedISO={state.selectedISO}
+                    viewMonth={state.month}
+                    viewYear={state.year}
+                    onSelect={(iso) => { set("selectedISO", iso); set("startTime", null); }}
+                    onViewChange={(m, y) => { set("month", m); set("year", y); }}
+                    availability={availability}
+                    taken={taken}
+                    blackouts={closedDates}
+                    locked={isCeremony}
+                  />
+
+                  {isCeremony ? (
+                    // No hour, on purpose. The university publishes two blocks
+                    // on the day and the client usually does not yet know which
+                    // one they are in, so offering a grid of start times would
+                    // be asking for a guess and then recording it as a fact.
+                    <p className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs leading-relaxed text-white/55">
+                      {t("book.ceremonyTimeNote")}
+                    </p>
+                  ) : (
+                    <div>
+                      <p className="text-[11px] text-white/40 mb-3 font-medium">
+                        {t("book.startTime")}
+                        {selected && (
+                          <span className="text-white/25"> · {selected.durationLabel}</span>
+                        )}
+                      </p>
+                      <StartTimePicker
+                        selectedISO={state.selectedISO}
+                        durationMinutes={selected?.durationMinutes ?? 120}
+                        startTime={state.startTime}
+                        onChange={(time) => set("startTime", time)}
+                        availability={availability}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </Step>
 
@@ -509,6 +751,16 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
             locked={!step2Done}
             summary={describeLocations(state.locationIds, state.locationCustom, t)}
           >
+            {isEvent ? (
+              // One venue, already set. A picker here would be a question with
+              // one answer that the client cannot change.
+              <div className="rounded-xl bg-white/6 px-4 py-4">
+                <p className="text-sm font-semibold">{t(`book.loc.${MINI_EVENT.locationId}.label`)}</p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  {t(`book.loc.${MINI_EVENT.locationId}.sub`)}
+                </p>
+              </div>
+            ) : (
             <LocationPicker
               locationIds={state.locationIds}
               suggested={catalogItem?.locationIds ?? []}
@@ -528,6 +780,7 @@ function BookingInner({ packages, taken, blackouts, availability }: Props) {
               }
               onCustom={(v) => set("locationCustom", v)}
             />
+            )}
           </Step>
 
           {/* 4 ─ Who */}
@@ -807,6 +1060,121 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
  * booking-catalog.ts — they are simply never offered.
  */
 
+/**
+ * Question one: what are we shooting?
+ *
+ * Two or four options, not sixteen. A photographer's list of services is a
+ * marketing surface; a booking form's first question is "which of the things
+ * you actually do do I want", and the answer set is small on purpose.
+ */
+function ServicePicker({ options, selectedId, onSelect }: {
+  options: BookingServiceOption[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const { locale } = useT();
+  return (
+    <div className="flex flex-col gap-2">
+      {options.map((o) => {
+        const active = o.id === selectedId;
+        return (
+          <button
+            key={o.id}
+            onClick={() => onSelect(o.id)}
+            aria-pressed={active}
+            className={`text-left rounded-2xl px-4 py-4 border transition active:scale-[0.99]
+              ${active
+                ? "border-accent-warm bg-accent-warm/10"
+                : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
+          >
+            <p className="font-semibold text-base">{pickLocale(o.title, locale)}</p>
+            <p className="text-xs text-white/45 mt-0.5">{pickLocale(o.blurb, locale)}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A labelled on/off switch.
+ *
+ * A checkbox would do the job and reads as paperwork. These two questions
+ * change what the form is — which prices, which dates — so they are given the
+ * weight of a control rather than a tick box.
+ */
+function Switch({ label, hint, on, onChange }: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`flex items-center justify-between gap-4 rounded-2xl px-4 py-3.5 border text-left transition active:scale-[0.99]
+        ${on ? "border-accent-warm bg-accent-warm/10" : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        {hint && <span className="block text-xs text-white/40 mt-0.5">{hint}</span>}
+      </span>
+      <span
+        aria-hidden
+        className={`relative w-11 h-6 rounded-full shrink-0 transition
+          ${on ? "bg-accent-warm" : "bg-white/15"}`}
+      >
+        <span
+          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all
+            ${on ? "left-[1.375rem]" : "left-0.5"}`}
+        />
+      </span>
+    </button>
+  );
+}
+
+/** A date that was decided for the client, shown rather than chosen. */
+function FixedDate({ iso, label, locale }: { iso: string; label: string; locale: string }) {
+  return (
+    <div className="rounded-2xl border border-accent-warm/40 bg-accent-warm/10 px-4 py-4">
+      <p className="text-[10px] uppercase tracking-widest text-white/45 font-semibold">{label}</p>
+      <p className="text-base font-bold mt-1">{formatISO(iso, locale)}</p>
+    </div>
+  );
+}
+
+/** The one-price case: what it includes, with nothing to choose. */
+function SingleTier({ item }: { item: CatalogItem }) {
+  const { locale } = useT();
+  return (
+    <div className="rounded-2xl border border-accent-warm bg-accent-warm/10 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-semibold text-base">{packageDuration(item, locale)}</p>
+        <p className="text-sm font-bold shrink-0 tabular-nums">
+          {formatSom(item.priceUzs, locale)}
+        </p>
+      </div>
+      <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
+        {[
+          formatPhotoCount(item.photos, locale),
+          formatDelivery(item.delivery, locale),
+          ...item.perks.map((x) => pickLocale(x, locale)),
+        ]
+          .filter(Boolean)
+          .map((line) => (
+            <li key={line} className="flex items-start gap-2 text-xs text-white/60">
+              <Check className="w-3 h-3 text-accent-warm mt-0.5 shrink-0" />
+              {line}
+            </li>
+          ))}
+      </ul>
+    </div>
+  );
+}
+
 function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
   items: CatalogItem[];
   selectedId: string | null;
@@ -943,10 +1311,19 @@ function LocationPicker({
 
   // Anything already chosen stays visible even when it isn't suggested;
   // hiding a selected option is how a client pays for a place they can't see.
+  //
+  // RESTRICTED places are offered only when the package sends the client
+  // there. Panorama is the graduation ceremony's hall and CCA is the
+  // mini-session venue — a portrait client was being offered both, and picking
+  // one meant turning up at an empty building.
+  const allowed = BOOKING_LOCATIONS.filter(
+    (l) => !l.restricted || suggested.includes(l.id) || locationIds.includes(l.id),
+  ).map((l) => l.id);
+
   const shortList = suggested.length > 0
-    ? [...new Set([...suggested, ...locationIds])]
-    : BOOKING_LOCATIONS.map((l) => l.id);
-  const rest = BOOKING_LOCATIONS.map((l) => l.id).filter((id) => !shortList.includes(id));
+    ? [...new Set([...suggested, ...locationIds])].filter((id) => allowed.includes(id))
+    : allowed;
+  const rest = allowed.filter((id) => !shortList.includes(id));
 
   const [showAll, setShowAll] = useState(false);
   const atLimit = locationIds.length >= MAX_LOCATIONS;
@@ -954,6 +1331,7 @@ function LocationPicker({
   const row = (id: string) => {
     const active = locationIds.includes(id);
     const fee = getLocation(id)?.surchargePerHourUzs ?? 0;
+    const consult = needsConsult(id);
     // A location that cannot be added should say so by looking unavailable,
     // not by silently doing nothing when tapped.
     const blocked = !active && atLimit;
@@ -984,6 +1362,16 @@ function LocationPicker({
                 {" · "}
                 {t("book.locationFee").replace("{price}", formatSom(fee, locale))}
               </span>
+            </span>
+          )}
+          {/* No number, because there isn't one yet. Studio hire is per studio
+              and per hour and is agreed before the booking is confirmed; the
+              100 000/hr that used to print here was a placeholder being added
+              to real totals. Saying "ask" is honest, and it is said the moment
+              the option is tapped rather than discovered on the bill. */}
+          {consult && active && (
+            <span className="mt-1.5 block text-[11px] leading-relaxed text-accent-warm">
+              {t(`book.loc.${id}.consult`)}
             </span>
           )}
         </span>

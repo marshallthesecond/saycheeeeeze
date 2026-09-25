@@ -65,11 +65,18 @@ interface CalendarProps {
   availability: AvailabilityConfig;
   taken: TakenDay[];
   blackouts: string[];
+  /**
+   * Nothing is selectable and nothing responds — the date has been decided
+   * elsewhere. Used by the ceremony option, where 22 October is not a choice.
+   * The grid still renders, because hiding it would leave the client with no
+   * way to see WHICH date they have been given.
+   */
+  locked?: boolean;
 }
 
 export function CalendarPicker({
   selectedISO, viewMonth, viewYear, onSelect, onViewChange,
-  availability, taken, blackouts,
+  availability, taken, blackouts, locked = false,
 }: CalendarProps) {
   const { t, tArray } = useT();
   const MONTHS = tArray("calendar.months");
@@ -116,7 +123,11 @@ export function CalendarPicker({
   };
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+    <div
+      className={`bg-white/5 border border-white/10 rounded-2xl p-4 transition
+        ${locked ? "opacity-60 pointer-events-none select-none" : ""}`}
+      aria-disabled={locked || undefined}
+    >
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => step(-1)}
@@ -153,7 +164,7 @@ export function CalendarPicker({
         {days.map(({ d, iso, info }) => {
           // Full ISO date, not the day number: 14 August is not 14 September.
           const selected = selectedISO === iso;
-          const selectable = info.status === "open";
+          const selectable = info.status === "open" && !locked;
           const isToday = iso === toISODate(today);
 
           return (
@@ -275,6 +286,64 @@ function Band({ label, slots, startTime, onChange }: {
           );
         })}
       </div>
+    </div>
+  );
+}
+// Fixed-slot events
+
+/**
+ * The mini-session picker: one date, eight blocks, some already gone.
+ *
+ * A separate component rather than a mode of StartTimePicker, because almost
+ * nothing is shared. StartTimePicker DERIVES its slots from the weekday's
+ * opening hours and the package's duration; these are a list somebody wrote
+ * down, running past the hour the calendar thinks the day closes. Bending one
+ * component around both would mean the hours config quietly deciding whether
+ * the last mini-session of the day exists.
+ *
+ * Taken slots are rendered, not hidden. Eight rows with three struck through
+ * says "this is filling up"; five rows says nothing at all.
+ */
+export function EventSlotPicker({ slots, startTime, onChange }: {
+  slots: { time: string; state: "open" | "taken" }[];
+  startTime: string | null;
+  onChange: (time: string | null) => void;
+}) {
+  const { t } = useT();
+  const openCount = slots.filter((s) => s.state === "open").length;
+
+  if (openCount === 0) {
+    return <p className="text-xs text-white/50">{t("book.eventSoldOut")}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-4 gap-2">
+        {slots.map((s) => {
+          const active = startTime === s.time;
+          const taken = s.state === "taken";
+          return (
+            <button
+              key={s.time}
+              disabled={taken}
+              onClick={() => onChange(active ? null : s.time)}
+              aria-pressed={active}
+              aria-label={`${s.time} — ${t(taken ? "book.aria.booked" : "book.aria.open")}`}
+              className={`h-11 rounded-lg text-xs font-medium transition active:scale-95
+                ${active
+                  ? "bg-accent-warm text-accent-ink font-bold"
+                  : taken
+                    ? "bg-white/[0.04] text-white/25 line-through cursor-not-allowed"
+                    : "bg-white/[0.07] text-white/65 hover:bg-white/[0.14] hover:text-white"}`}
+            >
+              {s.time}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-white/35">
+        {t("book.eventSlotsLeft").replace("{n}", String(openCount))}
+      </p>
     </div>
   );
 }
