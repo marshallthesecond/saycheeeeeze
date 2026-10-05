@@ -458,10 +458,21 @@ export const servicesData: ServiceData[] = [
   {
     slug: 'brand-product',
     category: 'commercial',
-    title: 'Brand & Product Photography',
-    tagline: 'Make your product impossible to scroll past.',
-    description:
-      'Clean, intentional images that put your product front and center. Whether you need e-commerce flats, lifestyle context shots, or a full brand campaign, we build a visual story around what you sell.',
+    title: {
+      en: 'Brand & Product Photography',
+      ru: 'Предметная и бренд-съёмка',
+      uz: 'Mahsulot va brend suratga olish',
+    },
+    tagline: {
+      en: 'Make your product impossible to scroll past.',
+      ru: 'Чтобы ваш товар не пролистали.',
+      uz: 'Mahsulotingizni aylantirib o‘tib ketishmasin.',
+    },
+    description: {
+      en: 'Clean, intentional images that put your product front and center. Whether you need e-commerce flats, lifestyle context shots, or a full brand campaign, we build a visual story around what you sell.',
+      ru: 'Чистые, продуманные кадры, где товар — главный герой. Нужны фото для маркетплейса, лайфстайл-съёмка в интерьере или целая кампания для бренда — выстраиваем визуальную историю вокруг того, что вы продаёте.',
+      uz: 'Mahsulot bosh qahramon bo‘lgan toza, o‘ylangan kadrlar. Marketpleys uchun suratlarmi, interyerdagi laifstayl suratmi yoki brend uchun butun kampaniyami — sotayotgan narsangiz atrofida vizual hikoya quramiz.',
+    },
     iconName: 'Camera',
     coverPath: 'Random/espressomachine.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -470,31 +481,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Random',
     includes: [
-      'Full pre-shoot mood board & concept call',
-      'Professional lighting setup (studio or on-location)',
-      'Up to 3 product variations per session',
-      'High-resolution exports optimised for web and print',
+      {
+        en: 'Full pre-shoot mood board & concept call',
+        ru: 'Мудборд и созвон по концепции до съёмки',
+        uz: 'Suratdan oldin mudbord va konsepsiya bo‘yicha qo‘ng‘iroq',
+      },
+      {
+        en: 'Professional lighting setup (studio or on-location)',
+        ru: 'Профессиональный свет — в студии или на локации',
+        uz: 'Professional yorug‘lik — studiyada yoki lokatsiyada',
+      },
+      {
+        en: 'Up to 3 product variations per session',
+        ru: 'До 3 вариаций товара за съёмку',
+        uz: 'Bir suratga olishda 3 tagacha mahsulot variatsiyasi',
+      },
+      {
+        en: 'High-resolution exports optimised for web and print',
+        ru: 'Файлы в высоком разрешении — под веб и печать',
+        uz: 'Yuqori aniqlikdagi fayllar — veb va bosma uchun',
+      },
     ],
     howToPrepare: [
-      'Bring products clean and polished — no fingerprints or dust',
-      'Have a rough idea of where the images will be used (Instagram, website, ads)',
-      'Share any reference images or brand guidelines beforehand',
+      {
+        en: 'Bring products clean and polished — no fingerprints or dust',
+        ru: 'Принесите товар чистым — без отпечатков и пыли',
+        uz: 'Mahsulotni toza olib keling — barmoq izi va changsiz',
+      },
+      {
+        en: 'Have a rough idea of where the images will be used (Instagram, website, ads)',
+        ru: 'Прикиньте, где будут жить эти кадры: Instagram, сайт, реклама',
+        uz: 'Kadrlar qayerda ishlatilishini o‘ylab qo‘ying: Instagram, sayt, reklama',
+      },
+      {
+        en: 'Share any reference images or brand guidelines beforehand',
+        ru: 'Заранее пришлите референсы или брендбук',
+        uz: 'Referenslar yoki brendbukni oldindan yuboring',
+      },
     ],
     packages: standardTiers('brand-product'),
     faqs: [
-      { question: 'Can I bring multiple products?', answer: 'Yes — up to 3 variations are included. Additional products can be added for a small fee.' },
-      { question: 'Do you offer video too?', answer: 'Short Reels-style clips can be added to any package. Ask about pricing when booking.' },
-      { question: 'What if I need a specific aesthetic?', answer: 'Share your references and I will replicate the lighting style and colour palette.' },
+      { question: {
+        en: 'Can I bring multiple products?',
+        ru: 'Можно принести несколько товаров?',
+        uz: 'Bir nechta mahsulot olib kelsam bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — up to 3 variations are included. Additional products can be added for a small fee.',
+        ru: 'Да — до 3 вариаций входит в стоимость. Остальное добавляется за небольшую доплату.',
+        uz: 'Ha — 3 tagacha variatsiya narxga kiradi. Qolgani kichik qo‘shimcha to‘lov bilan.',
+      } },
+      { question: {
+        en: 'Do you offer video too?',
+        ru: 'Видео снимаете?',
+        uz: 'Video ham olasizmi?',
+      }, answer: {
+        en: 'Short Reels-style clips can be added to any package. Ask about pricing when booking.',
+        ru: 'Короткие ролики в формате Reels можно добавить к любому пакету. Спросите про цену при брони.',
+        uz: 'Reels formatidagi qisqa roliklarni istalgan paketga qo‘shsa bo‘ladi. Band qilishda narxini so‘rang.',
+      } },
+      { question: {
+        en: 'What if I need a specific aesthetic?',
+        ru: 'А если нужна конкретная эстетика?',
+        uz: 'Aniq bir estetika kerak bo‘lsa-chi?',
+      }, answer: {
+        en: 'Share your references and I will replicate the lighting style and colour palette.',
+        ru: 'Пришлите референсы — повторю схему света и цветовую палитру.',
+        uz: 'Referenslarni yuboring — yorug‘lik sxemasi va rang palitrasini takrorlayman.',
+      } },
     ],
     accentColor: '#1500FF',
   },
   {
     slug: 'business-portraits',
     category: 'commercial',
-    title: 'Business Portraits',
-    tagline: 'A great headshot opens doors before you say a word.',
-    description:
-      'Professional portraits for LinkedIn profiles, company websites, speaker bios, and press kits. The focus is a confident, approachable image that represents you and your brand honestly.',
+    title: {
+      en: 'Business Portraits',
+      ru: 'Деловые портреты',
+      uz: 'Biznes portretlar',
+    },
+    tagline: {
+      en: 'A great headshot opens doors before you say a word.',
+      ru: 'Хороший портрет работает раньше, чем вы скажете слово.',
+      uz: 'Yaxshi portret siz gapirmasingizdan oldin ishlaydi.',
+    },
+    description: {
+      en: 'Professional portraits for LinkedIn profiles, company websites, speaker bios, and press kits. The focus is a confident, approachable image that represents you and your brand honestly.',
+      ru: 'Портреты для LinkedIn, сайта компании, спикерской биографии и пресс-кита. Задача одна — уверенный и располагающий кадр, который честно показывает вас и вашу работу.',
+      uz: 'LinkedIn, kompaniya sayti, spiker biografiyasi va press-kit uchun portretlar. Maqsad bitta — sizni va ishingizni halol ko‘rsatadigan ishonchli va yoqimli kadr.',
+    },
     iconName: 'User',
     coverPath: 'Portraits/Radmir/3M0A0675.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -503,31 +577,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
-      'Wardrobe and posing guidance before the shoot',
-      'Multiple background options (solid, textured, or environmental)',
-      'Expression coaching during the session',
-      'Retouching: skin smoothing, background cleanup, colour grading',
+      {
+        en: 'Wardrobe and posing guidance before the shoot',
+        ru: 'Разбор гардероба и поз до съёмки',
+        uz: 'Suratdan oldin kiyim va pozalarni ko‘rib chiqish',
+      },
+      {
+        en: 'Multiple background options (solid, textured, or environmental)',
+        ru: 'Несколько фонов на выбор: однотонный, фактурный, интерьерный',
+        uz: 'Bir nechta fon tanlovi: bir rangli, fakturali, interyerli',
+      },
+      {
+        en: 'Expression coaching during the session',
+        ru: 'Работа с мимикой прямо на съёмке',
+        uz: 'Suratga olish paytida mimika ustida ishlash',
+      },
+      {
+        en: 'Retouching: skin smoothing, background cleanup, colour grading',
+        ru: 'Ретушь: кожа, фон, цветокоррекция',
+        uz: 'Retush: teri, fon, rang korreksiyasi',
+      },
     ],
     howToPrepare: [
-      "Bring 2–3 outfit options — solid colours work best on camera",
-      "Get a good night's sleep and stay hydrated the day before",
-      'Avoid heavy patterns or logos that distract from your face',
+      {
+        en: 'Bring 2–3 outfit options — solid colours work best on camera',
+        ru: 'Возьмите 2–3 комплекта — однотонное смотрится лучше всего',
+        uz: '2–3 komplekt oling — bir rangli eng yaxshi chiqadi',
+      },
+      {
+        en: "Get a good night's sleep and stay hydrated the day before",
+        ru: 'Выспитесь накануне и пейте больше воды',
+        uz: 'Oldingi kuni yaxshi uxlang va ko‘proq suv iching',
+      },
+      {
+        en: 'Avoid heavy patterns or logos that distract from your face',
+        ru: 'Избегайте крупных принтов и логотипов — они перетягивают внимание с лица',
+        uz: 'Yirik printlar va logotiplardan qoching — ular yuzdan diqqatni tortadi',
+      },
     ],
     packages: standardTiers('business-portraits', { of: 'portraits' }),
     faqs: [
-      { question: 'Can I bring a colleague for a joint portrait?', answer: 'Absolutely. Group rates are available — mention this when booking.' },
-      { question: 'Where is the shoot?', answer: 'My studio or an outdoor location in Tashkent — your choice.' },
-      { question: "What if I'm not photogenic?", answer: "That's what posing guidance is for. Most clients feel completely natural after the first 10 minutes." },
+      { question: {
+        en: 'Can I bring a colleague for a joint portrait?',
+        ru: 'Можно прийти вдвоём с коллегой?',
+        uz: 'Hamkasbim bilan birga kelsam bo‘ladimi?',
+      }, answer: {
+        en: 'Absolutely. Group rates are available — mention this when booking.',
+        ru: 'Конечно. Для групп есть отдельные условия — скажите при брони.',
+        uz: 'Albatta. Guruhlar uchun alohida shartlar bor — band qilishda ayting.',
+      } },
+      { question: {
+        en: 'Where is the shoot?',
+        ru: 'Где проходит съёмка?',
+        uz: 'Suratga olish qayerda bo‘ladi?',
+      }, answer: {
+        en: 'My studio or an outdoor location in Tashkent — your choice.',
+        ru: 'В студии или на улице в Ташкенте — как вам удобнее.',
+        uz: 'Studiyada yoki Toshkent ko‘chalarida — qaysi biri qulay bo‘lsa.',
+      } },
+      { question: {
+        en: "What if I'm not photogenic?",
+        ru: 'А если я нефотогеничный?',
+        uz: 'Men fotogenik bo‘lmasam-chi?',
+      }, answer: {
+        en: "That's what posing guidance is for. Most clients feel completely natural after the first 10 minutes.",
+        ru: 'Для этого и нужна работа с позами. Обычно первые 10 минут — и человек перестаёт думать о камере.',
+        uz: 'Shuning uchun pozalar ustida ishlaymiz. Odatda birinchi 10 daqiqadan keyin odam kamerani o‘ylamay qo‘yadi.',
+      } },
     ],
     accentColor: '#2a6045',
   },
   {
     slug: 'social-media-content',
     category: 'commercial',
-    title: 'Social Media Content',
-    tagline: 'A month of content in one afternoon.',
-    description:
-      'Batch content creation for Instagram, Telegram, TikTok, or whatever platform you publish on. We plan the shoot around your calendar, captions, and aesthetic so everything is ready to post.',
+    title: {
+      en: 'Social Media Content',
+      ru: 'Контент для соцсетей',
+      uz: 'Ijtimoiy tarmoqlar uchun kontent',
+    },
+    tagline: {
+      en: 'A month of content in one afternoon.',
+      ru: 'Контент на месяц — за один день.',
+      uz: 'Bir oylik kontent — bir kunda.',
+    },
+    description: {
+      en: 'Batch content creation for Instagram, Telegram, TikTok, or whatever platform you publish on. We plan the shoot around your calendar, captions, and aesthetic so everything is ready to post.',
+      ru: 'Съёмка контента пачкой — для Instagram, Telegram, TikTok или где вы публикуетесь. Планируем съёмку под ваш контент-план, подписи и эстетику, чтобы всё было готово к публикации.',
+      uz: 'Kontentni to‘plam bilan suratga olish — Instagram, Telegram, TikTok yoki qayerda chop etsangiz. Suratga olishni kontent-rejangiz, matnlaringiz va estetikangizga moslab rejalashtiramiz, shunda hammasi chop etishga tayyor bo‘ladi.',
+    },
     iconName: 'CalendarDays',
     coverPath: 'Random/capp.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -536,21 +673,73 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Random',
     includes: [
-      'Content plan & shot list created together before the day',
-      'Mix of flat-lays, lifestyle, and portrait shots',
-      'Vertical and square crops for Stories and Feed',
-      'Colour-consistent editing across all images',
+      {
+        en: 'Content plan & shot list created together before the day',
+        ru: 'Контент-план и список кадров — составляем вместе заранее',
+        uz: 'Kontent-reja va kadrlar ro‘yxati — oldindan birga tuzamiz',
+      },
+      {
+        en: 'Mix of flat-lays, lifestyle, and portrait shots',
+        ru: 'Флэтлеи, лайфстайл и портреты в одной съёмке',
+        uz: 'Bitta suratga olishda fletley, laifstayl va portretlar',
+      },
+      {
+        en: 'Vertical and square crops for Stories and Feed',
+        ru: 'Вертикальные и квадратные кадры — под Stories и ленту',
+        uz: 'Vertikal va kvadrat kadrlar — Stories va lenta uchun',
+      },
+      {
+        en: 'Colour-consistent editing across all images',
+        ru: 'Единая цветокоррекция по всей серии',
+        uz: 'Butun seriya bo‘yicha yagona rang korreksiyasi',
+      },
     ],
     howToPrepare: [
-      'Write down 5–10 topics or products you want to cover this month',
-      'Bring props, packaging, or anything that tells your brand story',
-      'Wear outfits that match your brand palette',
+      {
+        en: 'Write down 5–10 topics or products you want to cover this month',
+        ru: 'Выпишите 5–10 тем или товаров на ближайший месяц',
+        uz: 'Yaqin oy uchun 5–10 ta mavzu yoki mahsulotni yozib qo‘ying',
+      },
+      {
+        en: 'Bring props, packaging, or anything that tells your brand story',
+        ru: 'Возьмите реквизит, упаковку — всё, что рассказывает о бренде',
+        uz: 'Rekvizit, qadoq — brend haqida gapiradigan hamma narsani oling',
+      },
+      {
+        en: 'Wear outfits that match your brand palette',
+        ru: 'Одежда — в палитре вашего бренда',
+        uz: 'Kiyim — brendingiz palitrasida',
+      },
     ],
     packages: standardTiers('social-media-content'),
     faqs: [
-      { question: 'Can you help me with the content plan?', answer: 'Yes — a short planning call is included in every package.' },
-      { question: 'Do you deliver vertical and horizontal versions?', answer: 'Yes, crops for Stories (9:16), Feed (1:1), and landscape (4:3) are all included.' },
-      { question: 'How far in advance should I book?', answer: 'At least 5–7 days ahead so we have time for the planning call.' },
+      { question: {
+        en: 'Can you help me with the content plan?',
+        ru: 'Поможете с контент-планом?',
+        uz: 'Kontent-reja bilan yordam berasizmi?',
+      }, answer: {
+        en: 'Yes — a short planning call is included in every package.',
+        ru: 'Да — короткий созвон по планированию входит в каждый пакет.',
+        uz: 'Ha — rejalashtirish bo‘yicha qisqa qo‘ng‘iroq har bir paketga kiradi.',
+      } },
+      { question: {
+        en: 'Do you deliver vertical and horizontal versions?',
+        ru: 'Будут вертикальные и горизонтальные версии?',
+        uz: 'Vertikal va gorizontal versiyalar bo‘ladimi?',
+      }, answer: {
+        en: 'Yes, crops for Stories (9:16), Feed (1:1), and landscape (4:3) are all included.',
+        ru: 'Да: Stories (9:16), лента (1:1) и горизонталь (4:3) — всё входит.',
+        uz: 'Ha: Stories (9:16), lenta (1:1) va gorizontal (4:3) — hammasi kiradi.',
+      } },
+      { question: {
+        en: 'How far in advance should I book?',
+        ru: 'За сколько бронировать?',
+        uz: 'Qancha oldin band qilish kerak?',
+      }, answer: {
+        en: 'At least 5–7 days ahead so we have time for the planning call.',
+        ru: 'Минимум за 5–7 дней, чтобы успеть созвониться по плану.',
+        uz: 'Kamida 5–7 kun oldin, reja bo‘yicha gaplashib olishga ulgurish uchun.',
+      } },
     ],
     accentColor: '#c8b400',
   },
@@ -559,10 +748,21 @@ export const servicesData: ServiceData[] = [
   {
     slug: 'wedding-love-story',
     category: 'moments',
-    title: 'Weddings & Love Stories',
-    tagline: 'The day goes fast. The photos stay forever.',
-    description:
-      'Documentary-style wedding coverage that captures real emotion — not just posed shots. From the morning getting-ready chaos to the last dance, I stay in the background and let the story unfold naturally.',
+    title: {
+      en: 'Weddings & Love Stories',
+      ru: 'Свадьбы и love story',
+      uz: 'To‘ylar va love story',
+    },
+    tagline: {
+      en: 'The day goes fast. The photos stay forever.',
+      ru: 'День пролетит. Фотографии останутся.',
+      uz: 'Kun tez o‘tadi. Suratlar qoladi.',
+    },
+    description: {
+      en: 'Documentary-style wedding coverage that captures real emotion — not just posed shots. From the morning getting-ready chaos to the last dance, I stay in the background and let the story unfold naturally.',
+      ru: 'Репортажная свадебная съёмка, где важны настоящие эмоции, а не только постановка. От утренней суеты до последнего танца я держусь в стороне и даю дню идти своим чередом.',
+      uz: 'Faqat qo‘yilgan pozalar emas, haqiqiy his-tuyg‘ular muhim bo‘lgan reportaj uslubidagi to‘y suratga olish. Ertalabki shoshqaloqlikdan oxirgi raqsgacha men chetda turaman va kun o‘z oqimi bilan ketaveradi.',
+    },
     iconName: 'Camera',
     coverPath: 'Portraits/Sara/3M0A1333.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -570,33 +770,96 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Pre-wedding location scouting or engagement session',
-      'Full-day coverage (up to 10 hours)',
-      'Two shooting angles during the ceremony',
-      'Online gallery with download access for 1 year',
+      {
+        en: 'Pre-wedding location scouting or engagement session',
+        ru: 'Выезд на локацию заранее или love story до свадьбы',
+        uz: 'Lokatsiyaga oldindan chiqish yoki to‘ygacha love story',
+      },
+      {
+        en: 'Full-day coverage (up to 10 hours)',
+        ru: 'Съёмка полного дня — до 10 часов',
+        uz: 'To‘liq kunlik suratga olish — 10 soatgacha',
+      },
+      {
+        en: 'Two shooting angles during the ceremony',
+        ru: 'Две точки съёмки во время церемонии',
+        uz: 'Marosim davomida ikkita suratga olish nuqtasi',
+      },
+      {
+        en: 'Online gallery with download access for 1 year',
+        ru: 'Онлайн-галерея со скачиванием на год',
+        uz: 'Bir yil davomida yuklab olish mumkin bo‘lgan onlayn galereya',
+      },
     ],
     howToPrepare: [
-      'Share your timeline at least 2 weeks before the date',
-      'Create a short list of must-have shots (family groupings, details)',
-      'Assign a point-of-contact on the day to help coordinate family shots',
+      {
+        en: 'Share your timeline at least 2 weeks before the date',
+        ru: 'Пришлите тайминг минимум за 2 недели',
+        uz: 'Taymingni kamida 2 hafta oldin yuboring',
+      },
+      {
+        en: 'Create a short list of must-have shots (family groupings, details)',
+        ru: 'Составьте короткий список обязательных кадров — семья, детали',
+        uz: 'Majburiy kadrlar ro‘yxatini tuzing — oila, detallar',
+      },
+      {
+        en: 'Assign a point-of-contact on the day to help coordinate family shots',
+        ru: 'Назначьте человека, который поможет собирать родственников на кадр',
+        uz: 'Qarindoshlarni kadrga yig‘ishga yordam beradigan odamni tayinlang',
+      },
     ],
     // SERVICE_TO_PACKAGE maps this to null: a wedding is quoted, not clicked.
     // The ladder is what it costs; the CTA still goes to an enquiry.
     packages: standardTiers('wedding-love-story', { bookable: false }),
     faqs: [
-      { question: 'Do you travel outside Tashkent?', answer: 'Yes. Travel costs are added to the package — ask for a quote.' },
-      { question: 'Can we add an engagement shoot?', answer: 'Yes, and I recommend it — it helps you relax in front of the camera before the big day.' },
-      { question: 'What happens if it rains?', answer: 'We adapt. Rain photos are often the most memorable.' },
+      { question: {
+        en: 'Do you travel outside Tashkent?',
+        ru: 'Выезжаете за пределы Ташкента?',
+        uz: 'Toshkentdan tashqariga chiqasizmi?',
+      }, answer: {
+        en: 'Yes. Travel costs are added to the package — ask for a quote.',
+        ru: 'Да. Дорога считается отдельно — напишите, посчитаю.',
+        uz: 'Ha. Yo‘l alohida hisoblanadi — yozing, hisoblab beraman.',
+      } },
+      { question: {
+        en: 'Can we add an engagement shoot?',
+        ru: 'Можно добавить love story?',
+        uz: 'Love story qo‘shsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes, and I recommend it — it helps you relax in front of the camera before the big day.',
+        ru: 'Да, и я советую: перед камерой становится намного спокойнее уже к самой свадьбе.',
+        uz: 'Ha, va men maslahat beraman: to‘yga borib kamera oldida ancha erkin bo‘lasiz.',
+      } },
+      { question: {
+        en: 'What happens if it rains?',
+        ru: 'А если пойдёт дождь?',
+        uz: 'Yomg‘ir yog‘sa-chi?',
+      }, answer: {
+        en: 'We adapt. Rain photos are often the most memorable.',
+        ru: 'Подстроимся. Дождливые кадры часто получаются самыми запоминающимися.',
+        uz: 'Moslashamiz. Yomg‘irli kadrlar ko‘pincha eng esda qolarli bo‘ladi.',
+      } },
     ],
     accentColor: '#2a6045',
   },
   {
     slug: 'family-portraits',
     category: 'moments',
-    title: 'Family Portraits',
-    tagline: 'Everyone in the same frame. Finally.',
-    description:
-      'Relaxed, natural family portraits that capture who you actually are right now — not a stiff lineup. Kids welcome, chaos included.',
+    title: {
+      en: 'Family Portraits',
+      ru: 'Семейная съёмка',
+      uz: 'Oilaviy suratga olish',
+    },
+    tagline: {
+      en: 'Everyone in the same frame. Finally.',
+      ru: 'Наконец-то все в одном кадре.',
+      uz: 'Nihoyat, hamma bitta kadrda.',
+    },
+    description: {
+      en: 'Relaxed, natural family portraits that capture who you actually are right now — not a stiff lineup. Kids welcome, chaos included.',
+      ru: 'Спокойная семейная съёмка, где видно, какие вы на самом деле сейчас, — а не ровный строй на камеру. Дети приветствуются, беспорядок прилагается.',
+      uz: 'Kameraga tizilib turish emas, hozir qanday bo‘lsangiz shunday ko‘rinadigan tinch oilaviy suratga olish. Bolalar marhamat, tartibsizlik ham qo‘shimcha.',
+    },
     iconName: 'Users',
     coverPath: 'Portraits/Radmir/3M0A0568.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -604,31 +867,94 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Location consultation (park, home, studio)',
-      'Gentle direction for natural, un-posed moments',
-      'Individual and group compositions',
-      'Child-friendly pacing — no rushing',
+      {
+        en: 'Location consultation (park, home, studio)',
+        ru: 'Выбираем место вместе: парк, дом, студия',
+        uz: 'Joyni birga tanlaymiz: park, uy, studiya',
+      },
+      {
+        en: 'Gentle direction for natural, un-posed moments',
+        ru: 'Мягкие подсказки — ради живых, непостановочных моментов',
+        uz: 'Yumshoq maslahatlar — jonli, qo‘yilmagan lahzalar uchun',
+      },
+      {
+        en: 'Individual and group compositions',
+        ru: 'Общие кадры и портреты каждого',
+        uz: 'Umumiy kadrlar va har birining portreti',
+      },
+      {
+        en: 'Child-friendly pacing — no rushing',
+        ru: 'Темп под ребёнка — никто никуда не торопится',
+        uz: 'Bolaga moslangan sur’at — hech kim shoshmaydi',
+      },
     ],
     howToPrepare: [
-      'Dress in coordinating (not matching) colours — avoid logos',
-      'Schedule the shoot around nap times for young children',
-      'Bring a snack or small toy if you have toddlers',
+      {
+        en: 'Dress in coordinating (not matching) colours — avoid logos',
+        ru: 'Одевайтесь в сочетающихся (не одинаковых) цветах, без логотипов',
+        uz: 'Bir-biriga mos (bir xil emas) ranglarda kiyining, logotipsiz',
+      },
+      {
+        en: 'Schedule the shoot around nap times for young children',
+        ru: 'Подбирайте время под дневной сон, если дети маленькие',
+        uz: 'Bolalar kichkina bo‘lsa, kunduzgi uyquga moslab vaqt tanlang',
+      },
+      {
+        en: 'Bring a snack or small toy if you have toddlers',
+        ru: 'Возьмите перекус или небольшую игрушку, если есть малыши',
+        uz: 'Kichkintoylar bo‘lsa, yegulik yoki kichik o‘yinchoq oling',
+      },
     ],
     packages: standardTiers('family-portraits'),
     faqs: [
-      { question: 'How many people can you shoot?', answer: 'Any size — extended families, multiple generations, no limit.' },
-      { question: "What if the kids won't cooperate?", answer: 'It happens. I build buffer time into every family session for exactly this.' },
-      { question: 'Can we do it at our home?', answer: 'Yes — home sessions have a beautiful, intimate quality.' },
+      { question: {
+        en: 'How many people can you shoot?',
+        ru: 'Сколько человек можно снять?',
+        uz: 'Necha kishini suratga olsa bo‘ladi?',
+      }, answer: {
+        en: 'Any size — extended families, multiple generations, no limit.',
+        ru: 'Любое количество — большие семьи, несколько поколений, ограничений нет.',
+        uz: 'Istalgancha — katta oilalar, bir necha avlod, cheklov yo‘q.',
+      } },
+      { question: {
+        en: "What if the kids won't cooperate?",
+        ru: 'А если дети не будут слушаться?',
+        uz: 'Bolalar gapga kirmasa-chi?',
+      }, answer: {
+        en: 'It happens. I build buffer time into every family session for exactly this.',
+        ru: 'Так и бывает. В семейной съёмке у меня всегда заложен запас времени именно на это.',
+        uz: 'Shunday bo‘ladi. Oilaviy suratga olishda men doim aynan shunga vaqt zaxirasi qoldiraman.',
+      } },
+      { question: {
+        en: 'Can we do it at our home?',
+        ru: 'Можно снять у нас дома?',
+        uz: 'Uyimizda suratga olsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — home sessions have a beautiful, intimate quality.',
+        ru: 'Да — домашние съёмки получаются очень тёплыми и личными.',
+        uz: 'Ha — uydagi suratlar juda iliq va shaxsiy chiqadi.',
+      } },
     ],
     accentColor: '#1500FF',
   },
   {
     slug: 'events-corporate',
     category: 'moments',
-    title: 'Events & Corporate Photoshoots',
-    tagline: 'Coverage that makes people wish they were there.',
-    description:
-      'Conferences, product launches, team-building days, and corporate galas. I work fast, stay unobtrusive, and deliver images you can share within 24 hours.',
+    title: {
+      en: 'Events & Corporate Photoshoots',
+      ru: 'Мероприятия и корпоративная съёмка',
+      uz: 'Tadbirlar va korporativ suratga olish',
+    },
+    tagline: {
+      en: 'Coverage that makes people wish they were there.',
+      ru: 'Съёмка, после которой жалеют, что не пришли.',
+      uz: 'Ko‘rganlar kelmaganiga afsuslanadigan suratlar.',
+    },
+    description: {
+      en: 'Conferences, product launches, team-building days, and corporate galas. I work fast, stay unobtrusive, and deliver images you can share within 24 hours.',
+      ru: 'Конференции, запуски продуктов, тимбилдинги и корпоративы. Работаю быстро, не мешаюсь под ногами и отдаю кадры, которые можно публиковать уже в течение суток.',
+      uz: 'Konferensiyalar, mahsulot taqdimotlari, timbildinglar va korporativlar. Tez ishlayman, oyoq ostida o‘ralashmayman va bir sutka ichida chop etsa bo‘ladigan kadrlarni beraman.',
+    },
     iconName: 'CalendarDays',
     coverPath: 'WIUT/3M0A0363.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -637,32 +963,95 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'WIUT',
     includes: [
-      'Pre-event briefing to understand key moments',
-      'Fast turnaround — highlight reel within 24 hours',
-      'Both candid and staged group shots',
-      'High-res files licensed for commercial use',
+      {
+        en: 'Pre-event briefing to understand key moments',
+        ru: 'Бриф до мероприятия — чтобы понимать ключевые моменты',
+        uz: 'Tadbirdan oldin brif — asosiy lahzalarni bilish uchun',
+      },
+      {
+        en: 'Fast turnaround — highlight reel within 24 hours',
+        ru: 'Быстрая отдача — подборка лучших кадров за 24 часа',
+        uz: 'Tez yetkazish — eng yaxshi kadrlar to‘plami 24 soat ichida',
+      },
+      {
+        en: 'Both candid and staged group shots',
+        ru: 'И репортаж, и постановочные общие кадры',
+        uz: 'Ham reportaj, ham qo‘yilgan umumiy kadrlar',
+      },
+      {
+        en: 'High-res files licensed for commercial use',
+        ru: 'Файлы в высоком разрешении с правом коммерческого использования',
+        uz: 'Tijorat maqsadida foydalanish huquqi bilan yuqori aniqlikdagi fayllar',
+      },
     ],
     howToPrepare: [
-      'Share the event schedule and venue floor plan in advance',
-      'Identify 3–5 VIP faces I should prioritise',
-      'Let me know any moments that are strictly off the record',
+      {
+        en: 'Share the event schedule and venue floor plan in advance',
+        ru: 'Пришлите программу и план площадки заранее',
+        uz: 'Dastur va maydon rejasini oldindan yuboring',
+      },
+      {
+        en: 'Identify 3–5 VIP faces I should prioritise',
+        ru: 'Отметьте 3–5 ключевых людей — кого снимать в первую очередь',
+        uz: '3–5 ta asosiy odamni belgilang — birinchi navbatda kimni olish kerak',
+      },
+      {
+        en: 'Let me know any moments that are strictly off the record',
+        ru: 'Скажите, какие моменты снимать не нужно',
+        uz: 'Qaysi lahzalarni suratga olish kerak emasligini ayting',
+      },
     ],
     // Same as the wedding: advertised at the standard ladder, booked by asking.
     packages: standardTiers('events-corporate', { bookable: false }),
     faqs: [
-      { question: 'Can you shoot in low-light venues?', answer: 'Yes — I use fast lenses and off-camera flash when needed.' },
-      { question: 'Do you provide a photo booth?', answer: 'Not directly, but I can recommend a partner service.' },
-      { question: 'What about a video highlight reel?', answer: 'Video add-ons are available — mention it when booking.' },
+      { question: {
+        en: 'Can you shoot in low-light venues?',
+        ru: 'Снимаете в тёмных залах?',
+        uz: 'Qorong‘i zallarda suratga olasizmi?',
+      }, answer: {
+        en: 'Yes — I use fast lenses and off-camera flash when needed.',
+        ru: 'Да — светосильная оптика и накамерный свет, когда он нужен.',
+        uz: 'Ha — yorug‘ o‘tkazuvchi optika va kerak bo‘lganda qo‘shimcha yorug‘lik.',
+      } },
+      { question: {
+        en: 'Do you provide a photo booth?',
+        ru: 'Фотобудка есть?',
+        uz: 'Fotobudka bormi?',
+      }, answer: {
+        en: 'Not directly, but I can recommend a partner service.',
+        ru: 'Сам не делаю, но могу порекомендовать проверенных ребят.',
+        uz: 'O‘zim qilmayman, lekin ishonchli yigitlarni tavsiya qila olaman.',
+      } },
+      { question: {
+        en: 'What about a video highlight reel?',
+        ru: 'А видеоролик с мероприятия?',
+        uz: 'Tadbirdan video rolik-chi?',
+      }, answer: {
+        en: 'Video add-ons are available — mention it when booking.',
+        ru: 'Видео можно добавить — скажите при брони.',
+        uz: 'Videoni qo‘shsa bo‘ladi — band qilishda ayting.',
+      } },
     ],
     accentColor: '#c8b400',
   },
   {
     slug: 'individual-portraits',
     category: 'moments',
-    title: 'Individual Portraits',
-    tagline: 'Just you — at your best.',
-    description:
-      'A personal portrait session built entirely around you. No special occasion needed — just great, honest photos of who you are right now.',
+    title: {
+      en: 'Individual Portraits',
+      ru: 'Индивидуальный портрет',
+      uz: 'Yakka portret',
+    },
+    tagline: {
+      en: 'Just you — at your best.',
+      ru: 'Только вы — и лучший вы.',
+      uz: 'Faqat siz — eng yaxshi holatingizda.',
+    },
+    description: {
+      en: 'A personal portrait session built entirely around you. No special occasion needed — just great, honest photos of who you are right now.',
+      ru: 'Личная портретная съёмка, целиком выстроенная вокруг вас. Повод не нужен — нужны честные фотографии того, какой вы сейчас.',
+      uz: 'Butunlay siz atrofida qurilgan shaxsiy portret suratga olish. Bahona kerak emas — hozir qanday bo‘lsangiz, shuni ko‘rsatadigan halol suratlar kerak.',
+    },
     iconName: 'User',
     coverPath: 'Portraits/Sara/3M0A1432.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -671,31 +1060,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
-      'Location scouting or studio session',
-      'Posing guidance throughout',
-      'Multiple outfit changes (time permitting)',
-      'Retouched final selects',
+      {
+        en: 'Location scouting or studio session',
+        ru: 'Съёмка в студии или на выбранной локации',
+        uz: 'Studiyada yoki tanlangan lokatsiyada suratga olish',
+      },
+      {
+        en: 'Posing guidance throughout',
+        ru: 'Работа с позами на протяжении всей съёмки',
+        uz: 'Butun suratga olish davomida pozalar ustida ishlash',
+      },
+      {
+        en: 'Multiple outfit changes (time permitting)',
+        ru: 'Несколько образов, если позволяет время',
+        uz: 'Vaqt yetsa, bir nechta obraz',
+      },
+      {
+        en: 'Retouched final selects',
+        ru: 'Отретушированные отобранные кадры',
+        uz: 'Tanlangan kadrlar retush bilan',
+      },
     ],
     howToPrepare: [
-      'Bring 2–3 outfits you feel confident in',
-      'Hair and makeup can be arranged — ask when booking',
-      'Think of a mood or vibe you want the photos to have',
+      {
+        en: 'Bring 2–3 outfits you feel confident in',
+        ru: 'Возьмите 2–3 комплекта, в которых вам уверенно',
+        uz: 'O‘zingizni ishonchli his qiladigan 2–3 komplekt oling',
+      },
+      {
+        en: 'Hair and makeup can be arranged — ask when booking',
+        ru: 'Причёску и макияж можно организовать — скажите при брони',
+        uz: 'Soch va bo‘yanishni tashkil qilsa bo‘ladi — band qilishda ayting',
+      },
+      {
+        en: 'Think of a mood or vibe you want the photos to have',
+        ru: 'Подумайте, какое настроение должно быть у кадров',
+        uz: 'Kadrlarda qanday kayfiyat bo‘lishini o‘ylab qo‘ying',
+      },
     ],
     packages: standardTiers('individual-portraits', { of: 'portraits' }),
     faqs: [
-      { question: 'Do I need experience in front of a camera?', answer: 'Not at all — I will guide every pose.' },
-      { question: 'Can we shoot in multiple locations?', answer: 'Yes — 2 spots within Tashkent are typical for longer sessions.' },
-      { question: 'What should I wear?', answer: 'Bring a few options — solid colours and textures you love photograph best.' },
+      { question: {
+        en: 'Do I need experience in front of a camera?',
+        ru: 'Нужен ли опыт перед камерой?',
+        uz: 'Kamera oldida tajriba kerakmi?',
+      }, answer: {
+        en: 'Not at all — I will guide every pose.',
+        ru: 'Совсем нет — подскажу каждую позу.',
+        uz: 'Umuman kerak emas — har bir pozani aytib turaman.',
+      } },
+      { question: {
+        en: 'Can we shoot in multiple locations?',
+        ru: 'Можно снять в нескольких местах?',
+        uz: 'Bir necha joyda suratga olsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — 2 spots within Tashkent are typical for longer sessions.',
+        ru: 'Да — для длинных съёмок обычно берём 2 точки по Ташкенту.',
+        uz: 'Ha — uzoq suratga olishlarda odatda Toshkent bo‘ylab 2 ta nuqta olamiz.',
+      } },
+      { question: {
+        en: 'What should I wear?',
+        ru: 'Что надеть?',
+        uz: 'Nima kiyish kerak?',
+      }, answer: {
+        en: 'Bring a few options — solid colours and textures you love photograph best.',
+        ru: 'Возьмите несколько вариантов — однотонное и фактурное, которое вы любите, снимается лучше всего.',
+        uz: 'Bir nechta variant oling — o‘zingizga yoqadigan bir rangli va fakturali narsalar eng yaxshi chiqadi.',
+      } },
     ],
     accentColor: '#2a6045',
   },
   {
     slug: 'pair-group',
     category: 'moments',
-    title: 'Pair & Group Portraits',
-    tagline: 'Everyone you love, one frame.',
-    description:
-      'Portrait sessions for couples, best friends, or a full friend group. Relaxed direction that captures real connection, not stiff lineup energy.',
+    title: {
+      en: 'Pair & Group Portraits',
+      ru: 'Парная и групповая съёмка',
+      uz: 'Juft va guruh suratga olish',
+    },
+    tagline: {
+      en: 'Everyone you love, one frame.',
+      ru: 'Все, кто вам дорог, — в одном кадре.',
+      uz: 'Siz uchun qadrli hamma — bitta kadrda.',
+    },
+    description: {
+      en: 'Portrait sessions for couples, best friends, or a full friend group. Relaxed direction that captures real connection, not stiff lineup energy.',
+      ru: 'Съёмка для пар, лучших друзей или целой компании. Спокойные подсказки, которые ловят настоящую связь между людьми, а не ровный строй на камеру.',
+      uz: 'Juftliklar, yaqin do‘stlar yoki butun bir kompaniya uchun suratga olish. Kameraga tizilib turishni emas, odamlar orasidagi haqiqiy bog‘liqlikni ushlaydigan tinch maslahatlar.',
+    },
     iconName: 'Users',
     coverPath: 'WIUT/5I9A3029.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -703,31 +1155,94 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Location scouting or studio session',
-      'Posing guidance for pairs and groups',
-      'Individual and combined compositions',
-      'Retouched final selects',
+      {
+        en: 'Location scouting or studio session',
+        ru: 'Съёмка в студии или на выбранной локации',
+        uz: 'Studiyada yoki tanlangan lokatsiyada suratga olish',
+      },
+      {
+        en: 'Posing guidance for pairs and groups',
+        ru: 'Работа с позами для пар и групп',
+        uz: 'Juftlik va guruhlar uchun pozalar ustida ishlash',
+      },
+      {
+        en: 'Individual and combined compositions',
+        ru: 'Общие кадры и портреты каждого',
+        uz: 'Umumiy kadrlar va har birining portreti',
+      },
+      {
+        en: 'Retouched final selects',
+        ru: 'Отретушированные отобранные кадры',
+        uz: 'Tanlangan kadrlar retush bilan',
+      },
     ],
     howToPrepare: [
-      'Coordinate (not match) outfits across the group',
-      'Let everyone know the rough timeline in advance',
-      'A shared playlist or activity helps everyone relax on camera',
+      {
+        en: 'Coordinate (not match) outfits across the group',
+        ru: 'Согласуйте цвета (не одинаковые) на всю компанию',
+        uz: 'Butun guruh bo‘yicha ranglarni kelishib oling (bir xil emas)',
+      },
+      {
+        en: 'Let everyone know the rough timeline in advance',
+        ru: 'Скажите всем примерный тайминг заранее',
+        uz: 'Taxminiy taymingni hammaga oldindan ayting',
+      },
+      {
+        en: 'A shared playlist or activity helps everyone relax on camera',
+        ru: 'Общий плейлист или занятие помогают расслабиться перед камерой',
+        uz: 'Umumiy pleylist yoki biror mashg‘ulot kamera oldida erkin bo‘lishga yordam beradi',
+      },
     ],
     packages: standardTiers('pair-group'),
     faqs: [
-      { question: 'How many people can you shoot?', answer: 'Any size — couples, small friend groups, no strict limit.' },
-      { question: 'Can my friend join for a few shots only?', answer: 'Yes — friends can jump in for a few frames at no extra cost.' },
-      { question: 'Can we shoot in multiple locations?', answer: 'Yes — 2–3 spots within Tashkent are typical for longer sessions.' },
+      { question: {
+        en: 'How many people can you shoot?',
+        ru: 'Сколько человек можно снять?',
+        uz: 'Necha kishini suratga olsa bo‘ladi?',
+      }, answer: {
+        en: 'Any size — couples, small friend groups, no strict limit.',
+        ru: 'Любое количество — от пары до большой компании, жёсткого лимита нет.',
+        uz: 'Istalgancha — juftlikdan katta kompaniyagacha, qat’iy chegara yo‘q.',
+      } },
+      { question: {
+        en: 'Can my friend join for a few shots only?',
+        ru: 'Можно, друг зайдёт только на пару кадров?',
+        uz: 'Do‘stim bir-ikki kadrga qo‘shilsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — friends can jump in for a few frames at no extra cost.',
+        ru: 'Да — друзья могут заскочить на несколько кадров без доплаты.',
+        uz: 'Ha — do‘stlar bir necha kadrga qo‘shimcha to‘lovsiz qo‘shilishlari mumkin.',
+      } },
+      { question: {
+        en: 'Can we shoot in multiple locations?',
+        ru: 'Можно снять в нескольких местах?',
+        uz: 'Bir necha joyda suratga olsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — 2–3 spots within Tashkent are typical for longer sessions.',
+        ru: 'Да — для длинных съёмок обычно берём 2–3 точки по Ташкенту.',
+        uz: 'Ha — uzoq suratga olishlarda odatda Toshkent bo‘ylab 2–3 ta nuqta olamiz.',
+      } },
     ],
     accentColor: '#1500FF',
   },
   {
     slug: 'photowalk-tashkent',
     category: 'moments',
-    title: 'Photowalk in Tashkent',
-    tagline: 'The city as your backdrop.',
-    description:
-      "A relaxed walk through Tashkent's most photogenic spots — Old City, Chorsu, Amir Timur Square, and more. Casual, spontaneous, and full of authentic city energy.",
+    title: {
+      en: 'Photowalk in Tashkent',
+      ru: 'Фотопрогулка по Ташкенту',
+      uz: 'Toshkent bo‘ylab fotosayr',
+    },
+    tagline: {
+      en: 'The city as your backdrop.',
+      ru: 'Город вместо фона.',
+      uz: 'Fon o‘rniga — shahar.',
+    },
+    description: {
+      en: "A relaxed walk through Tashkent's most photogenic spots — Old City, Chorsu, Amir Timur Square, and more. Casual, spontaneous, and full of authentic city energy.",
+      ru: 'Спокойная прогулка по самым фотогеничным местам Ташкента — Старый город, Чорсу, сквер Амира Темура и дальше по маршруту. Непринуждённо, спонтанно и с настоящей городской энергией.',
+      uz: 'Toshkentning eng fotogenik joylari bo‘ylab tinch sayr — Eski shahar, Chorsu, Amir Temur xiyoboni va marshrut bo‘ylab yana. Erkin, spontan va haqiqiy shahar energiyasi bilan.',
+    },
     iconName: 'MapPin',
     coverPath: 'Nature/streetlights.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -736,31 +1251,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Nature',
     includes: [
-      'Curated route through 3–5 Tashkent locations',
-      'Candid and portrait shots along the way',
-      'Golden-hour timing when possible',
-      'On-the-spot editing preview',
+      {
+        en: 'Curated route through 3–5 Tashkent locations',
+        ru: 'Продуманный маршрут по 3–5 точкам Ташкента',
+        uz: 'Toshkent bo‘ylab 3–5 ta nuqtadan iborat o‘ylangan marshrut',
+      },
+      {
+        en: 'Candid and portrait shots along the way',
+        ru: 'Репортажные кадры и портреты по пути',
+        uz: 'Yo‘l-yo‘lakay reportaj kadrlar va portretlar',
+      },
+      {
+        en: 'Golden-hour timing when possible',
+        ru: 'По возможности — съёмка на закате',
+        uz: 'Imkon bo‘lsa — quyosh botishida suratga olish',
+      },
+      {
+        en: 'On-the-spot editing preview',
+        ru: 'Превью прямо на месте',
+        uz: 'Joyning o‘zida oldindan ko‘rish',
+      },
     ],
     howToPrepare: [
-      'Wear comfortable shoes — we cover a lot of ground',
-      'Bring a bag for personal items',
-      "Dress for the weather; layers if it's an evening walk",
+      {
+        en: 'Wear comfortable shoes — we cover a lot of ground',
+        ru: 'Удобная обувь — ходить придётся много',
+        uz: 'Qulay poyabzal — ancha yurishga to‘g‘ri keladi',
+      },
+      {
+        en: 'Bring a bag for personal items',
+        ru: 'Возьмите сумку для личных вещей',
+        uz: 'Shaxsiy buyumlar uchun sumka oling',
+      },
+      {
+        en: "Dress for the weather; layers if it's an evening walk",
+        ru: 'Одевайтесь по погоде; на вечернюю прогулку — слоями',
+        uz: 'Ob-havoga qarab kiyining; kechki sayrga — qatlamlab',
+      },
     ],
     packages: standardTiers('photowalk-tashkent'),
     faqs: [
-      { question: 'What time of day works best?', answer: 'Golden hour (1–2 hours before sunset) is the most flattering light.' },
-      { question: 'Can I bring friends?', answer: 'Yes — group photowalks are some of the most fun sessions.' },
-      { question: "What if it's cloudy?", answer: 'Overcast light is actually very flattering. Only heavy rain would cause a reschedule.' },
+      { question: {
+        en: 'What time of day works best?',
+        ru: 'В какое время лучше снимать?',
+        uz: 'Qaysi vaqtda suratga olish yaxshiroq?',
+      }, answer: {
+        en: 'Golden hour (1–2 hours before sunset) is the most flattering light.',
+        ru: 'Золотой час — за 1–2 часа до заката, самый выигрышный свет.',
+        uz: 'Oltin soat — quyosh botishidan 1–2 soat oldin, eng yaxshi yorug‘lik.',
+      } },
+      { question: {
+        en: 'Can I bring friends?',
+        ru: 'Можно с друзьями?',
+        uz: 'Do‘stlar bilan bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — group photowalks are some of the most fun sessions.',
+        ru: 'Да — групповые фотопрогулки получаются одними из самых весёлых съёмок.',
+        uz: 'Ha — guruh bilan fotosayr eng qiziq suratga olishlardan biri bo‘ladi.',
+      } },
+      { question: {
+        en: "What if it's cloudy?",
+        ru: 'А если будет пасмурно?',
+        uz: 'Bulutli bo‘lsa-chi?',
+      }, answer: {
+        en: 'Overcast light is actually very flattering. Only heavy rain would cause a reschedule.',
+        ru: 'Пасмурный свет на самом деле очень мягкий и выигрышный. Переносим только из-за сильного дождя.',
+        uz: 'Bulutli yorug‘lik aslida juda yumshoq va yaxshi chiqadi. Faqat kuchli yomg‘ir sababli ko‘chiramiz.',
+      } },
     ],
     accentColor: '#1500FF',
   },
   {
     slug: 'newborn-maternity',
     category: 'moments',
-    title: 'New-born & Maternity',
-    tagline: 'The smallest hands. The biggest feeling.',
-    description:
-      'Gentle, warm sessions celebrating pregnancy and the first weeks of a new life. Shot with patience, softness, and an eye for the quiet moments that pass too fast.',
+    title: {
+      en: 'New-born & Maternity',
+      ru: 'Новорождённые и беременность',
+      uz: 'Chaqaloq va homiladorlik',
+    },
+    tagline: {
+      en: 'The smallest hands. The biggest feeling.',
+      ru: 'Самые маленькие руки. Самое большое чувство.',
+      uz: 'Eng kichkina qo‘llar. Eng katta tuyg‘u.',
+    },
+    description: {
+      en: 'Gentle, warm sessions celebrating pregnancy and the first weeks of a new life. Shot with patience, softness, and an eye for the quiet moments that pass too fast.',
+      ru: 'Бережные, тёплые съёмки про беременность и первые недели новой жизни. Спокойный темп, мягкий свет и внимание к тихим моментам, которые проходят слишком быстро.',
+      uz: 'Homiladorlik va yangi hayotning dastlabki haftalari haqida ehtiyotkor, iliq suratga olish. Tinch sur’at, yumshoq yorug‘lik va juda tez o‘tib ketadigan jimgina lahzalarga e’tibor.',
+    },
     iconName: 'Baby',
     coverPath: 'Portraits/Sara/3M0A1105.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -768,21 +1346,73 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Newborn sessions scheduled within 5–14 days after birth',
-      'Warm, safe environment — studio temperature controlled',
-      'Parent and sibling poses included',
-      'Soft, timeless editing style',
+      {
+        en: 'Newborn sessions scheduled within 5–14 days after birth',
+        ru: 'Съёмка новорождённых — на 5–14 день после родов',
+        uz: 'Chaqaloqlarni suratga olish — tug‘ruqdan keyin 5–14-kuni',
+      },
+      {
+        en: 'Warm, safe environment — studio temperature controlled',
+        ru: 'Тёплая, безопасная обстановка — температура в студии под контролем',
+        uz: 'Iliq, xavfsiz muhit — studiyada harorat nazoratda',
+      },
+      {
+        en: 'Parent and sibling poses included',
+        ru: 'Кадры с родителями и старшими детьми',
+        uz: 'Ota-ona va kattaroq bolalar bilan kadrlar',
+      },
+      {
+        en: 'Soft, timeless editing style',
+        ru: 'Мягкая, вневременная обработка',
+        uz: 'Yumshoq, zamondan tashqari ishlov',
+      },
     ],
     howToPrepare: [
-      'For newborns: feed baby right before the session so they sleep',
-      'Bring a swaddle or blanket with sentimental value',
-      'For maternity: schedule in the 28–34 week window for best results',
+      {
+        en: 'For newborns: feed baby right before the session so they sleep',
+        ru: 'С новорождёнными: покормите малыша прямо перед съёмкой, чтобы он спал',
+        uz: 'Chaqaloqlar bilan: suratdan oldin ovqatlantiring, shunda uxlaydi',
+      },
+      {
+        en: 'Bring a swaddle or blanket with sentimental value',
+        ru: 'Возьмите пелёнку или плед, которые вам дороги',
+        uz: 'O‘zingizga qadrli bo‘lgan yo‘rgak yoki adyol oling',
+      },
+      {
+        en: 'For maternity: schedule in the 28–34 week window for best results',
+        ru: 'Для беременности: лучшее окно — 28–34 неделя',
+        uz: 'Homiladorlik uchun: eng yaxshi davr — 28–34-hafta',
+      },
     ],
     packages: standardTiers('newborn-maternity'),
     faqs: [
-      { question: 'Is the studio safe for a newborn?', answer: 'Absolutely. I maintain a clean, temperature-controlled environment and have experience handling newborns.' },
-      { question: 'Can we use props we bring?', answer: 'Yes — personal items like a toy, blanket, or heirloom add beautiful meaning to the images.' },
-      { question: 'When should we book?', answer: 'Book during the second trimester so the spot is secured before the baby arrives.' },
+      { question: {
+        en: 'Is the studio safe for a newborn?',
+        ru: 'В студии безопасно для новорождённого?',
+        uz: 'Studiya chaqaloq uchun xavfsizmi?',
+      }, answer: {
+        en: 'Absolutely. I maintain a clean, temperature-controlled environment and have experience handling newborns.',
+        ru: 'Да. Чисто, тепло, температура под контролем, и у меня есть опыт работы с новорождёнными.',
+        uz: 'Ha. Toza, iliq, harorat nazoratda va menda chaqaloqlar bilan ishlash tajribasi bor.',
+      } },
+      { question: {
+        en: 'Can we use props we bring?',
+        ru: 'Можно со своим реквизитом?',
+        uz: 'O‘z rekvizitimiz bilan bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — personal items like a toy, blanket, or heirloom add beautiful meaning to the images.',
+        ru: 'Да — своя игрушка, плед или семейная вещь добавляют кадрам настоящего смысла.',
+        uz: 'Ha — o‘z o‘yinchog‘i, adyol yoki oilaviy buyum kadrlarga haqiqiy ma’no qo‘shadi.',
+      } },
+      { question: {
+        en: 'When should we book?',
+        ru: 'Когда бронировать?',
+        uz: 'Qachon band qilish kerak?',
+      }, answer: {
+        en: 'Book during the second trimester so the spot is secured before the baby arrives.',
+        ru: 'Во втором триместре — чтобы дата была занята до рождения малыша.',
+        uz: 'Ikkinchi trimestrda — chaqaloq tug‘ilgunga qadar sana band bo‘lishi uchun.',
+      } },
     ],
     accentColor: '#c8b400',
   },
@@ -790,10 +1420,21 @@ export const servicesData: ServiceData[] = [
   {
     slug: 'portraits',
     category: 'moments',
-    title: 'Portrait Sessions',
-    tagline: 'Studio polish or street spontaneity — portraits made your way.',
-    description:
-      "Solo, duo, or a full friend group — shot in-studio or as a relaxed photowalk through Tashkent's best backdrops instead of a fixed location. One flexible service built around however you want to show up on camera.",
+    title: {
+      en: 'Portrait Sessions',
+      ru: 'Портретная съёмка',
+      uz: 'Portret suratga olish',
+    },
+    tagline: {
+      en: 'Studio polish or street spontaneity — portraits made your way.',
+      ru: 'Студийная выверенность или уличная спонтанность — как вам ближе.',
+      uz: 'Studiya aniqligi yoki ko‘cha erkinligi — qaysi biri yaqin bo‘lsa.',
+    },
+    description: {
+      en: "Solo, duo, or a full friend group — shot in-studio or as a relaxed photowalk through Tashkent's best backdrops instead of a fixed location. One flexible service built around however you want to show up on camera.",
+      ru: 'Соло, вдвоём или целой компанией — в студии или на спокойной фотопрогулке по лучшим местам Ташкента вместо одной фиксированной локации. Одна гибкая съёмка, выстроенная под то, как вы хотите оказаться в кадре.',
+      uz: 'Yakka, ikki kishi yoki butun bir kompaniya bilan — studiyada yoki bitta qat’iy lokatsiya o‘rniga Toshkentning eng yaxshi joylari bo‘ylab tinch fotosayrda. Kadrda qanday ko‘rinishni xohlasangiz, shunga moslangan bitta moslashuvchan suratga olish.',
+    },
     iconName: 'User',
     coverPath: 'Portraits/Radmir/3M0A0772.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -802,21 +1443,73 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'Portraits',
     includes: [
-      'Choice of studio session or on-location / photowalk format',
-      'Solo, pair, or group compositions — mix and match on the day',
-      'Posing guidance for individuals and groups alike',
-      'Retouched final selects, delivered as a private online gallery',
+      {
+        en: 'Choice of studio session or on-location / photowalk format',
+        ru: 'Формат на выбор: студия или выезд / фотопрогулка',
+        uz: 'Format tanlovi: studiya yoki chiqish / fotosayr',
+      },
+      {
+        en: 'Solo, pair, or group compositions — mix and match on the day',
+        ru: 'Соло, парные и групповые кадры — можно смешивать прямо на съёмке',
+        uz: 'Yakka, juft va guruh kadrlar — suratga olish paytida aralashtirsa bo‘ladi',
+      },
+      {
+        en: 'Posing guidance for individuals and groups alike',
+        ru: 'Работа с позами — и для одного человека, и для группы',
+        uz: 'Pozalar ustida ishlash — yakka odam uchun ham, guruh uchun ham',
+      },
+      {
+        en: 'Retouched final selects, delivered as a private online gallery',
+        ru: 'Отретушированные кадры в закрытой онлайн-галерее',
+        uz: 'Retush qilingan kadrlar yopiq onlayn galereyada',
+      },
     ],
     howToPrepare: [
-      'Bring 2–3 outfit options — solid colours and textures photograph best',
-      'For groups, coordinate (not match) colours across everyone',
-      'Choosing the photowalk format? Wear comfortable shoes',
+      {
+        en: 'Bring 2–3 outfit options — solid colours and textures photograph best',
+        ru: 'Возьмите 2–3 комплекта — однотонное и фактурное снимается лучше всего',
+        uz: '2–3 komplekt oling — bir rangli va fakturali eng yaxshi chiqadi',
+      },
+      {
+        en: 'For groups, coordinate (not match) colours across everyone',
+        ru: 'Для группы — согласуйте цвета между всеми (не одинаковые)',
+        uz: 'Guruh uchun — ranglarni hamma bilan kelishing (bir xil emas)',
+      },
+      {
+        en: 'Choosing the photowalk format? Wear comfortable shoes',
+        ru: 'Выбрали фотопрогулку? Обувь — удобная',
+        uz: 'Fotosayrni tanladingizmi? Poyabzal — qulay bo‘lsin',
+      },
     ],
     packages: standardTiers('portraits', { of: 'portraits' }),
     faqs: [
-      { question: 'Studio or outdoors — which should I pick?', answer: 'Studio gives full lighting control; a photowalk through Tashkent adds movement and real backdrops. Tell me your vibe and I will recommend a spot.' },
-      { question: 'How many people can join?', answer: 'Solo sessions to full friend groups — just let me know the headcount when booking so I can plan timing.' },
-      { question: 'Can we split time between two locations?', answer: 'Yes — this is common for 2–3 hour sessions, for example half studio, half photowalk.' },
+      { question: {
+        en: 'Studio or outdoors — which should I pick?',
+        ru: 'Студия или улица — что выбрать?',
+        uz: 'Studiya yoki ko‘cha — qaysi birini tanlash kerak?',
+      }, answer: {
+        en: 'Studio gives full lighting control; a photowalk through Tashkent adds movement and real backdrops. Tell me your vibe and I will recommend a spot.',
+        ru: 'В студии полный контроль над светом; фотопрогулка по Ташкенту добавляет движение и живой фон. Расскажите, какое настроение хотите, — подскажу место.',
+        uz: 'Studiyada yorug‘lik to‘liq nazoratda; Toshkent bo‘ylab fotosayr harakat va jonli fon qo‘shadi. Qanday kayfiyat xohlayotganingizni ayting — joyni men maslahat beraman.',
+      } },
+      { question: {
+        en: 'How many people can join?',
+        ru: 'Сколько человек может участвовать?',
+        uz: 'Necha kishi qatnashishi mumkin?',
+      }, answer: {
+        en: 'Solo sessions to full friend groups — just let me know the headcount when booking so I can plan timing.',
+        ru: 'От соло до большой компании — скажите количество при брони, чтобы я рассчитал время.',
+        uz: 'Yakkadan katta kompaniyagacha — vaqtni hisoblashim uchun band qilishda sonini ayting.',
+      } },
+      { question: {
+        en: 'Can we split time between two locations?',
+        ru: 'Можно разделить время между двумя локациями?',
+        uz: 'Vaqtni ikkita lokatsiyaga bo‘lsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — this is common for 2–3 hour sessions, for example half studio, half photowalk.',
+        ru: 'Да — для съёмок на 2–3 часа это обычное дело: половина в студии, половина на прогулке.',
+        uz: 'Ha — 2–3 soatlik suratga olishlarda bu odatiy hol: yarmi studiyada, yarmi sayrda.',
+      } },
     ],
     accentColor: '#2a6045',
   },
@@ -1171,10 +1864,21 @@ export const servicesData: ServiceData[] = [
   {
     slug: 'models',
     category: 'fashion',
-    title: 'Model Portfolio',
-    tagline: 'Your book, built to open agency doors.',
-    description:
-      'A focused portfolio shoot for models looking to build or refresh their book. Strong variety: editorial, commercial, and beauty shots that show range to agencies and clients.',
+    title: {
+      en: 'Model Portfolio',
+      ru: 'Портфолио модели',
+      uz: 'Model portfoliosi',
+    },
+    tagline: {
+      en: 'Your book, built to open agency doors.',
+      ru: 'Портфолио, которое открывает двери агентств.',
+      uz: 'Agentliklar eshigini ochadigan portfolio.',
+    },
+    description: {
+      en: 'A focused portfolio shoot for models looking to build or refresh their book. Strong variety: editorial, commercial, and beauty shots that show range to agencies and clients.',
+      ru: 'Съёмка для моделей, которые собирают или обновляют книгу. Главное — диапазон: editorial, коммерческие и beauty-кадры, по которым агентству и клиенту видно, что вы умеете.',
+      uz: 'Kitobini yig‘ayotgan yoki yangilayotgan modellar uchun suratga olish. Eng muhimi — diapazon: editorial, tijorat va beauty kadrlar, ular orqali agentlik va mijoz nimaga qodir ekaningizni ko‘radi.',
+    },
     iconName: 'Camera',
     coverPath: 'WIUT-Fashion-Show/3M0A1946.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -1183,31 +1887,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'WIUT-Fashion-Show',
     includes: [
-      'Pre-shoot concept meeting',
-      '3–4 looks with different lighting setups',
-      'Both studio and outdoor setups',
-      'Print-ready and web-optimised exports',
+      {
+        en: 'Pre-shoot concept meeting',
+        ru: 'Встреча по концепции до съёмки',
+        uz: 'Suratdan oldin konsepsiya bo‘yicha uchrashuv',
+      },
+      {
+        en: '3–4 looks with different lighting setups',
+        ru: '3–4 образа с разными схемами света',
+        uz: 'Turli yorug‘lik sxemalari bilan 3–4 ta obraz',
+      },
+      {
+        en: 'Both studio and outdoor setups',
+        ru: 'И студия, и съёмка на улице',
+        uz: 'Ham studiya, ham ko‘chada suratga olish',
+      },
+      {
+        en: 'Print-ready and web-optimised exports',
+        ru: 'Файлы под печать и под веб',
+        uz: 'Bosma uchun ham, veb uchun ham fayllar',
+      },
     ],
     howToPrepare: [
-      'Bring 3–4 wardrobe options across different aesthetics (casual, editorial, formal)',
-      'Come with natural makeup — we can layer up from there',
-      'Have your current comp card if you have one',
+      {
+        en: 'Bring 3–4 wardrobe options across different aesthetics (casual, editorial, formal)',
+        ru: 'Возьмите 3–4 комплекта разной стилистики: casual, editorial, строгий',
+        uz: 'Turli uslubdagi 3–4 komplekt oling: casual, editorial, rasmiy',
+      },
+      {
+        en: 'Come with natural makeup — we can layer up from there',
+        ru: 'Приходите с лёгким макияжем — усилить всегда успеем',
+        uz: 'Yengil bo‘yanish bilan keling — kuchaytirishga doim ulguramiz',
+      },
+      {
+        en: 'Have your current comp card if you have one',
+        ru: 'Если есть комп-карта — возьмите с собой',
+        uz: 'Komp-kartangiz bo‘lsa — o‘zingiz bilan oling',
+      },
     ],
     packages: standardTiers('models', { of: 'portraits' }),
     faqs: [
-      { question: 'Do you work with beginner models?', answer: 'Yes. I work with models at all levels and provide full direction throughout.' },
-      { question: 'Can a makeup artist be arranged?', answer: 'Yes — a hair and makeup artist can be added to any package.' },
-      { question: 'Will the photos help me get signed?', answer: 'A well-executed book significantly improves your chances. I can advise on what agencies in the region look for.' },
+      { question: {
+        en: 'Do you work with beginner models?',
+        ru: 'Работаете с начинающими моделями?',
+        uz: 'Boshlovchi modellar bilan ishlaysizmi?',
+      }, answer: {
+        en: 'Yes. I work with models at all levels and provide full direction throughout.',
+        ru: 'Да. Снимаю моделей любого уровня и веду по позам всю съёмку.',
+        uz: 'Ha. Har qanday darajadagi modellarni suratga olaman va butun davomida pozalarni aytib turaman.',
+      } },
+      { question: {
+        en: 'Can a makeup artist be arranged?',
+        ru: 'Можно организовать визажиста?',
+        uz: 'Vizajist tashkil qilsa bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — a hair and makeup artist can be added to any package.',
+        ru: 'Да — визажиста и стилиста по волосам можно добавить к любому пакету.',
+        uz: 'Ha — vizajist va soch stilistini istalgan paketga qo‘shsa bo‘ladi.',
+      } },
+      { question: {
+        en: 'Will the photos help me get signed?',
+        ru: 'Эти фото помогут подписать контракт?',
+        uz: 'Bu suratlar shartnoma tuzishga yordam beradimi?',
+      }, answer: {
+        en: 'A well-executed book significantly improves your chances. I can advise on what agencies in the region look for.',
+        ru: 'Хорошо собранная книга заметно повышает шансы. Подскажу, на что смотрят агентства в регионе.',
+        uz: 'Yaxshi yig‘ilgan kitob imkoniyatni sezilarli oshiradi. Mintaqadagi agentliklar nimaga qarashini aytaman.',
+      } },
     ],
     accentColor: '#1500FF',
   },
   {
     slug: 'fashion-streetstyle',
     category: 'fashion',
-    title: 'Fashion & Street Style',
-    tagline: 'Clothes that move. Photos that stop traffic.',
-    description:
-      "Editorial and street-style shoots for brands, designers, boutiques, or individuals with something to say through what they wear. Shot on location in Tashkent's most visually interesting districts.",
+    title: {
+      en: 'Fashion & Street Style',
+      ru: 'Fashion и street style',
+      uz: 'Fashion va street style',
+    },
+    tagline: {
+      en: 'Clothes that move. Photos that stop traffic.',
+      ru: 'Одежда в движении. Кадры, на которых останавливаются.',
+      uz: 'Harakatdagi kiyim. To‘xtatib qo‘yadigan kadrlar.',
+    },
+    description: {
+      en: "Editorial and street-style shoots for brands, designers, boutiques, or individuals with something to say through what they wear. Shot on location in Tashkent's most visually interesting districts.",
+      ru: 'Editorial и street-style съёмки для брендов, дизайнеров, бутиков и просто людей, которым есть что сказать через одежду. Снимаем на натуре, в самых интересных районах Ташкента.',
+      uz: 'Brendlar, dizaynerlar, butiklar va kiyim orqali aytadigan gapi bor odamlar uchun editorial va street-style suratga olish. Toshkentning eng qiziq hududlarida, tabiiy muhitda olamiz.',
+    },
     iconName: 'Shirt',
     coverPath: 'WIUT-Fashion-Show/3M0A2669.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -1216,31 +1983,94 @@ export const servicesData: ServiceData[] = [
     galleryPaths: [],
     galleryCategory: 'WIUT-Fashion-Show',
     includes: [
-      "Location scouting in Tashkent's key visual districts",
-      'Dynamic movement and action shots alongside static editorial',
-      'Mix of tight and environmental frames',
-      'Colour grading matched to your brand aesthetic',
+      {
+        en: "Location scouting in Tashkent's key visual districts",
+        ru: 'Подбор локаций в ключевых районах Ташкента',
+        uz: 'Toshkentning asosiy hududlarida lokatsiya tanlash',
+      },
+      {
+        en: 'Dynamic movement and action shots alongside static editorial',
+        ru: 'Кадры в движении наравне со статичным editorial',
+        uz: 'Statik editorial bilan birga harakatdagi kadrlar',
+      },
+      {
+        en: 'Mix of tight and environmental frames',
+        ru: 'И крупные планы, и кадры с окружением',
+        uz: 'Ham yaqin plan, ham atrof bilan kadrlar',
+      },
+      {
+        en: 'Colour grading matched to your brand aesthetic',
+        ru: 'Цветокоррекция под эстетику вашего бренда',
+        uz: 'Brendingiz estetikasiga moslangan rang korreksiyasi',
+      },
     ],
     howToPrepare: [
-      'Bring a rack — more options is always better on a fashion shoot',
-      'Think about the feeling the clothes should communicate',
-      "If you're a brand, bring lookbook context (season, campaign direction)",
+      {
+        en: 'Bring a rack — more options is always better on a fashion shoot',
+        ru: 'Берите стойку с одеждой — на fashion-съёмке вариантов много не бывает',
+        uz: 'Kiyim stendini oling — fashion suratda variant ko‘p bo‘lgani yaxshi',
+      },
+      {
+        en: 'Think about the feeling the clothes should communicate',
+        ru: 'Подумайте, что эта одежда должна передавать',
+        uz: 'Bu kiyim nimani ifodalashi kerakligini o‘ylang',
+      },
+      {
+        en: "If you're a brand, bring lookbook context (season, campaign direction)",
+        ru: 'Если вы бренд — принесите контекст лукбука: сезон, направление кампании',
+        uz: 'Agar brend bo‘lsangiz — lukbuk kontekstini oling: mavsum, kampaniya yo‘nalishi',
+      },
     ],
     packages: standardTiers('fashion-streetstyle'),
     faqs: [
-      { question: 'Do you work with brands or just individuals?', answer: 'Both — I have experience with brand lookbooks and personal style shoots.' },
-      { question: 'Can you match a specific editorial reference?', answer: 'Yes. Share references beforehand and we will nail the aesthetic.' },
-      { question: 'Do you shoot video content too?', answer: 'Short-form video content can be added — ask when booking.' },
+      { question: {
+        en: 'Do you work with brands or just individuals?',
+        ru: 'Снимаете только бренды или частных людей тоже?',
+        uz: 'Faqat brendlarnimi yoki shaxslarni ham olasizmi?',
+      }, answer: {
+        en: 'Both — I have experience with brand lookbooks and personal style shoots.',
+        ru: 'И тех и других — есть опыт и с лукбуками брендов, и с личной стилевой съёмкой.',
+        uz: 'Ikkalasini ham — brend lukbuklari bilan ham, shaxsiy uslub suratlari bilan ham tajribam bor.',
+      } },
+      { question: {
+        en: 'Can you match a specific editorial reference?',
+        ru: 'Можете повторить конкретный editorial-референс?',
+        uz: 'Aniq editorial referensni takrorlay olasizmi?',
+      }, answer: {
+        en: 'Yes. Share references beforehand and we will nail the aesthetic.',
+        ru: 'Да. Пришлите референсы заранее — соберём эстетику точно.',
+        uz: 'Ha. Referenslarni oldindan yuboring — estetikani aniq yig‘amiz.',
+      } },
+      { question: {
+        en: 'Do you shoot video content too?',
+        ru: 'Видео тоже снимаете?',
+        uz: 'Video ham olasizmi?',
+      }, answer: {
+        en: 'Short-form video content can be added — ask when booking.',
+        ru: 'Короткие вертикальные ролики можно добавить — скажите при брони.',
+        uz: 'Qisqa vertikal roliklarni qo‘shsa bo‘ladi — band qilishda ayting.',
+      } },
     ],
     accentColor: '#2a6045',
   },
   {
     slug: 'uzb-national',
     category: 'fashion',
-    title: 'Uzbek National Photography',
-    tagline: 'Traditional dress. Contemporary vision.',
-    description:
-      'Portraits and editorial shoots celebrating Uzbek national dress and cultural identity — chapan, atlas, ikat, surkh-kiyim. Shot with pride, with an eye for detail that honours the craftsmanship.',
+    title: {
+      en: 'Uzbek National Photography',
+      ru: 'Национальная съёмка',
+      uz: 'Milliy liboslarda suratga olish',
+    },
+    tagline: {
+      en: 'Traditional dress. Contemporary vision.',
+      ru: 'Традиционный костюм. Современный взгляд.',
+      uz: 'An’anaviy libos. Zamonaviy qarash.',
+    },
+    description: {
+      en: 'Portraits and editorial shoots celebrating Uzbek national dress and cultural identity — chapan, atlas, ikat, surkh-kiyim. Shot with pride, with an eye for detail that honours the craftsmanship.',
+      ru: 'Портреты и editorial-съёмки про узбекский национальный костюм и культурную идентичность — чапан, атлас, икат, сурх-кийим. Снимаю с уважением и вниманием к деталям, в которых и живёт мастерство.',
+      uz: 'O‘zbek milliy libosi va madaniy o‘zlik haqida portretlar va editorial suratlar — chopon, atlas, ikat, surx-kiyim. Hurmat bilan va hunarmandlik yashiringan tafsilotlarga e’tibor berib suratga olaman.',
+    },
     iconName: 'Globe',
     coverPath: 'Nature/fountainalayskiy.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -1248,31 +2078,94 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Cultural context consultation — making sure the styling tells the right story',
-      'Location options: Old City Tashkent, Chorsu, or studio',
-      'Detail shots of embroidery, jewellery, and fabric texture',
-      'Both portrait and environmental compositions',
+      {
+        en: 'Cultural context consultation — making sure the styling tells the right story',
+        ru: 'Разговор о контексте — чтобы образ рассказывал правильную историю',
+        uz: 'Kontekst haqida suhbat — obraz to‘g‘ri hikoyani aytishi uchun',
+      },
+      {
+        en: 'Location options: Old City Tashkent, Chorsu, or studio',
+        ru: 'Локации на выбор: Старый город, Чорсу или студия',
+        uz: 'Lokatsiya tanlovi: Eski shahar, Chorsu yoki studiya',
+      },
+      {
+        en: 'Detail shots of embroidery, jewellery, and fabric texture',
+        ru: 'Детальные кадры вышивки, украшений и фактуры ткани',
+        uz: 'Kashta, taqinchoq va mato fakturasining detal kadrlari',
+      },
+      {
+        en: 'Both portrait and environmental compositions',
+        ru: 'И портреты, и кадры с окружением',
+        uz: 'Ham portretlar, ham atrof bilan kadrlar',
+      },
     ],
     howToPrepare: [
-      'Bring the outfit freshly pressed and lint-free',
-      'Jewellery and accessories make a huge difference — bring options',
-      'Share any occasion context (Navruz, wedding, family portrait)',
+      {
+        en: 'Bring the outfit freshly pressed and lint-free',
+        ru: 'Костюм — выглаженный и без катышков',
+        uz: 'Libos — dazmollangan va tuksiz bo‘lsin',
+      },
+      {
+        en: 'Jewellery and accessories make a huge difference — bring options',
+        ru: 'Украшения и аксессуары решают многое — возьмите варианты',
+        uz: 'Taqinchoq va aksessuarlar ko‘p narsani hal qiladi — variantlar oling',
+      },
+      {
+        en: 'Share any occasion context (Navruz, wedding, family portrait)',
+        ru: 'Скажите, если есть повод: Навруз, свадьба, семейный портрет',
+        uz: 'Bahona bo‘lsa ayting: Navro‘z, to‘y, oilaviy portret',
+      },
     ],
     packages: standardTiers('uzb-national'),
     faqs: [
-      { question: 'Can I bring multiple outfits?', answer: 'Yes — changing between looks is common and encouraged.' },
-      { question: 'Do you shoot in Old City Tashkent?', answer: 'Yes — it is one of my favourite locations for this genre.' },
-      { question: 'Can this be a group or family session?', answer: 'Absolutely. Multi-generational national dress portraits are beautiful.' },
+      { question: {
+        en: 'Can I bring multiple outfits?',
+        ru: 'Можно взять несколько костюмов?',
+        uz: 'Bir nechta libos olsam bo‘ladimi?',
+      }, answer: {
+        en: 'Yes — changing between looks is common and encouraged.',
+        ru: 'Да — переодевания здесь обычное дело, и я только за.',
+        uz: 'Ha — bu yerda kiyim almashtirish odatiy hol, men faqat tarafdorman.',
+      } },
+      { question: {
+        en: 'Do you shoot in Old City Tashkent?',
+        ru: 'Снимаете в Старом городе?',
+        uz: 'Eski shaharda suratga olasizmi?',
+      }, answer: {
+        en: 'Yes — it is one of my favourite locations for this genre.',
+        ru: 'Да — это одна из моих любимых локаций для такой съёмки.',
+        uz: 'Ha — bu shunday suratlar uchun eng sevimli joylarimdan biri.',
+      } },
+      { question: {
+        en: 'Can this be a group or family session?',
+        ru: 'Можно семейную или групповую съёмку?',
+        uz: 'Oilaviy yoki guruh suratga olish bo‘ladimi?',
+      }, answer: {
+        en: 'Absolutely. Multi-generational national dress portraits are beautiful.',
+        ru: 'Конечно. Портреты в национальном костюме на несколько поколений получаются очень красивыми.',
+        uz: 'Albatta. Bir necha avlod milliy libosda tushgan portretlar juda chiroyli chiqadi.',
+      } },
     ],
     accentColor: '#c8b400',
   },
   {
     slug: 'creative-photography',
     category: 'fashion',
-    title: 'Creative Photography',
-    tagline: 'No rules. Great photos.',
-    description:
-      'Conceptual, experimental, and artistic shoots for people who have an idea they want to realise. Double exposures, dramatic lighting, set builds, and surreal concepts — bring your vision and we will make it work.',
+    title: {
+      en: 'Creative Photography',
+      ru: 'Креативная съёмка',
+      uz: 'Kreativ suratga olish',
+    },
+    tagline: {
+      en: 'No rules. Great photos.',
+      ru: 'Без правил. С результатом.',
+      uz: 'Qoidalarsiz. Natija bilan.',
+    },
+    description: {
+      en: 'Conceptual, experimental, and artistic shoots for people who have an idea they want to realise. Double exposures, dramatic lighting, set builds, and surreal concepts — bring your vision and we will make it work.',
+      ru: 'Концептуальные и экспериментальные съёмки для тех, у кого есть идея и желание её реализовать. Двойная экспозиция, драматичный свет, собранные декорации, сюрреализм — приносите замысел, а как его снять, придумаем.',
+      uz: 'G‘oyasi va uni amalga oshirish istagi bor odamlar uchun konseptual va eksperimental suratga olish. Qo‘sh ekspozitsiya, dramatik yorug‘lik, yig‘ilgan dekoratsiyalar, syurrealizm — niyatni olib keling, uni qanday olishni birga o‘ylab topamiz.',
+    },
     iconName: 'Wand2',
     coverPath: 'Nature/frozenbutnotreally.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
@@ -1280,21 +2173,73 @@ export const servicesData: ServiceData[] = [
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
     includes: [
-      'Full pre-shoot concept development session',
-      'Prop and set styling support',
-      'Experimental lighting setups',
-      'Post-production compositing and retouching (where needed)',
+      {
+        en: 'Full pre-shoot concept development session',
+        ru: 'Полноценная проработка концепции до съёмки',
+        uz: 'Suratdan oldin konsepsiyani to‘liq ishlab chiqish',
+      },
+      {
+        en: 'Prop and set styling support',
+        ru: 'Помощь с реквизитом и декорациями',
+        uz: 'Rekvizit va dekoratsiyalar bilan yordam',
+      },
+      {
+        en: 'Experimental lighting setups',
+        ru: 'Экспериментальные схемы света',
+        uz: 'Eksperimental yorug‘lik sxemalari',
+      },
+      {
+        en: 'Post-production compositing and retouching (where needed)',
+        ru: 'Композитинг и ретушь в постобработке, где это нужно',
+        uz: 'Kerak bo‘lganda kompozitsiya va retush',
+      },
     ],
     howToPrepare: [
-      'Build a mood board — the more specific, the better',
-      'Think about colour palette, mood, and the feeling the image should leave',
-      'Be ready to experiment — creative shoots evolve in the moment',
+      {
+        en: 'Build a mood board — the more specific, the better',
+        ru: 'Соберите мудборд — чем конкретнее, тем лучше',
+        uz: 'Mudbord yig‘ing — qanchalik aniq bo‘lsa, shunchalik yaxshi',
+      },
+      {
+        en: 'Think about colour palette, mood, and the feeling the image should leave',
+        ru: 'Подумайте про палитру, настроение и ощущение, которое должен оставлять кадр',
+        uz: 'Palitra, kayfiyat va kadr qoldiradigan taassurot haqida o‘ylang',
+      },
+      {
+        en: 'Be ready to experiment — creative shoots evolve in the moment',
+        ru: 'Будьте готовы экспериментировать — креатив рождается по ходу',
+        uz: 'Eksperimentga tayyor bo‘ling — kreativ jarayonda tug‘iladi',
+      },
     ],
     packages: standardTiers('creative-photography'),
     faqs: [
-      { question: "What if I don't know exactly what I want?", answer: 'That is fine — we can start with a mood and develop the concept together.' },
-      { question: 'Can you source props?', answer: 'Basic props are included. Specialised items may have an additional cost.' },
-      { question: 'How many edited images do I get?', answer: 'Creative shoots produce fewer but more polished images — quality over quantity.' },
+      { question: {
+        en: "What if I don't know exactly what I want?",
+        ru: 'А если я не знаю точно, чего хочу?',
+        uz: 'Aniq nima xohlashimni bilmasam-chi?',
+      }, answer: {
+        en: 'That is fine — we can start with a mood and develop the concept together.',
+        ru: 'Это нормально — начнём с настроения и соберём концепцию вместе.',
+        uz: 'Bu normal — kayfiyatdan boshlaymiz va konsepsiyani birga yig‘amiz.',
+      } },
+      { question: {
+        en: 'Can you source props?',
+        ru: 'Реквизит найдёте?',
+        uz: 'Rekvizit topasizmi?',
+      }, answer: {
+        en: 'Basic props are included. Specialised items may have an additional cost.',
+        ru: 'Базовый реквизит входит. Что-то специфическое может стоить отдельно.',
+        uz: 'Oddiy rekvizit kiradi. Maxsus narsalar alohida turishi mumkin.',
+      } },
+      { question: {
+        en: 'How many edited images do I get?',
+        ru: 'Сколько обработанных кадров я получу?',
+        uz: 'Nechta ishlov berilgan kadr olaman?',
+      }, answer: {
+        en: 'Creative shoots produce fewer but more polished images — quality over quantity.',
+        ru: 'В креативных съёмках кадров меньше, но они проработаннее — качество важнее количества.',
+        uz: 'Kreativ suratlarda kadr kamroq, lekin ular puxtaroq — sifat miqdordan muhimroq.',
+      } },
     ],
     accentColor: '#1500FF',
   },
