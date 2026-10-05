@@ -48,7 +48,9 @@
     "ctaButton": "Book a session",
     "viewMorePrefix": "If you want to view more visit",
     "portfolioPage": "Portfolio page",
-    "heroSubtitle": "Portrait, fashion and graduation photography in Tashkent"
+    "heroSubtitle": "Portrait, fashion and graduation photography in Tashkent",
+    "alsoOnRequest": "Events, weddings, editorial and social-media shoots are not listed as packages, but I still take them.",
+    "alsoOnRequestCta": "Message me on Telegram"
   },
   "portfolio": {
     "eyebrow": "Shamshod with a Camera",

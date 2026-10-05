@@ -29,6 +29,13 @@ const tags = ["Portrait", "Fashion", "Graduation","Commercial"];
 
 // Text-only in the new hero — the meta bar is a typographic strip, so the
 // lucide glyphs that used to sit in the pill buttons are gone.
+// Events, weddings, editorial, social-media batches and national dress all
+// lost their service pages on 2026-10-06. Marshall still takes that work, so
+// the "Open to" row ends with a line pointing at Telegram rather than at a page
+// that no longer exists. This is the PUBLIC account, unlike the booking form's
+// enquiry link, because this is a first contact and not a booking.
+const ON_REQUEST_TELEGRAM = "https://t.me/saycheeeeeze";
+
 const socialLinks = [
   { label: "Instagram", href: "https://www.instagram.com/saycheeeeeze" },
   { label: "Telegram",  href: "https://t.me/saycheeeeeze" },
@@ -318,12 +325,24 @@ export default function AboutContent({
         <Shelf title={t("about.openTo")} className="pb-6 mt-6">
           {OPEN_TO.map((o, i) => <OpenToCard key={i} item={o} photo={pick(o.path)} locale={locale} fromLabel={t("about.from")} detailsLabel={t("about.viewDetails")} />)}
         </Shelf>
+        <p className="px-4 -mt-2 mb-6 text-xs leading-relaxed text-white/40">
+          {t("about.alsoOnRequest")}{" "}
+          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-white/70 underline underline-offset-2 hover:text-white">
+            {t("about.alsoOnRequestCta")}
+          </a>
+        </p>
       </div>
       <section className="hidden lg:block relative z-10 pb-10 mt-12 mb-12">
         <h2 className="text-3xl font-extrabold tracking-tight px-8 mb-5">{t("about.openTo")}</h2>
         <div className="grid grid-cols-4 gap-4 px-8">
           {OPEN_TO.map((o, i) => <OpenToCard key={i} item={o} photo={pick(o.path)} locale={locale} fromLabel={t("about.from")} detailsLabel={t("about.viewDetails")} />)}
         </div>
+        <p className="px-8 mt-5 text-sm leading-relaxed text-white/40">
+          {t("about.alsoOnRequest")}{" "}
+          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-white/70 underline underline-offset-2 hover:text-white">
+            {t("about.alsoOnRequestCta")}
+          </a>
+        </p>
       </section>
 
 

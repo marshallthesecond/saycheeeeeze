@@ -141,6 +141,49 @@ export function catalogForService(slug: string): CatalogItem[] {
 }
 
 /**
+ * Twelve services were removed on 2026-10-06, and their thirty tier ids went
+ * with them. The ids did not stop existing — they are written into `bookings`
+ * rows, into Telegram messages and into whatever links are still in someone's
+ * history.
+ *
+ * Nothing BREAKS without this map: both the status route and the Telegram
+ * webhook read `packageName` off the stored row rather than re-resolving it, so
+ * confirming or declining an old booking never touches the catalogue. What the
+ * map buys is the live case — a `/book?package=individual-portraits-90m` link
+ * lands on the form with the right tier selected instead of silently nothing.
+ *
+ * The retired services all priced through `standardTiers()`, and so do the ones
+ * they map to, so `-1h` / `-90m` / `-150m` are the same duration and the same
+ * money either side. That is what makes a rewrite honest rather than a guess;
+ * check it before adding a row here.
+ *
+ * Keep in step with the redirects in next.config.ts, which send the PAGES to
+ * the same places.
+ */
+const RETIRED_SERVICES: Record<string, string> = {
+  "individual-portraits": "portraits",
+  "pair-group": "portraits",
+  "family-portraits": "portraits",
+  "business-portraits": "portraits",
+  "photowalk-tashkent": "portraits",
+  "newborn-maternity": "portraits",
+  "uzb-national": "portraits",
+  "creative-photography": "portraits",
+  "social-media-content": "brand-product",
+  "fashion-streetstyle": "brand-product",
+  // wedding-love-story and events-corporate had `{ bookable: false }` and
+  // therefore no ids at all. They only need the page redirect.
+};
+
+/** `individual-portraits-90m` -> `portraits-90m`, or undefined. */
+function rewriteRetiredId(id: string): string | undefined {
+  for (const [from, to] of Object.entries(RETIRED_SERVICES)) {
+    if (id.startsWith(`${from}-`)) return `${to}-${id.slice(from.length + 1)}`;
+  }
+  return undefined;
+}
+
+/**
  * One tier by id, across every service, the one-off events and the generic
  * ladder.
  *
@@ -150,9 +193,10 @@ export function catalogForService(slug: string): CatalogItem[] {
  * service page and would otherwise be unpriceable.
  *
  * The generic ids are checked LAST and by exact match, so a service that ever
- * takes the slug "session" shadows nothing.
+ * takes the slug "session" shadows nothing. Retired ids are checked after
+ * those, so a live tier always wins over a rewritten one.
  */
-export function findCatalogItem(id: string): CatalogItem | undefined {
+function findLiveItem(id: string): CatalogItem | undefined {
   for (const service of servicesData) {
     const found = catalogForService(service.slug).find((i) => i.id === id);
     if (found) return found;
@@ -160,6 +204,17 @@ export function findCatalogItem(id: string): CatalogItem | undefined {
   const event = miniCatalog().find((i) => i.id === id);
   if (event) return event;
   return genericCatalog().find((i) => i.id === id);
+}
+
+export function findCatalogItem(id: string): CatalogItem | undefined {
+  const live = findLiveItem(id);
+  if (live) return live;
+
+  // Exactly one hop, by construction rather than by comment: the rewritten id
+  // goes to findLiveItem, not back through here, so a retired slug pointing at
+  // another retired slug resolves to nothing instead of looping for ever.
+  const rewritten = rewriteRetiredId(id);
+  return rewritten ? findLiveItem(rewritten) : undefined;
 }
 
 /** Is this id something the catalogue can price? */

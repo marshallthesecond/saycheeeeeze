@@ -196,24 +196,7 @@ export function getPackage(list: SessionPackage[], id: string): SessionPackage |
 // silently produce a page with no price attached to it.
 export const SERVICE_TO_PACKAGE: Record<string, PackageId | null> = {
   graduation: "graduation",
-
   portraits: "portrait",
-  "individual-portraits": "portrait",
-  "pair-group": "portrait",
-  "family-portraits": "portrait",
-  "photowalk-tashkent": "portrait",
-  "newborn-maternity": "portrait",
   models: "portrait",
-
-  "fashion-streetstyle": "fashion",
-  "creative-photography": "fashion",
-  "uzb-national": "fashion",
-
   "brand-product": "commercial",
-  "business-portraits": "commercial",
-  "social-media-content": "commercial",
-
-  // Neither fits a fixed 2h block at a fixed price. Enquire.
-  "wedding-love-story": null,
-  "events-corporate": null,
 };
