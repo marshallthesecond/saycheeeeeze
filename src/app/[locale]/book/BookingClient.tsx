@@ -16,7 +16,9 @@
 //     email address.
 //   • Colours come from the design tokens, never hardcoded.
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense, memo, useCallback, useEffect, useMemo, useRef, useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Check, ChevronDown, Clock, MapPin, MessageCircle, Phone, Send, User, Users,
@@ -103,6 +105,22 @@ interface BookingState {
 
 const TELEGRAM_RE = /^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/;
 
+/** One shared empty array, so "nothing suggested" is a stable prop. */
+const EMPTY_IDS: readonly string[] = [];
+
+/**
+ * How long a step takes to open or close, and the curve.
+ *
+ * One constant because three places animate on it — the step body, the
+ * chevron, and the scroll that follows — and a step whose height finishes
+ * before its chevron does reads as two things happening rather than one.
+ * 260ms is the top of the range that still feels like a direct response to a
+ * tap; the ease-out means it leaves immediately and settles, rather than
+ * creeping away from the finger.
+ */
+const STEP_MS = 260;
+const STEP_EASE = "cubic-bezier(0.22, 0.61, 0.36, 1)";
+
 // Root
 
 interface Props {
@@ -140,9 +158,12 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // nothing to fall back to now: a service whose tiers we cannot name leaves
   // the client on the generic ladder below, which is the same three prices its
   // page just showed them.
-  const presetPackage =
-    (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
-    (packages.some((p) => p.id === packageParam) ? packageParam : null);
+  const presetPackage = useMemo(
+    () =>
+      (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
+      (packages.some((p) => p.id === packageParam) ? packageParam : null),
+    [packageParam, packages],
+  );
 
   const today = useMemo(() => todayInTashkent(), []);
   const todayISO = useMemo(() => toISODate(today), [today]);
@@ -194,7 +215,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   const presetLocation =
     (presetPackage ? findCatalogItem(presetPackage)?.locationIds[0] : null) ?? null;
 
-  const [state, setState] = useState<BookingState>({
+  // A function initialiser, not an object literal. The literal was built on
+  // every render and thrown away on all but the first — cheap in isolation,
+  // but it also ran isCeremonyPackage() and the location lookup each time.
+  const [state, setState] = useState<BookingState>(() => ({
     serviceId: presetService,
     // A ceremony link is by definition a WIUTerian one, so arriving on it with
     // the switch off would show a price list the toggle above says is hidden.
@@ -214,7 +238,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     phone: "",
     notes: "",
     consent: false,
-  });
+  }));
 
   const [openStep, setOpenStep] = useState<StepId>(presetPackage ? 2 : 1);
   const [submitting, setSubmitting] = useState(false);
@@ -222,8 +246,29 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   const [done, setDone] = useState<{ ref: string; botLink: string | null } | null>(null);
   const [website, setWebsite] = useState(""); // honeypot
 
-  const set = <K extends keyof BookingState>(k: K, v: BookingState[K]) =>
-    setState((prev) => ({ ...prev, [k]: v }));
+  /**
+   * One field.
+   *
+   * `useCallback` with no dependencies, which it can be because the updater
+   * form needs nothing from the render that created it. That matters: `set` is
+   * the root of nearly every handler on this page, and while it was rebuilt
+   * each render no amount of `React.memo` below could hold.
+   *
+   * The identity bail-out is not a micro-optimisation either. Several effects
+   * here write a value that is usually already what they are writing —
+   * `set("startTime", null)` fires on every package change — and spreading
+   * into a fresh object made each of those a guaranteed extra render of the
+   * whole form. Returning `prev` unchanged makes React drop the update.
+   *
+   * Arrays and objects (`locationIds`) compare by reference and so never hit
+   * the bail-out, which is correct: a new array with the same contents is a
+   * real change as far as this is concerned.
+   */
+  const set = useCallback(
+    <K extends keyof BookingState>(k: K, v: BookingState[K]) =>
+      setState((prev) => (Object.is(prev[k], v) ? prev : { ...prev, [k]: v })),
+    [],
+  );
 
   // What this service is, once chosen
   //
@@ -311,6 +356,109 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     return null;
   }, [catalogItem, pkg, locale]);
 
+  /**
+   * The places this tier happens in, as a stable array.
+   *
+   * `catalogItem?.locationIds ?? []` inline was a fresh `[]` on every render
+   * whenever no tier was chosen, which is the whole of step 1 — enough on its
+   * own to re-render the location picker on every keystroke four steps away.
+   */
+  const suggestedLocations = useMemo(
+    () => catalogItem?.locationIds ?? EMPTY_IDS,
+    [catalogItem],
+  );
+
+  // Handlers
+  //
+  // Every one of these is stable for the life of the page, and every one that
+  // needs to read the current state does it through the updater argument
+  // rather than closing over this render's copy. Both halves are required: a
+  // handler that closes over `state` has to be rebuilt when state changes,
+  // which is exactly when you need it not to be.
+
+  const selectService = useCallback((id: string) => set("serviceId", id), [set]);
+
+  const setWiuterian = useCallback((on: boolean) => {
+    // One update, not two. As two `set` calls this was two renders of the
+    // whole form for one tap, and briefly a state where isWiuterian was off
+    // while atCeremony was still on — which catalogForBooking() reads.
+    setState((prev) => ({
+      ...prev,
+      isWiuterian: on,
+      atCeremony: on ? prev.atCeremony : false,
+    }));
+  }, []);
+
+  const setAtCeremony = useCallback((on: boolean) => set("atCeremony", on), [set]);
+
+  const setPeople = useCallback((count: number | null) => set("peopleCount", count), [set]);
+
+  const selectTier = useCallback((item: CatalogItem) => {
+    setState((prev) => {
+      // The package implies where it happens, so switching from a campus tier
+      // to a ceremony one moves the location with it.
+      //
+      // Only while the client hasn't chosen for themselves: a typed-in place,
+      // or any pick that isn't simply the previous package's default, is an
+      // answer and must not be overwritten.
+      const previousDefault = prev.packageId
+        ? findCatalogItem(prev.packageId)?.locationIds[0] ?? null
+        : null;
+      const untouched =
+        prev.locationIds.length === 0 ||
+        (prev.locationIds.length === 1 && prev.locationIds[0] === previousDefault);
+      const moveLocation =
+        item.locationIds.length > 0 && untouched && !prev.locationCustom.trim();
+
+      return {
+        ...prev,
+        packageId: item.id,
+        peopleCount: null,
+        locationIds: moveLocation ? [item.locationIds[0]] : prev.locationIds,
+      };
+    });
+  }, []);
+
+  const selectDate = useCallback((iso: string) => {
+    // A new day invalidates the hour: 18:00 fits on a Thursday and not on a
+    // Sunday. One update so the two never render apart.
+    setState((prev) =>
+      prev.selectedISO === iso && prev.startTime === null
+        ? prev
+        : { ...prev, selectedISO: iso, startTime: null },
+    );
+  }, []);
+
+  const setStartTime = useCallback((time: string | null) => set("startTime", time), [set]);
+
+  const setMonth = useCallback((month: number, year: number) => {
+    setState((prev) =>
+      prev.month === month && prev.year === year ? prev : { ...prev, month, year },
+    );
+  }, []);
+
+  const toggleLocation = useCallback((id: string) => {
+    setState((prev) => {
+      if (prev.locationIds.includes(id)) {
+        return { ...prev, locationIds: prev.locationIds.filter((x) => x !== id) };
+      }
+      // Silently dropping the oldest would be worse than refusing: the client
+      // would watch a tick move and not know why.
+      if (prev.locationIds.length >= MAX_LOCATIONS) return prev;
+      return { ...prev, locationIds: [...prev.locationIds, id] };
+    });
+  }, []);
+
+  const setCustomLocation = useCallback((v: string) => set("locationCustom", v), [set]);
+
+  // Four stable `() => setOpenStep(n)`. Inline arrows here were four new
+  // functions per render, which is the whole reason the step headers could not
+  // be left alone while someone typed.
+  const openOne = useCallback(() => setOpenStep(1), []);
+  const openTwo = useCallback(() => setOpenStep(2), []);
+  const openThree = useCallback(() => setOpenStep(3), []);
+  const openFour = useCallback(() => setOpenStep(4), []);
+
   // Display only. The server recomputes with the SAME function and wins.
   const quote = useMemo(
     () =>
@@ -348,8 +496,88 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   const canSubmit = step1Done && step2Done && step3Done && step4Done;
   const doneCount = [step1Done, step2Done, step3Done, step4Done].filter(Boolean).length;
 
+  /**
+   * BRINGING THE OPEN STEP INTO VIEW, but only when it is actually needed.
+   *
+   * The naive version — scroll on every change of `openStep` — fights the user
+   * in the common case. Collapsing step 1 pulls everything below it UP by its
+   * own height, which is usually the whole movement required: step 2's header
+   * arrives in the viewport on its own, carried there by the animation, and a
+   * scroll on top of that is the page moving twice for one tap.
+   *
+   * So this measures instead, and only after the transition has settled —
+   * scrolling mid-flight computes a target against a layout that is still
+   * changing and lands somewhere arbitrary. If the open step's header is under
+   * the sticky header, or has ended up in the bottom half of the screen, it
+   * glides into place; otherwise nothing happens at all.
+   *
+   * It does NOT run on the first paint. A `?package=` link opens on step 2, and
+   * yanking the viewport before the visitor has seen the page is the one thing
+   * worse than not scrolling.
+   */
+  const stepEls = useRef(new Map<StepId, HTMLElement>());
+  const registerStep = useMemo(() => {
+    const cache = new Map<StepId, (el: HTMLElement | null) => void>();
+    return (id: StepId) => {
+      // One callback ref per step, created once. An inline arrow would be a
+      // new ref callback every render, and React detaches and reattaches a ref
+      // whose identity changed — so every keystroke would null and re-set all
+      // four.
+      let fn = cache.get(id);
+      if (!fn) {
+        fn = (el) => {
+          if (el) stepEls.current.set(id, el);
+          else stepEls.current.delete(id);
+        };
+        cache.set(id, fn);
+      }
+      return fn;
+    };
+  }, []);
+
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!settled.current) {
+      settled.current = true;
+      return;
+    }
+    const el = stepEls.current.get(openStep);
+    if (!el) return;
+
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const check = () => {
+      const { top } = el.getBoundingClientRect();
+      // 76px clears the sticky header; past the halfway line it is far enough
+      // down to be worth moving. Between the two, the step is already where
+      // someone would want it and the best thing to do is nothing.
+      const tooHigh = top < 76;
+      const tooLow = top > window.innerHeight * 0.5;
+      if (tooHigh || tooLow) {
+        el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      }
+    };
+
+    if (reduce) {
+      check();
+      return;
+    }
+    const timer = window.setTimeout(check, STEP_MS + 40);
+    return () => window.clearTimeout(timer);
+  }, [openStep]);
+
   // Advance as each step completes, but only forward — so reopening step 1 to
   // change your mind doesn't immediately slam shut again.
+  //
+  // DELIBERATELY THREE EFFECTS, each watching only its own step. Collapsing
+  // them into one that watches all three looks tidier and is wrong: the single
+  // effect re-runs whenever ANY of the three flips, so reopening step 1 to
+  // change the tier — which clears the start time and makes step 2 incomplete
+  // — would fire it and bounce the client forward to step 2 while they were
+  // still looking at step 1. Watching one flag each is what makes "only
+  // forward, and only when this step was the one that just completed" true.
   useEffect(() => { if (step1Done) setOpenStep((s) => (s === 1 ? 2 : s)); }, [step1Done]);
   useEffect(() => { if (step2Done) setOpenStep((s) => (s === 2 ? 3 : s)); }, [step2Done]);
   useEffect(() => { if (step3Done) setOpenStep((s) => (s === 3 ? 4 : s)); }, [step3Done]);
@@ -357,7 +585,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // A new package means a new duration, which can invalidate the chosen start
   // time. Clear it rather than submitting a slot that no longer fits inside
   // the working day.
-  useEffect(() => { set("startTime", null); }, [state.packageId]); // eslint-disable-line react-hooks/exhaustive-deps
+  //
+  // `set` bails out when startTime is already null, which it usually is — so
+  // this no longer costs a render on every tier tap.
+  useEffect(() => { set("startTime", null); }, [state.packageId, set]);
 
   // Changing the answer to "what are we shooting?" invalidates every answer
   // below it — the tier, the date, and the place, which the old tier chose.
@@ -389,20 +620,25 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // A service with exactly one tier is not a choice. The mini-sessions have
   // one price; making a client tap it to continue is a step that asks nothing.
   useEffect(() => {
-    if (offered.length === 1 && state.packageId !== offered[0].id) {
-      set("packageId", offered[0].id);
-    }
-  }, [offered]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (offered.length === 1) set("packageId", offered[0].id);
+  }, [offered, set]);
 
   // The event decides its own date and place.
   useEffect(() => {
     if (!isEvent) return;
-    setState((prev) => ({
-      ...prev,
-      selectedISO: MINI_EVENT.dateISO,
-      locationIds: [MINI_EVENT.locationId],
-      locationCustom: "",
-    }));
+    setState((prev) =>
+      prev.selectedISO === MINI_EVENT.dateISO &&
+      prev.locationIds.length === 1 &&
+      prev.locationIds[0] === MINI_EVENT.locationId &&
+      prev.locationCustom === ""
+        ? prev
+        : {
+            ...prev,
+            selectedISO: MINI_EVENT.dateISO,
+            locationIds: [MINI_EVENT.locationId],
+            locationCustom: "",
+          },
+    );
   }, [isEvent]);
 
   // Ceremony day is a date, not a choice. Pin it, move the calendar to the
@@ -413,13 +649,16 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   useEffect(() => {
     if (isCeremony) {
       const d = fromISODate(CEREMONY_DATE_ISO);
-      setState((prev) => ({
-        ...prev,
-        selectedISO: CEREMONY_DATE_ISO,
-        startTime: null,
-        month: d ? d.getMonth() : prev.month,
-        year: d ? d.getFullYear() : prev.year,
-      }));
+      setState((prev) => {
+        const month = d ? d.getMonth() : prev.month;
+        const year = d ? d.getFullYear() : prev.year;
+        return prev.selectedISO === CEREMONY_DATE_ISO &&
+          prev.startTime === null &&
+          prev.month === month &&
+          prev.year === year
+          ? prev
+          : { ...prev, selectedISO: CEREMONY_DATE_ISO, startTime: null, month, year };
+      });
       return;
     }
     setState((prev) =>
@@ -585,14 +824,15 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             label={t("book.stepPackage")}
             done={step1Done}
             open={openStep === 1}
-            onToggle={() => setOpenStep(1)}
+            onToggle={openOne}
+            sectionRef={registerStep(1)}
             summary={selected ? `${selected.name} · ${formatSom(quote?.totalUzs ?? 0, locale)}` : ""}
           >
             <div className="flex flex-col gap-4">
               <ServicePicker
                 options={options}
                 selectedId={state.serviceId}
-                onSelect={(id) => set("serviceId", id)}
+                onSelect={selectService}
               />
 
               {/* The graduation page's own switch, in the same position
@@ -605,10 +845,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   label={t("book.wiuterian")}
                   hint={t("book.wiuterianHint")}
                   on={state.isWiuterian}
-                  onChange={(on) => {
-                    set("isWiuterian", on);
-                    if (!on) set("atCeremony", false);
-                  }}
+                  onChange={setWiuterian}
                 />
               )}
 
@@ -622,25 +859,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 items={offered}
                 selectedId={state.packageId}
                 peopleCount={state.peopleCount}
-                onPeople={(count) => set("peopleCount", count)}
-                onSelect={(item) => {
-                  set("packageId", item.id);
-                  set("peopleCount", null);
-                  // The package implies where it happens, so switching from a
-                  // campus tier to a ceremony one moves the location with it.
-                  //
-                  // Only while the client hasn't chosen for themselves: a
-                  // typed-in place, or any pick that isn't simply the previous
-                  // package's default, is an answer and must not be
-                  // overwritten.
-                  const previousDefault = catalogItem?.locationIds[0] ?? null;
-                  const untouched =
-                    state.locationIds.length === 0 ||
-                    (state.locationIds.length === 1 && state.locationIds[0] === previousDefault);
-                  if (item.locationIds.length > 0 && untouched && !state.locationCustom.trim()) {
-                    set("locationIds", [item.locationIds[0]]);
-                  }
-                }}
+                onPeople={setPeople}
+                onSelect={selectTier}
               />
               ) : null}
             </div>
@@ -652,7 +872,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             label={t("book.stepWhen")}
             done={step2Done}
             open={openStep === 2}
-            onToggle={() => setOpenStep(2)}
+            onToggle={openTwo}
+            sectionRef={registerStep(2)}
             locked={!step1Done}
             summary={
               state.selectedISO
@@ -682,7 +903,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     <EventSlotPicker
                       slots={slotStates}
                       startTime={state.startTime}
-                      onChange={(time) => set("startTime", time)}
+                      onChange={setStartTime}
                     />
                   </div>
                 </>
@@ -695,7 +916,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                       label={t("book.atCeremony")}
                       hint={t("book.atCeremonyHint")}
                       on={state.atCeremony}
-                      onChange={(on) => set("atCeremony", on)}
+                      onChange={setAtCeremony}
                     />
                   )}
 
@@ -703,8 +924,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     selectedISO={state.selectedISO}
                     viewMonth={state.month}
                     viewYear={state.year}
-                    onSelect={(iso) => { set("selectedISO", iso); set("startTime", null); }}
-                    onViewChange={(m, y) => { set("month", m); set("year", y); }}
+                    onSelect={selectDate}
+                    onViewChange={setMonth}
                     availability={availability}
                     taken={taken}
                     blackouts={closedDates}
@@ -731,7 +952,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                         selectedISO={state.selectedISO}
                         durationMinutes={selected?.durationMinutes ?? 120}
                         startTime={state.startTime}
-                        onChange={(time) => set("startTime", time)}
+                        onChange={setStartTime}
                         availability={availability}
                       />
                     </div>
@@ -747,7 +968,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             label={t("book.stepWhere")}
             done={step3Done}
             open={openStep === 3}
-            onToggle={() => setOpenStep(3)}
+            onToggle={openThree}
+            sectionRef={registerStep(3)}
             locked={!step2Done}
             summary={describeLocations(state.locationIds, state.locationCustom, t)}
           >
@@ -763,22 +985,11 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             ) : (
             <LocationPicker
               locationIds={state.locationIds}
-              suggested={catalogItem?.locationIds ?? []}
+              suggested={suggestedLocations}
               custom={state.locationCustom}
               durationMinutes={selected?.durationMinutes ?? 120}
-              onToggle={(id) =>
-                set(
-                  "locationIds",
-                  state.locationIds.includes(id)
-                    ? state.locationIds.filter((x) => x !== id)
-                    // Silently dropping the oldest would be worse than refusing:
-                    // the client would watch a tick move and not know why.
-                    : state.locationIds.length >= MAX_LOCATIONS
-                      ? state.locationIds
-                      : [...state.locationIds, id],
-                )
-              }
-              onCustom={(v) => set("locationCustom", v)}
+              onToggle={toggleLocation}
+              onCustom={setCustomLocation}
             />
             )}
           </Step>
@@ -789,7 +1000,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             label={t("book.stepWho")}
             done={step4Done}
             open={openStep === 4}
-            onToggle={() => setOpenStep(4)}
+            onToggle={openFour}
+            sectionRef={registerStep(4)}
             locked={!step3Done}
             summary={state.name.trim()}
           >
@@ -979,7 +1191,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           priceLabel={quote ? formatSom(quote.totalUzs, locale) : t("book.pickPackageForPrice")}
           canSubmit={canSubmit}
           submitting={submitting}
-          onSubmit={() => setOpenStep(4)}
+          onSubmit={openFour}
         />
       )}
     </div>
@@ -1000,7 +1212,43 @@ function describeLocations(
 // Step shell. Completed steps collapse to a tappable one-liner rather than
 // disappearing, which is how an earlier answer gets reviewed or changed.
 
-function Step({ n, label, done, open, locked, summary, onToggle, children }: {
+/**
+ * WHY THE BODY IS NEVER UNMOUNTED.
+ *
+ * This was `{open && <div>{children}</div>}`, which has two costs that both
+ * read as the form being jerky rather than slow.
+ *
+ * The obvious one: there is nothing to animate. A step appeared and
+ * disappeared between two frames, and because collapsing step 1 while
+ * expanding step 2 moves everything below it, the whole page jumped by a few
+ * hundred pixels with no motion to explain where anything went.
+ *
+ * The second one is worse and less obvious: every reopen was a REMOUNT. Going
+ * back to step 2 to change the date rebuilt the calendar from scratch — 42
+ * cells, the taken map, the month arithmetic — and going back to step 3 threw
+ * away the "show other locations" toggle, so a client who had expanded the
+ * full list found it collapsed again for no reason they could see.
+ *
+ * Kept mounted and collapsed, both go away. The cost is that four steps' worth
+ * of content is in the DOM at once, which is why everything expensive below is
+ * wrapped in `memo` — a closed step's content renders once and then never
+ * again until its own props change.
+ *
+ * `grid-template-rows: 0fr -> 1fr` is the transition. It is the only way to
+ * animate to an INTRINSIC height in CSS alone, without measuring in JS and
+ * without a hardcoded max-height that clips the Russian copy (which is longer
+ * than the English everywhere). A browser too old to interpolate it still
+ * collapses and expands correctly, just instantly — the behaviour this
+ * replaced, so there is nothing to lose.
+ *
+ * `inert` is not optional with this approach. A collapsed step's inputs are
+ * still in the DOM, and without it the client tabbing out of the name field
+ * would land somewhere invisible — and a screen reader would read all four
+ * steps as one flat form.
+ */
+function Step({
+  n, label, done, open, locked, summary, onToggle, children, sectionRef,
+}: {
   n: number;
   label: string;
   done: boolean;
@@ -1009,12 +1257,17 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
   summary?: string;
   onToggle: () => void;
   children: React.ReactNode;
+  sectionRef?: (el: HTMLElement | null) => void;
 }) {
   const disabled = locked && !done;
 
   return (
     <section
-      className={`rounded-2xl border transition
+      ref={sectionRef}
+      // So a scroll to this step clears the sticky header instead of putting
+      // the step's own title underneath it.
+      style={{ scrollMarginTop: "calc(4.75rem + env(safe-area-inset-top))" }}
+      className={`rounded-2xl border transition-[border-color,background-color,opacity] duration-200
         ${open ? "border-white/15 bg-white/3" : "border-white/8 bg-transparent"}
         ${disabled ? "opacity-40" : ""}`}
     >
@@ -1032,17 +1285,60 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{label}</span>
-          {!open && summary && (
-            <span className="block text-xs text-white/45 truncate mt-0.5">{summary}</span>
-          )}
+          {/* Faded rather than removed. As `{!open && summary}` the summary
+              line vanished the instant the step opened, so the header lost a
+              row of height in the same frame the body gained several hundred
+              pixels — a second, competing jump inside the one the body was
+              already making. */}
+          <span
+            className="block text-xs text-white/45 truncate transition-[max-height,opacity,margin-top] overflow-hidden"
+            style={{
+              maxHeight: !open && summary ? "1.25rem" : "0rem",
+              marginTop: !open && summary ? "0.125rem" : "0rem",
+              opacity: !open && summary ? 1 : 0,
+              transitionDuration: `${STEP_MS}ms`,
+              transitionTimingFunction: STEP_EASE,
+            }}
+          >
+            {summary}
+          </span>
         </span>
-        {!disabled && (
-          <ChevronDown
-            className={`w-4 h-4 text-white/30 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        )}
+        <ChevronDown
+          aria-hidden
+          className="w-4 h-4 text-white/30 shrink-0 transition-transform"
+          style={{
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            opacity: disabled ? 0 : 1,
+            transitionDuration: `${STEP_MS}ms`,
+            transitionTimingFunction: STEP_EASE,
+          }}
+        />
       </button>
-      {open && <div className="px-4 pb-5">{children}</div>}
+
+      <div
+        className="grid"
+        style={{
+          gridTemplateRows: open ? "1fr" : "0fr",
+          transition: `grid-template-rows ${STEP_MS}ms ${STEP_EASE}`,
+        }}
+      >
+        <div
+          // overflow-hidden is what makes 0fr actually mean zero: it zeroes the
+          // grid item's automatic minimum size, which would otherwise hold the
+          // track open at the content's height.
+          className="overflow-hidden"
+          inert={!open}
+          style={{
+            opacity: open ? 1 : 0,
+            // Fades out faster than it collapses and in slower than it
+            // expands, so the body is invisible before it has finished folding
+            // away and the text does not arrive before it has room.
+            transition: `opacity ${open ? STEP_MS : STEP_MS / 2}ms ${STEP_EASE}`,
+          }}
+        >
+          <div className="px-4 pb-5">{children}</div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1067,7 +1363,24 @@ function Step({ n, label, done, open, locked, summary, onToggle, children }: {
  * marketing surface; a booking form's first question is "which of the things
  * you actually do do I want", and the answer set is small on purpose.
  */
-function ServicePicker({ options, selectedId, onSelect }: {
+/*
+ * WRAPPED IN memo FROM HERE DOWN, and it is the single biggest thing on this
+ * page.
+ *
+ * All four steps' content is now mounted at once (see Step above), and the
+ * form keeps its answers in one state object — so typing one character into
+ * the name field in step 4 re-rendered the service picker, the tier list, the
+ * calendar's 42 cells, the time grid and the location list. None of their
+ * props had changed. On a mid-range Android that is the difference between a
+ * field that keeps up with your thumb and one that doesn't.
+ *
+ * memo only works if the props hold still, which is why every handler above is
+ * a `useCallback` with no dependencies and every derived list is a `useMemo`.
+ * Either half alone buys nothing: a memo whose props are rebuilt each render
+ * is a wasted comparison, and stable props with no memo are stable props that
+ * nothing reads.
+ */
+const ServicePicker = memo(function ServicePicker({ options, selectedId, onSelect }: {
   options: BookingServiceOption[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -1094,7 +1407,7 @@ function ServicePicker({ options, selectedId, onSelect }: {
       })}
     </div>
   );
-}
+});
 
 /**
  * A labelled on/off switch.
@@ -1103,7 +1416,7 @@ function ServicePicker({ options, selectedId, onSelect }: {
  * change what the form is — which prices, which dates — so they are given the
  * weight of a control rather than a tick box.
  */
-function Switch({ label, hint, on, onChange }: {
+const Switch = memo(function Switch({ label, hint, on, onChange }: {
   label: string;
   hint?: string;
   on: boolean;
@@ -1134,20 +1447,22 @@ function Switch({ label, hint, on, onChange }: {
       </span>
     </button>
   );
-}
+});
 
 /** A date that was decided for the client, shown rather than chosen. */
-function FixedDate({ iso, label, locale }: { iso: string; label: string; locale: string }) {
+const FixedDate = memo(function FixedDate(
+  { iso, label, locale }: { iso: string; label: string; locale: string },
+) {
   return (
     <div className="rounded-2xl border border-accent-warm/40 bg-accent-warm/10 px-4 py-4">
       <p className="text-[10px] uppercase tracking-widest text-white/45 font-semibold">{label}</p>
       <p className="text-base font-bold mt-1">{formatISO(iso, locale)}</p>
     </div>
   );
-}
+});
 
 /** The one-price case: what it includes, with nothing to choose. */
-function SingleTier({ item }: { item: CatalogItem }) {
+const SingleTier = memo(function SingleTier({ item }: { item: CatalogItem }) {
   const { locale } = useT();
   return (
     <div className="rounded-2xl border border-accent-warm bg-accent-warm/10 p-4">
@@ -1173,15 +1488,17 @@ function SingleTier({ item }: { item: CatalogItem }) {
       </ul>
     </div>
   );
-}
+});
 
-function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
-  items: CatalogItem[];
-  selectedId: string | null;
-  peopleCount: number | null;
-  onSelect: (item: CatalogItem) => void;
-  onPeople: (count: number | null) => void;
-}) {
+const CatalogPicker = memo(function CatalogPicker(
+  { items, selectedId, peopleCount, onSelect, onPeople }: {
+    items: CatalogItem[];
+    selectedId: string | null;
+    peopleCount: number | null;
+    onSelect: (item: CatalogItem) => void;
+    onPeople: (count: number | null) => void;
+  },
+) {
   const { t, locale } = useT();
   const selected = items.find((i) => i.id === selectedId) ?? null;
 
@@ -1289,19 +1606,23 @@ function CatalogPicker({ items, selectedId, peopleCount, onSelect, onPeople }: {
       )}
     </div>
   );
-}
+});
 
 // Location picker
 
-function LocationPicker({
+const LocationPicker = memo(function LocationPicker({
   locationIds, suggested, custom, durationMinutes, onToggle, onCustom,
 }: {
   locationIds: string[];
   /** The places this package actually happens in. Showing a client an option
    *  their own choice has ruled out — a campus gown session offered the
    *  ceremony venue — is the form not listening. The rest stay one tap away
-   *  rather than being removed. */
-  suggested: string[];
+   *  rather than being removed.
+   *
+   *  `readonly` because the "nothing suggested" case is a single shared empty
+   *  array, so that the prop is referentially stable and `memo` above holds.
+   *  Nothing here mutates it. */
+  suggested: readonly string[];
   custom: string;
   durationMinutes: number;
   onToggle: (id: string) => void;
@@ -1436,18 +1757,20 @@ function LocationPicker({
       </div>
     </div>
   );
-}
+});
 
 // Sticky bar
 
-function StatusBar({ doneCount, total, priceLabel, canSubmit, submitting, onSubmit }: {
-  doneCount: number;
-  total: number;
-  priceLabel: string;
-  canSubmit: boolean;
-  submitting: boolean;
-  onSubmit: () => void;
-}) {
+const StatusBar = memo(function StatusBar(
+  { doneCount, total, priceLabel, canSubmit, submitting, onSubmit }: {
+    doneCount: number;
+    total: number;
+    priceLabel: string;
+    canSubmit: boolean;
+    submitting: boolean;
+    onSubmit: () => void;
+  },
+) {
   const { t } = useT();
   return (
     <div
@@ -1482,7 +1805,7 @@ function StatusBar({ doneCount, total, priceLabel, canSubmit, submitting, onSubm
       </div>
     </div>
   );
-}
+});
 
 // Confirmation
 

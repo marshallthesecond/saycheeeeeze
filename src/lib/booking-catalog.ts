@@ -123,8 +123,31 @@ export function genericCatalog(): CatalogItem[] {
  * Every individually bookable tier, in display order. Empty when a service's
  * packages have no `id` — those are marketing tiers and still route through
  * SERVICE_TO_PACKAGE. Adding an id is what makes a tier bookable.
+ *
+ * MEMOISED, and the reason is not micro-optimisation. `servicesData` is a
+ * frozen module-level literal, so the answer for a slug can never change
+ * within a process — but this used to run a `.find` over every service and
+ * rebuild every CatalogItem object on EVERY call, and findCatalogItem() below
+ * called it once per service per lookup. The booking form calls
+ * findCatalogItem() during render, so a visitor arriving on
+ * `/book?package=portraits-90m` rebuilt the entire catalogue of four services
+ * on every keystroke they typed into the name field.
+ *
+ * Returning the cached array also makes the result REFERENTIALLY STABLE, which
+ * is what lets `useMemo` and `React.memo` in the form actually hold.
  */
+const serviceCache = new Map<string, CatalogItem[]>();
+
 export function catalogForService(slug: string): CatalogItem[] {
+  const hit = serviceCache.get(slug);
+  if (hit) return hit;
+
+  const built = buildCatalogForService(slug);
+  serviceCache.set(slug, built);
+  return built;
+}
+
+function buildCatalogForService(slug: string): CatalogItem[] {
   const service = servicesData.find((s) => s.slug === slug);
   if (!service) return [];
 
@@ -196,14 +219,32 @@ function rewriteRetiredId(id: string): string | undefined {
  * takes the slug "session" shadows nothing. Retired ids are checked after
  * those, so a live tier always wins over a rewritten one.
  */
+let liveIndex: Map<string, CatalogItem> | null = null;
+
+/**
+ * One id -> tier index, built once.
+ *
+ * Insertion order is the resolution order the doc comment above promises, and
+ * `Map.set` keeps the FIRST writer when guarded — so services win over the
+ * event, and the event over the generic ladder, exactly as the sequential
+ * version did. Spelt out with an explicit `has` check rather than relying on
+ * insertion order, because `set` overwrites and the quiet version of this bug
+ * is a generic `session-90m` shadowing a real service tier.
+ */
+function buildLiveIndex(): Map<string, CatalogItem> {
+  const index = new Map<string, CatalogItem>();
+  const add = (item: CatalogItem) => {
+    if (!index.has(item.id)) index.set(item.id, item);
+  };
+  for (const service of servicesData) for (const item of catalogForService(service.slug)) add(item);
+  for (const item of miniCatalog()) add(item);
+  for (const item of genericCatalog()) add(item);
+  return index;
+}
+
 function findLiveItem(id: string): CatalogItem | undefined {
-  for (const service of servicesData) {
-    const found = catalogForService(service.slug).find((i) => i.id === id);
-    if (found) return found;
-  }
-  const event = miniCatalog().find((i) => i.id === id);
-  if (event) return event;
-  return genericCatalog().find((i) => i.id === id);
+  liveIndex ??= buildLiveIndex();
+  return liveIndex.get(id);
 }
 
 export function findCatalogItem(id: string): CatalogItem | undefined {

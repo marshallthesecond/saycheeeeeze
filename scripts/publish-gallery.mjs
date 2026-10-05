@@ -252,6 +252,103 @@ if (pErr) {
 const rows = photos ?? [];
 if (rows.length === 0) die(`"${slug}" has no photographs.`);
 
+/** Echoed back into the suggested commands so --keep is not silently dropped. */
+const keepFlagEcho = keepModes.has("keep") ? " --keep keep,publish" : "";
+
+/**
+ * A destination that differs from an existing gallery only by case.
+ *
+ * reseed.ts slugifies WITHOUT lowercasing but checks for collisions WITH it,
+ * so a folder "GUlasal" next to a gallery slugged "Gulasal" does not overwrite
+ * anything — it quietly becomes "GUlasal-2", and the album lives at
+ * /albums/GUlasal-2 for ever. Not fatal, not what anyone wanted either.
+ */
+let clashWarning = null;
+let categoryWarning = null;
+if (target) {
+  const dest = target.replace(/^\/+|\/+$/g, "");
+
+  /**
+   * A TOP-LEVEL folder becomes its own Portfolio filter chip.
+   *
+   * The chips are the first path segment of each photograph's storage path, so
+   * "Gulasal at WIUT/x.jpg" sits next to Portraits rather than inside it. The
+   * album TILE is a separate thing and appears either way — this is only about
+   * which filter the photographs land under.
+   *
+   * Every existing portrait album is already Portraits/<name>, which is the
+   * shape to copy. Caught before the copy, because fixing it afterwards means
+   * moving the files again (scripts/move-album.mjs).
+   */
+  if (!dest.includes("/")) {
+    categoryWarning = [
+      `"${dest}" is a top-level folder, so its photographs become their own`,
+      "filter chip on /portfolio rather than joining an existing one.",
+      "",
+      "Existing portrait albums are Portraits/Sara, Portraits/Radmir, Portraits/Diora.",
+      "Unless this really is a new category, you probably want:",
+      "",
+      `  --to "Portraits/${dest}"`,
+      "",
+      "(The album still gets its own tile either way — tiles and chips are",
+      "different things.)",
+    ];
+  }
+  /**
+   * What slug reseed.ts will actually give this album.
+   *
+   * Worth predicting rather than warning vaguely about, because the slug is the
+   * URL and you find out what it is AFTER copying several gigabytes. This
+   * mirrors reseed.ts exactly — keep the two in step:
+   *
+   *   slug = slugify(last segment)
+   *   if taken and the folder is nested -> slugify(last two segments)
+   *   while still taken                 -> append -2, -3, …
+   *
+   * slugify() does NOT lowercase but the collision check DOES, which is the
+   * detail that makes this worth computing instead of guessing.
+   */
+  const { data: allGalleries } = await db.from("galleries").select("slug, bunny_folder, kind");
+  const used = new Map((allGalleries ?? []).map((g) => [g.slug.toLowerCase(), g]));
+
+  const slugify = (text) =>
+    text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "gallery";
+
+  const segments = dest.split("/");
+  let predicted = slugify(segments[segments.length - 1]);
+  let collidedWith = used.get(predicted.toLowerCase()) ?? null;
+  if (collidedWith && segments.length > 1) {
+    predicted = slugify(segments.slice(-2).join("-"));
+    collidedWith = used.get(predicted.toLowerCase()) ?? null;
+  }
+  const base = predicted;
+  let n = 2;
+  let suffixed = false;
+  while (used.has(predicted.toLowerCase())) {
+    predicted = `${base}-${n++}`;
+    suffixed = true;
+  }
+
+  if (collidedWith) {
+    const how = suffixed
+      ? `reseed.ts will add a number: this album becomes "${predicted}" and lives at /albums/${predicted}.`
+      : `reseed.ts will fold the parent folder in: this album becomes "${predicted}".`;
+    clashWarning = [
+      `CAREFUL: "${slugify(segments[segments.length - 1])}" is already the slug of`,
+      `${collidedWith.kind === "client" ? "the CLIENT gallery" : "the album"} "${collidedWith.slug}" (${collidedWith.bunny_folder}).`,
+      "",
+      how,
+      "",
+      suffixed
+        ? 'A "-2" URL is for ever. Give the folder a name of its own — "Mekhrangiz 2026",'
+        : "That is usually fine, but check it reads the way you want:",
+      suffixed ? 'or nest it: --to "Portraits/<name>".' : `  /albums/${predicted}`,
+    ];
+  } else {
+    clashWarning = [`The album will be slugged "${predicted}" — /albums/${predicted}`];
+  }
+}
+
 const counts = { keep: 0, publish: 0, delete: 0, unmarked: 0 };
 for (const r of rows) counts[r.client_mark ?? "unmarked"]++;
 
@@ -290,6 +387,16 @@ console.log("");
 console.log("  keep and publish are never deleted, whatever --keep says: that flag");
 console.log("  decides what is PUBLISHED, not what survives.\n");
 
+if (clashWarning) {
+  for (const l of clashWarning) console.log(`  ${l}`);
+  console.log("");
+}
+
+if (categoryWarning) {
+  for (const l of categoryWarning) console.log(`  ${l}`);
+  console.log("");
+}
+
 if (keepModes.has("keep")) {
   console.log("  NOTE: --keep includes `keep`. The client's button for that says");
   console.log('  "Marked to keep", not "Marked as OK to publish" — it means the photograph');
@@ -305,9 +412,37 @@ if (counts.publish + counts.keep + counts.delete === 0) {
   );
 }
 
-if (approved.length === 0) {
-  console.log("  Nothing is approved for publication, so there is no album to make.");
-  console.log("  Purging is still possible on its own.\n");
+/**
+ * Why nothing is approved, in words that name the fix.
+ *
+ * The first real gallery through this script hit exactly this: 45 keeps, zero
+ * publishes, and the only thing the output said was "nothing is approved" —
+ * true, unhelpful, and followed by a --copy that copied nothing and then
+ * printed three confident next steps that could not work.
+ */
+function whyNothingApproved() {
+  if (counts.keep > 0 && !keepModes.has("keep")) {
+    return [
+      `Nothing is approved for publication: ${counts.keep} marked KEEP and 0 marked PUBLISH.`,
+      "",
+      "Your client used the Keep button, which says \"Marked to keep\" — it means",
+      "the photograph stays in their gallery, not that it may be published. If you",
+      "want those in a public album, that is your call to make rather than theirs,",
+      "and this is how you say so:",
+      "",
+      `  node --env-file=.env.local scripts/publish-gallery.mjs ${slug} \\`,
+      `       --to "${target ?? "Album Folder"}" --keep keep,publish`,
+      "",
+      "Worth considering first: ask her which of the 45 she is happy to have",
+      "public. Keep is not consent, and she has a Publish button to give it with.",
+    ];
+  }
+  return [
+    "Nothing is approved for publication, so there is no album to make.",
+    counts.publish + counts.keep === 0
+      ? "Nothing is marked at all — has the client been through the gallery?"
+      : "Purging is still possible on its own.",
+  ];
 }
 
 // What the approved frames cost to copy
@@ -366,23 +501,45 @@ function checkLocalBackup() {
 
 if (!doCopy && !doPurge) {
   if (doomed.length > 0 && verifyLocal) checkLocalBackup();
-  console.log("  Nothing has been touched. What happens next:\n");
-  if (approved.length > 0 && target) {
-    console.log(`    1. node --env-file=.env.local scripts/publish-gallery.mjs ${slug} --to "${target}" --copy`);
-    console.log("    2. npx tsx scripts/reseed.ts                       # makes the album row");
-    console.log(`    3. node --env-file=.env.local scripts/build-ladder.mjs --gallery <new-slug>`);
-    console.log("    4. Open the album on the site and look at every frame.");
-    console.log("    5. Only then:");
-    console.log(`       node --env-file=.env.local scripts/publish-gallery.mjs ${slug} --purge \\`);
-    console.log(`            --verify-local "D:\\Shoots\\...\\JPG" --yes`);
-  } else if (!target) {
-    console.log('    Add --to "Album Folder Name" to see the copy plan.');
+  console.log("  Nothing has been touched.\n");
+
+  // Every branch says something. An empty "what happens next" is worse than no
+  // heading at all — it reads as a bug in the run rather than an answer.
+  if (approved.length === 0) {
+    for (const l of whyNothingApproved()) console.log(`  ${l}`);
+    console.log("");
+    if (doomed.length > 0) {
+      console.log("  The purge does not depend on any of that and can run on its own:");
+      console.log(`    node --env-file=.env.local scripts/publish-gallery.mjs ${slug} --purge \\`);
+      console.log(`         --verify-local "D:\\Shoots\\...\\JPG" --yes`);
+      console.log("");
+    }
+    process.exit(0);
   }
+
+  if (!target) {
+    console.log(`  ${approved.length} approved. Add --to "Album Folder Name" to see the copy plan.\n`);
+    process.exit(0);
+  }
+
+  console.log("  What happens next:\n");
+  console.log(`    1. node --env-file=.env.local scripts/publish-gallery.mjs ${slug} --to "${target}"${keepFlagEcho} --copy`);
+  console.log("    2. npx tsx scripts/reseed.ts                       # makes the album row");
+  console.log(`    3. node --env-file=.env.local scripts/build-ladder.mjs --gallery <new-slug>`);
+  console.log("    4. Open the album on the site and look at every frame.");
+  console.log("    5. Only then:");
+  console.log(`       node --env-file=.env.local scripts/publish-gallery.mjs ${slug} --purge \\`);
+  console.log(`            --verify-local "D:\\Shoots\\...\\JPG" --yes`);
   console.log("");
   process.exit(0);
 }
 
 if (doCopy) {
+  // Copying nothing is never what was meant. It used to print "0 copied" and
+  // then three next steps, which sent you to reseed a folder that did not
+  // exist and to build a ladder for a gallery that was never created.
+  if (approved.length === 0) die(...whyNothingApproved());
+
   const dest = target.replace(/^\/+|\/+$/g, "");
   if (dest.toLowerCase().startsWith("clients")) {
     die("--to must be a PUBLIC folder. Anything under clients/ is blocked at the edge.");

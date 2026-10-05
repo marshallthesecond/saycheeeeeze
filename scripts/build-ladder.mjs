@@ -139,6 +139,14 @@ const val = (f, d = null) => {
 };
 
 const GALLERY = val("gallery");
+// `--gallery` with nothing after it reads as absent, which does not mean
+// "nothing" — it means EVERY gallery in the database. Discovering that four
+// hours into a full rebuild you did not ask for is not a thing to discover.
+if (GALLERY === null && has("gallery")) {
+  console.error("--gallery needs a slug after it, e.g. --gallery Mekhrangiz-2026.");
+  console.error("Left empty it would build the ladder for every gallery in the database.");
+  process.exit(1);
+}
 const LIMIT = val("limit") ? Number(val("limit")) : null;
 const DRY_RUN = has("dry-run");
 const FORCE = has("force");
@@ -917,7 +925,64 @@ async function addShareTier() {
   if (failed > 0) process.exitCode = 1;
 }
 
+/**
+ * Does `--gallery` name a real gallery?
+ *
+ * Without this, a slug that does not exist filters the queue down to zero rows
+ * and the run reports "Nothing to do — every photo already has its ladder."
+ * Indistinguishable from success, and it has now cost two debugging sessions:
+ * once on `--gallery GUlasal` for an album reseed never created, and once on an
+ * album whose slug reseed had quietly renumbered to `<name>-2`.
+ *
+ * One query, and the error names the near misses rather than just refusing.
+ */
+async function assertGalleryExists() {
+  // Not .maybeSingle(): two galleries differing only by case are possible —
+  // reseed slugifies without lowercasing — and that would throw PGRST116
+  // instead of answering the question.
+  const { data, error } = await db
+    .from("galleries")
+    .select("slug, kind, bunny_folder")
+    .ilike("slug", GALLERY.replace(/([%_\\])/g, "\\$1"));
+
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  const rows = data ?? [];
+
+  // The queue query filters with .eq(), which IS case-sensitive. So a
+  // case-insensitive match is not good enough to proceed on: it would pass
+  // this check and then build nothing, which is the failure this function
+  // exists to prevent. Print the exact spelling instead.
+  if (rows.some((g) => g.slug === GALLERY)) return;
+  if (rows.length) {
+    console.error(`\n  No gallery with slug "${GALLERY}" — but the capitals differ:\n`);
+    for (const g of rows.slice(0, 8)) console.error(`    ${g.slug}  (${g.kind})`);
+    console.error("\n  Slugs are matched exactly here. Use the spelling above.\n");
+    process.exit(1);
+  }
+
+  const stem = GALLERY.replace(/-\d+$/, "").slice(0, 12);
+  const { data: near } = await db
+    .from("galleries")
+    .select("slug, kind")
+    .ilike("slug", `%${stem.replace(/([%_\\])/g, "\\$1")}%`);
+
+  console.error(`\n  No gallery with slug "${GALLERY}".`);
+  if ((near ?? []).length) {
+    console.error("\n  Did you mean:");
+    for (const g of near.slice(0, 8)) console.error(`    ${g.slug}  (${g.kind})`);
+  }
+  console.error(
+    '\n  Without this check the run would have printed "Nothing to do — every' +
+      '\n  photo already has its ladder" and built nothing, because the filter' +
+      "\n  simply matches no rows.",
+  );
+  console.error("\n  List them:  node --env-file=.env.local scripts/list-photos.mjs\n");
+  process.exit(1);
+}
+
 async function main() {
+  if (GALLERY) await assertGalleryExists();
+
   if (CHECK) {
     await healthCheck();
     return;

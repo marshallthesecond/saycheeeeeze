@@ -9,7 +9,7 @@
 // morning / afternoon / evening; Thursday runs to 23:00 and would otherwise
 // render fifteen loose buttons.
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { ChevronLeft, ChevronRight, Sun } from "lucide-react";
 import {
@@ -74,7 +74,19 @@ interface CalendarProps {
   locked?: boolean;
 }
 
-export function CalendarPicker({
+/*
+ * memo, because this is the most expensive thing on the booking page and the
+ * least likely to have changed.
+ *
+ * Forty-two cells, each with its own status lookup against the taken map and
+ * the blackout set. The form keeps all its answers in one state object, so
+ * before this every character typed into the name field four steps below
+ * rebuilt the whole grid — with identical props every time. The props it
+ * takes are now all stable by construction: `onSelect`/`onViewChange` are
+ * dependency-free useCallbacks, `blackouts` is a useMemo, and `taken` and
+ * `availability` come from the server and never change.
+ */
+export const CalendarPicker = memo(function CalendarPicker({
   selectedISO, viewMonth, viewYear, onSelect, onViewChange,
   availability, taken, blackouts, locked = false,
 }: CalendarProps) {
@@ -87,9 +99,17 @@ export function CalendarPicker({
   const takenMap = useMemo(() => toTakenMap(taken), [taken]);
   const blackoutSet = useMemo(() => new Set(blackouts), [blackouts]);
 
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInMonth = useMemo(
+    () => new Date(viewYear, viewMonth + 1, 0).getDate(),
+    [viewYear, viewMonth],
+  );
   // Monday-first grid: JS getDay() is Sunday-first, so shift by one.
-  const firstWeekday = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+  const firstWeekday = useMemo(
+    () => (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7,
+    [viewYear, viewMonth],
+  );
+
+  const todayISO = useMemo(() => toISODate(today), [today]);
 
   const days = useMemo(
     () =>
@@ -105,20 +125,35 @@ export function CalendarPicker({
     [daysInMonth, viewYear, viewMonth, availability, takenMap, blackoutSet, today]
   );
 
+  // The leading blanks of the month, built once per month rather than a fresh
+  // Array.from on every render.
+  const leading = useMemo(
+    () => Array.from({ length: firstWeekday }, (_, i) => i),
+    [firstWeekday],
+  );
+
   // Past months and months beyond maxAdvanceDays are unreachable, so the
   // arrows switch off rather than opening a dead grid.
-  const first = earliestBookableDate(availability, today);
-  const last = latestBookableDate(availability, today);
-  const monthIndex = (y: number, m: number) => y * 12 + m;
-  const current = monthIndex(viewYear, viewMonth);
-  const atFirst = current <= monthIndex(first.getFullYear(), first.getMonth());
-  const atLast = current >= monthIndex(last.getFullYear(), last.getMonth());
+  //
+  // Memoised together: both ends depend only on the config and on which day it
+  // is, neither of which changes while the page is open, and both walk the
+  // availability rules to find a bookable day.
+  const bounds = useMemo(() => {
+    const first = earliestBookableDate(availability, today);
+    const last = latestBookableDate(availability, today);
+    return {
+      min: first.getFullYear() * 12 + first.getMonth(),
+      max: last.getFullYear() * 12 + last.getMonth(),
+    };
+  }, [availability, today]);
+
+  const current = viewYear * 12 + viewMonth;
+  const atFirst = current <= bounds.min;
+  const atLast = current >= bounds.max;
 
   const step = (delta: number) => {
     const next = current + delta;
-    const min = monthIndex(first.getFullYear(), first.getMonth());
-    const max = monthIndex(last.getFullYear(), last.getMonth());
-    if (next < min || next > max) return;
+    if (next < bounds.min || next > bounds.max) return;
     onViewChange(((next % 12) + 12) % 12, Math.floor(next / 12));
   };
 
@@ -159,13 +194,13 @@ export function CalendarPicker({
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: firstWeekday }).map((_, i) => <div key={`e${i}`} />)}
+        {leading.map((i) => <div key={`e${i}`} />)}
 
         {days.map(({ d, iso, info }) => {
           // Full ISO date, not the day number: 14 August is not 14 September.
           const selected = selectedISO === iso;
           const selectable = info.status === "open" && !locked;
-          const isToday = iso === toISODate(today);
+          const isToday = iso === todayISO;
 
           return (
             <button
@@ -194,7 +229,7 @@ export function CalendarPicker({
       </div>
     </div>
   );
-}
+});
 
 function Legend({ className, label }: { className: string; label: string }) {
   return (
@@ -216,7 +251,7 @@ interface TimeProps {
   availability: AvailabilityConfig;
 }
 
-export function StartTimePicker({
+export const StartTimePicker = memo(function StartTimePicker({
   selectedISO, durationMinutes, startTime, onChange, availability,
 }: TimeProps) {
   const { t } = useT();
@@ -250,9 +285,9 @@ export function StartTimePicker({
       )}
     </div>
   );
-}
+});
 
-function Band({ label, slots, startTime, onChange }: {
+const Band = memo(function Band({ label, slots, startTime, onChange }: {
   label: string;
   slots: StartTime[];
   startTime: string | null;
@@ -288,7 +323,8 @@ function Band({ label, slots, startTime, onChange }: {
       </div>
     </div>
   );
-}
+});
+
 // Fixed-slot events
 
 /**
@@ -304,7 +340,7 @@ function Band({ label, slots, startTime, onChange }: {
  * Taken slots are rendered, not hidden. Eight rows with three struck through
  * says "this is filling up"; five rows says nothing at all.
  */
-export function EventSlotPicker({ slots, startTime, onChange }: {
+export const EventSlotPicker = memo(function EventSlotPicker({ slots, startTime, onChange }: {
   slots: { time: string; state: "open" | "taken" }[];
   startTime: string | null;
   onChange: (time: string | null) => void;
@@ -346,4 +382,4 @@ export function EventSlotPicker({ slots, startTime, onChange }: {
       </p>
     </div>
   );
-}
+});
