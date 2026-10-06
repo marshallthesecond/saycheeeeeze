@@ -32,15 +32,31 @@
 -- and the day index silently starts rejecting the second mini-session of the
 -- day — the old bug, back, and only visible to the second client.
 --
--- RUN THE WHOLE FILE AT ONCE. Between the DROP and the CREATE there is no
--- double-booking protection at all. In a migration that is one transaction; in
--- the SQL editor, paste all of it and press run once.
+-- RUN THE WHOLE FILE AT ONCE, INCLUDING begin/commit. `drop index` takes an
+-- ACCESS EXCLUSIVE lock on the table and holds it to commit, so inside the
+-- transaction there is no window where a booking can slip past an index that
+-- is not there yet. Run the statements one at a time and that window is real.
+--
+-- RE-RUNNABLE, as of 2026-10-06. It was not: the second index had no `drop if
+-- exists` beside it, so running the file twice stopped with
+--
+--   ERROR: 42P07: relation "bookings_one_live_per_slot" already exists
+--
+-- which aborts the transaction and rolls back EVERYTHING — including the drop
+-- of the day index three lines above. The database is unchanged, which is the
+-- safe outcome, but the message reads like a half-finished migration and it is
+-- impossible to tell from the editor which index predicate actually survived.
+-- Both are now dropped and rebuilt together, so running this file always ends
+-- with both indexes in the state written below, whatever they were before.
 
 begin;
 
--- It has been both over its life, so drop whichever it is now.
+-- Each has been both an index and a constraint over its life, so drop
+-- whichever it is now. Dropping BOTH is what makes the file re-runnable.
 alter table public.bookings drop constraint if exists bookings_one_live_per_day;
 drop index if exists public.bookings_one_live_per_day;
+alter table public.bookings drop constraint if exists bookings_one_live_per_slot;
+drop index if exists public.bookings_one_live_per_slot;
 
 -- Unchanged behaviour for every normal product: one live booking per date.
 -- 'pending' counts, which is what makes a hold a hold; expireStalePending()
@@ -65,7 +81,19 @@ comment on index public.bookings_one_live_per_slot is
 
 commit;
 
--- Verify, after running. Both should be listed, with the predicates above:
+-- VERIFY, AFTER RUNNING — and prefer the script, which tests the behaviour
+-- rather than the text:
+--
+--   node --env-file=.env.local scripts/check-slot-indexes.mjs
+--
+-- It exits 0 only when all four of these hold: a second ordinary booking on a
+-- taken date is refused, two mini-sessions at different times on one date both
+-- succeed, a duplicate slot is refused, and an ordinary booking and a
+-- mini-session can share a date. The last one is the one that catches a day
+-- index left at its old predicate while the slot index exists — a state the
+-- two definitions below look fine in.
+--
+-- The definitions, if you want to read them:
 --
 --   select indexname, indexdef
 --     from pg_indexes
@@ -77,16 +105,21 @@ commit;
 -- fail with 23505:
 --
 --   insert into bookings (ref, session_date, start_time, duration_minutes,
---                         package_id, package_name, price_uzs, client_name)
---   values ('SC-SLOT01', '2026-09-27', '15:00', 25, 'mini-cca-25m',
---           '{"en":"slot test"}', 170000, 'slot test'),
---          ('SC-SLOT02', '2026-09-27', '15:35', 25, 'mini-cca-25m',
---           '{"en":"slot test"}', 170000, 'slot test');
+--                         package_id, package_name, price_uzs, base_price_uzs,
+--                         client_name)
+--   values ('SC-SLOT01', '2099-01-03', '15:00', 25, 'mini-probe-25m',
+--           '{"en":"slot test"}', 170000, 170000, 'slot test'),
+--          ('SC-SLOT02', '2099-01-03', '15:35', 25, 'mini-probe-25m',
+--           '{"en":"slot test"}', 170000, 170000, 'slot test');
 --
 --   -- expected: 23505 on bookings_one_live_per_slot
 --   insert into bookings (ref, session_date, start_time, duration_minutes,
---                         package_id, package_name, price_uzs, client_name)
---   values ('SC-SLOT03', '2026-09-27', '15:00', 25, 'mini-cca-25m',
---           '{"en":"slot test"}', 170000, 'slot test');
+--                         package_id, package_name, price_uzs, base_price_uzs,
+--                         client_name)
+--   values ('SC-SLOT03', '2099-01-03', '15:00', 25, 'mini-probe-25m',
+--           '{"en":"slot test"}', 170000, 170000, 'slot test');
 --
 --   delete from bookings where ref like 'SC-SLOT%';
+--
+-- A 2099 date, not the event's own: a leftover test row on a real date blocks
+-- a real booking, and these are easy to forget.
