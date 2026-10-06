@@ -39,8 +39,29 @@ export interface CatalogItem {
   note: Localized | null;
   /** First is preselected, rest are the short list; empty means offer all. */
   locationIds: string[];
-  /** Never a price input — the group tier is one price at any head count. */
+  /**
+   * The head counts this tier accepts. On its own it is NOT a price input —
+   * the graduation group tier is one price whether three or five people turn
+   * up, and the stepper is there so the shoot can be planned.
+   *
+   * It becomes a price input only when `pricePerPeople` is set beside it.
+   */
   asksPeople: { min: number; max: number } | null;
+  /**
+   * TOTAL price for a given head count, when the head count IS the price.
+   *
+   * The mini-sessions sell 170 000 solo, 250 000 for two and 330 000 for
+   * three — not a base plus a per-head extra, which is why this is a table of
+   * totals rather than a multiplier. Trying to express "250 000 for two" as
+   * base + extra means inventing a per-head figure that appears nowhere on
+   * Marshall's price list and rounding it back on the way out.
+   *
+   * Keys must cover every value `asksPeople` allows; `priceUzs` stays the
+   * cheapest of them, so a tier with no head count chosen still quotes.
+   * quoteBooking() in booking-price.ts is the only thing that reads this, so
+   * the form and the API route cannot disagree about the arithmetic.
+   */
+  pricePerPeople?: Record<number, number>;
 }
 
 function toItem(

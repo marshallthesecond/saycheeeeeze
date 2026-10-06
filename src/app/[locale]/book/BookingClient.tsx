@@ -902,7 +902,11 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   it is already selected. Show what it includes instead of a
                   list of one. */}
               {state.serviceId && offered.length === 1 && selected ? (
-                <SingleTier item={offered[0]} />
+                <SingleTier
+                  item={offered[0]}
+                  peopleCount={state.peopleCount}
+                  onPeople={setPeople}
+                />
               ) : state.serviceId ? (
               <CatalogPicker
                 items={offered}
@@ -1156,6 +1160,15 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     label={t("book.location")}
                     value={describeLocations(state.locationIds, state.locationCustom, t) || "—"}
                   />
+                  {/* Only when the number is part of the price. A head count
+                      that buys nothing is planning information and belongs in
+                      the step that asks for it, not on the bill. */}
+                  {quote.pricedForPeople !== null && (
+                    <SummaryRow
+                      label={t("book.peopleCount")}
+                      value={String(quote.pricedForPeople)}
+                    />
+                  )}
 
                   {(selected.photos || selected.delivery || selected.perks.length > 0) && (
                     <ul className="flex flex-col gap-1.5 pt-1">
@@ -1511,15 +1524,132 @@ const FixedDate = memo(function FixedDate(
   );
 });
 
-/** The one-price case: what it includes, with nothing to choose. */
-const SingleTier = memo(function SingleTier({ item }: { item: CatalogItem }) {
+/**
+ * How many people, and — when the tier prices by it — what that costs.
+ *
+ * Shared by SingleTier and CatalogPicker because the mini-sessions reach step
+ * one through the FIRST of those: they have a single tier, so the form shows
+ * "here is what it includes" rather than a list of one. Putting the selector
+ * only in CatalogPicker, where every other head count lives, would have left
+ * the one product whose price actually depends on it with no way to say so.
+ *
+ * TWO MODES, and the difference is whether the number costs anything:
+ *
+ *   no pricePerPeople   bare numbers, plus a line saying the price is the same
+ *                       either way. Asking is for planning the shoot.
+ *   pricePerPeople      each option carries its own total and its per-person
+ *                       rate. The rate is DIVIDED from the total rather than
+ *                       stored, so it cannot drift from the number beside it.
+ */
+const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }: {
+  item: CatalogItem;
+  peopleCount: number | null;
+  onPeople: (count: number | null) => void;
+}) {
+  const { t, locale } = useT();
+  if (!item.asksPeople) return null;
+
+  const { min, max } = item.asksPeople;
+  const counts = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const prices = item.pricePerPeople;
+  // Matches headCountFor() in booking-price.ts. The highlighted option and the
+  // quoted price have to be the same number before anyone has chosen, or the
+  // form shows one price and charges another.
+  const active = peopleCount ?? min;
+
+  if (!prices) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+        <p className="text-xs font-semibold flex items-center gap-2">
+          <Users className="w-3.5 h-3.5 text-white/40" />
+          {t("book.peopleLabel")}
+        </p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {counts.map((count) => (
+            <button
+              key={count}
+              onClick={() => onPeople(count)}
+              aria-pressed={peopleCount === count}
+              className={`h-10 min-w-11 px-3 rounded-lg text-xs font-medium transition active:scale-95
+                ${peopleCount === count
+                  ? "bg-accent-warm text-accent-ink font-bold"
+                  : "bg-white/[0.07] text-white/60 hover:bg-white/[0.14] hover:text-white"}`}
+            >
+              {count}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-white/35 mt-3 leading-relaxed">
+          {t("book.peopleFlatPrice")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+      <p className="text-xs font-semibold flex items-center gap-2">
+        <Users className="w-3.5 h-3.5 text-white/40" />
+        {t("book.peopleLabel")}
+      </p>
+      <div
+        className="mt-3 grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${counts.length}, minmax(0, 1fr))` }}
+      >
+        {counts.map((count) => {
+          const total = prices[count] ?? item.priceUzs;
+          const on = active === count;
+          return (
+            <button
+              key={count}
+              onClick={() => onPeople(count)}
+              aria-pressed={on}
+              className={`rounded-xl border px-2 py-3 text-center transition active:scale-[0.97]
+                ${on
+                  ? "border-accent-warm bg-accent-warm/12"
+                  : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"}`}
+            >
+              <span className={`block text-lg font-bold leading-none ${on ? "text-accent-warm" : "text-white/70"}`}>
+                {count}
+              </span>
+              <span className="mt-1.5 block text-[11px] font-semibold tabular-nums text-white">
+                {formatSom(total, locale)}
+              </span>
+              {/* Divided, not stored — see MINI_PRICES in mini-sessions.ts. */}
+              {count > 1 && (
+                <span className="mt-0.5 block text-[10px] tabular-nums text-white/40">
+                  {t("book.peopleEach").replace("{price}", formatSom(Math.round(total / count), locale))}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+/**
+ * The one-tier case: what it includes, with nothing to choose about the tier
+ * itself. The head count may still be a choice, and for the mini-sessions it
+ * is the only one that moves the price.
+ */
+const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
+  item: CatalogItem;
+  peopleCount: number | null;
+  onPeople: (count: number | null) => void;
+}) {
   const { locale } = useT();
+  // What this booking actually costs right now, so the figure at the top of
+  // the card and the one in the price bar are never two different numbers.
+  const shown =
+    item.pricePerPeople?.[peopleCount ?? item.asksPeople?.min ?? 1] ?? item.priceUzs;
   return (
     <div className="rounded-2xl border border-accent-warm bg-accent-warm/10 p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="font-semibold text-base">{packageDuration(item, locale)}</p>
         <p className="text-sm font-bold shrink-0 tabular-nums">
-          {formatSom(item.priceUzs, locale)}
+          {formatSom(shown, locale)}
         </p>
       </div>
       <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
@@ -1536,6 +1666,11 @@ const SingleTier = memo(function SingleTier({ item }: { item: CatalogItem }) {
             </li>
           ))}
       </ul>
+      {item.asksPeople && (
+        <div className="mt-4">
+          <PeoplePicker item={item} peopleCount={peopleCount} onPeople={onPeople} />
+        </div>
+      )}
     </div>
   );
 });
@@ -1625,34 +1760,8 @@ const CatalogPicker = memo(function CatalogPicker(
           dividing by four. It is here so a shoot for six is not planned as a
           shoot for two, and the label says exactly that rather than leaving a
           client to wonder what it will cost them. */}
-      {selected?.asksPeople && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
-          <p className="text-xs font-semibold flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-white/40" />
-            {t("book.peopleLabel")}
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {Array.from(
-              { length: selected.asksPeople.max - selected.asksPeople.min + 1 },
-              (_, i) => selected.asksPeople!.min + i,
-            ).map((count) => (
-              <button
-                key={count}
-                onClick={() => onPeople(count)}
-                aria-pressed={peopleCount === count}
-                className={`h-10 min-w-11 px-3 rounded-lg text-xs font-medium transition active:scale-95
-                  ${peopleCount === count
-                    ? "bg-accent-warm text-accent-ink font-bold"
-                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.14] hover:text-white"}`}
-              >
-                {count}
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-white/35 mt-3 leading-relaxed">
-            {t("book.peopleFlatPrice")}
-          </p>
-        </div>
+      {selected && (
+        <PeoplePicker item={selected} peopleCount={peopleCount} onPeople={onPeople} />
       )}
     </div>
   );

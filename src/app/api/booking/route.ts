@@ -185,6 +185,22 @@ export async function POST(req: NextRequest) {
 
   const durationMinutes = quote.durationMinutes;
 
+  /**
+   * The head count the booking was actually PRICED at.
+   *
+   * `people` is whatever the client sent, which for a tier that prices by head
+   * count is usually null — the form quotes the solo price without anyone
+   * touching the selector, so a solo booking arrives with no number in it.
+   * Writing that null into the row and the Telegram message would leave
+   * Marshall unable to tell a 170 000 solo from a 330 000 triple on the one
+   * screen he reads, for the one product where the difference IS the price.
+   *
+   * quoteBooking() already resolved and clamped it, so taking the answer from
+   * the quote keeps the row, the notification and the money in agreement by
+   * construction rather than by two places applying the same default.
+   */
+  const peopleBooked = quote.pricedForPeople ?? people;
+
   // Resolved once. `pkg` is undefined for a catalogue booking, so anything
   // downstream reaching for pkg.name breaks on exactly those.
   //
@@ -303,7 +319,7 @@ export async function POST(req: NextRequest) {
     packageName: catalogItem ? { en: packageLabel } : (pkg as SessionPackage).name,
     priceUzs: quote.totalUzs,
     basePriceUzs: quote.basePriceUzs,
-    peopleCount: people,
+    peopleCount: peopleBooked,
     // Both surcharges land in the same list, so a row explains its own total.
     addons: [
       ...(quote.extraPeople > 0
@@ -406,7 +422,7 @@ export async function POST(req: NextRequest) {
       // to turn up, so listing only the first would be misleading.
       location:
         [...locationIds, (body.locationCustom ?? "").trim()].filter(Boolean).join(" + ") || "—",
-      people,
+      people: peopleBooked,
       priceLabel,
       notes: body.notes ?? null,
       locale,

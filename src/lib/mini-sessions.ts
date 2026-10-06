@@ -90,6 +90,32 @@ export function isMiniPackage(id: string | null | undefined): boolean {
   return !!id && id.startsWith(MINI_PACKAGE_PREFIX);
 }
 
+/**
+ * What a mini-session costs, by how many people are in it.
+ *
+ * TOTALS, not a base plus a per-head extra. Marshall's list reads
+ *
+ *   170 000   solo
+ *   250 000   duo        125 000 each
+ *   330 000   triple     110 000 each
+ *
+ * — three prices that get cheaper per person, which is the offer. Expressing
+ * that as "170 000 plus 80 000 per extra head" would price a duo correctly by
+ * accident and a triple at 330 000 only until one of the numbers moves.
+ *
+ * The per-person figures the form displays are DERIVED from these by division,
+ * so they cannot drift: change a total here and the "125 000 each" line under
+ * it follows.
+ *
+ * Three is the ceiling because the block is 25 minutes. A fourth person is a
+ * different product and should be a message, not a button.
+ */
+const MINI_PRICES: Record<number, number> = {
+  1: 170_000,
+  2: 250_000,
+  3: 330_000,
+};
+
 const MINI_ITEM: CatalogItem = {
   id: MINI_EVENT.packageId,
   serviceSlug: MINI_EVENT.id,
@@ -109,12 +135,15 @@ const MINI_ITEM: CatalogItem = {
   // 48 hours. `days` is what the formatter speaks, and two days is the same
   // promise in the language the rest of the site already uses.
   delivery: { days: 2 },
-  priceUzs: 170_000,
+  // The solo price, and the one shown before anyone has said how many they
+  // are. Every other head count comes from the table below.
+  priceUzs: MINI_PRICES[1],
   highlight: false,
   perks: [],
   note: null,
   locationIds: [MINI_EVENT.locationId],
-  asksPeople: null,
+  asksPeople: { min: 1, max: 3 },
+  pricePerPeople: MINI_PRICES,
 };
 
 /**

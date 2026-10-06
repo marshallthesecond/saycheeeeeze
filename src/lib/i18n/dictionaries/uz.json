@@ -182,6 +182,8 @@
     "locationsMax": "Bitta suratga olishga bundan ko‘pi sig‘maydi — almashtirish uchun bittasini olib tashlang.",
     "extraLocations": "Qo‘shimcha lokatsiya ×{n}",
     "peopleFlatPrice": "Nechta odam kutishni bilishim uchun — narxga ta'sir qilmaydi.",
+    "peopleEach": "kishi boshiga {price}",
+    "peopleCount": "Kishi",
     "basePrice": "Suratga olish narxi",
     "wiuterian": "Siz WIUTerianmisiz?",
     "wiuterianHint": "WIUT talabalari uchun marosim kuni variantlari ham bor.",

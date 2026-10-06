@@ -182,6 +182,8 @@
     "locationsMax": "That is the most I can fit into one session — remove one to swap it.",
     "extraLocations": "Extra location ×{n}",
     "peopleFlatPrice": "Just so I know how many to expect — the price is the same either way.",
+    "peopleEach": "{price} each",
+    "peopleCount": "People",
     "basePrice": "Session price",
     "wiuterian": "Are you a WIUTerian?",
     "wiuterianHint": "WIUT students get the ceremony-day options too.",
