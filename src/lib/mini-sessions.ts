@@ -1,4 +1,4 @@
-// The CCA mini-sessions — one afternoon, eight slots, one price.
+// The mini-sessions — one afternoon, fixed slots, one price.
 //
 // A LEAF MODULE ON PURPOSE. The only thing it takes from booking-catalog.ts is
 // the CatalogItem *type*, imported with `import type` so it is erased at
@@ -8,37 +8,67 @@
 // This is not in services.ts because services.ts is a catalogue of things
 // offered indefinitely, each with a landing page. A one-afternoon event is
 // neither.
+//
+// HOW TO RUN THE NEXT ONE. Change MINI_EVENT below, move the OUTGOING event's
+// CatalogItem into RETIRED_ITEMS, and deploy. Nothing else: the booking page
+// reads the date, the calendar closes it to every other product, the option
+// takes itself off the form the day after, and /mini points at whatever
+// MINI_EVENT.id currently is.
+//
+// Still a module rewrite rather than a data edit, which is the refactor
+// Marshall has parked until after the first real run — an array of events with
+// the current one picked by date. Worth doing once weekly changes are a habit
+// rather than a plan.
 
 import type { CatalogItem } from "./booking-catalog";
 
-// The CCA mini-sessions — Sunday 27 September 2026
+// Lokomotiv Park — Sunday 11 October 2026
 //
-// Eight fixed slots 35 minutes apart, 170 000 each, 20–25 minutes of shooting
-// and ten minutes to change over. Three were sold before the form existed and
-// are listed here because there is no booking row to find them in.
+// Six slots, 35 minutes apart, 170 000 each: 20–25 minutes of shooting and ten
+// minutes to change over.
 //
-// WHEN THE DAY IS OVER: delete nothing. Leave `untilISO` to take the option off
-// the form by itself, and leave the rest so the three photographs it sold can
-// still be priced and named. Copy the block for the next event.
+// SIX, NOT EIGHT, AND THE REASON IS THE LIGHT. The CCA set ran 15:00 to 19:05.
+// Sunset in Tashkent is 18:13 on 27 September and 17:50 on 11 October, and
+// this venue is a park rather than an arts centre with walls and lamps in it.
+// The 18:30 and 19:05 blocks would be sold for 170 000 each and then shot in
+// the dark.
+//
+//   15:00–15:25   daylight
+//   15:35–16:00   daylight
+//   16:10–16:35   daylight
+//   16:45–17:10   the light starts to go
+//   17:20–17:45   golden hour, ends five minutes before sunset — the best one
+//   17:55–18:20   civil twilight, workable with fast glass
+//   ──────────────  sunset 17:50
+//   18:30–18:55   dark            ← dropped
+//   19:05–19:30   dark            ← dropped
+//
+// TO PUT THEM BACK, if the park turns out to be lit or lights are coming:
+// add "18:30" and "19:05" to `slots`. Nothing else needs touching — the form
+// renders whatever is in this array.
 
 export const MINI_EVENT = {
-  id: "mini-cca",
+  /** The service id, and what /mini redirects to. New venue, new id. */
+  id: "mini-lokomotiv",
   /** Sunday. Verified against the date, not the label on the sheet. */
-  dateISO: "2026-09-27",
-  locationId: "cca",
+  dateISO: "2026-10-11",
+  locationId: "lokomotiv",
+  slots: ["15:00", "15:35", "16:10", "16:45", "17:20", "17:55"],
   /**
-   * The sheet says 3:00 to 7:05. Those are afternoon times — an outdoor event
-   * finishing at half seven, not one starting at three in the morning.
-   */
-  slots: ["15:00", "15:35", "16:10", "16:45", "17:20", "17:55", "18:30", "19:05"],
-  /**
-   * Sold off-site, shaded on Marshall's sheet. The form must refuse them, and
-   * nothing in the database knows about them — so they are here.
+   * Sold off-site, so nothing in the database knows about them. The form must
+   * refuse them.
    *
-   * To release one, delete it from this list and redeploy.
+   * Empty for this event — everything is going through the form. To block one,
+   * add the time here and redeploy; to release it, delete it again.
    */
-  preBooked: ["16:10", "16:45", "17:55"],
-  packageId: "mini-cca-25m",
+  preBooked: [] as readonly string[],
+  /**
+   * NEW VENUE, NEW PACKAGE ID — and it keeps the `mini-` prefix, which is not
+   * cosmetic (see MINI_PACKAGE_PREFIX below). Never rename an id that has been
+   * live: it is written permanently into `bookings` rows, into Telegram
+   * messages and into whatever links are still in someone's history.
+   */
+  packageId: "mini-lokomotiv-25m",
 } as const;
 
 /**
@@ -46,12 +76,13 @@ export const MINI_EVENT = {
  *
  * NOT cosmetic. The database's two partial unique indexes key on it:
  * `bookings_one_live_per_day` excludes `package_id like 'mini-%'` and
- * `bookings_one_live_per_slot` selects it, which is what allows eight bookings
- * on one date while every other product stays one-a-day. Rename the prefix and
- * you have to rename it in the migration too, or the day index silently starts
- * rejecting the second mini-session of the day.
+ * `bookings_one_live_per_slot` selects it, which is what allows several
+ * bookings on one date while every other product stays one-a-day. Rename the
+ * prefix and you have to rename it in the migration too, or the day index
+ * silently starts rejecting the second mini-session of the day.
  *
- * See supabase/migrations/20260925090000_mini_session_slots.sql.
+ * See supabase/migrations/20260925090000_mini_session_slots.sql, and
+ * scripts/check-slot-indexes.mjs, which proves the two are in step by trying.
  */
 export const MINI_PACKAGE_PREFIX = "mini-";
 
@@ -63,9 +94,9 @@ const MINI_ITEM: CatalogItem = {
   id: MINI_EVENT.packageId,
   serviceSlug: MINI_EVENT.id,
   serviceTitle: {
-    en: "Mini-session at CCA",
-    ru: "Мини-съёмка в CCA",
-    uz: "CCA’da mini-suratga olish",
+    en: "Mini-session at Lokomotiv Park",
+    ru: "Мини-съёмка в парке «Локомотив»",
+    uz: "«Lokomotiv» parkida mini-suratga olish",
   },
   groupKey: null,
   groupTitle: null,
@@ -86,8 +117,57 @@ const MINI_ITEM: CatalogItem = {
   asksPeople: null,
 };
 
+/**
+ * EVENTS THAT HAVE HAPPENED. Priceable for ever, offered never.
+ *
+ * Each past event sold bookings, and those rows carry its package id. Drop the
+ * item and `findCatalogItem("mini-cca-25m")` returns undefined, which breaks
+ * three things at once: the booking status route can no longer name what was
+ * sold, an old `/book?package=…` link lands on a form that cannot price
+ * itself, and the API route rejects the id outright.
+ *
+ * They are deliberately NOT in miniCatalog(), because that is the list the
+ * form OFFERS — a client booking Lokomotiv must not be shown a CCA tier. The
+ * two lists exist precisely so "what can be sold" and "what can be priced"
+ * can diverge, which after the second event they permanently do.
+ */
+const RETIRED_ITEMS: CatalogItem[] = [
+  {
+    id: "mini-cca-25m",
+    serviceSlug: "mini-cca",
+    serviceTitle: {
+      en: "Mini-session at CCA",
+      ru: "Мини-съёмка в CCA",
+      uz: "CCA’da mini-suratga olish",
+    },
+    groupKey: null,
+    groupTitle: null,
+    duration: { en: "20–25 minutes", ru: "20–25 минут", uz: "20–25 daqiqa" },
+    durationMinutes: 25,
+    photos: { min: 12, max: 15 },
+    delivery: { days: 2 },
+    priceUzs: 170_000,
+    highlight: false,
+    perks: [],
+    note: null,
+    locationIds: ["cca"],
+    asksPeople: null,
+  },
+];
+
+/** What the form offers: the current event's tier, and nothing else. */
 export function miniCatalog(): CatalogItem[] {
   return [MINI_ITEM];
+}
+
+/**
+ * What can be PRICED: the current event and every past one.
+ *
+ * findCatalogItem() in booking-catalog.ts reads this, not miniCatalog(), so an
+ * id from a finished event keeps resolving long after the option has gone.
+ */
+export function miniPriceableItems(): CatalogItem[] {
+  return [MINI_ITEM, ...RETIRED_ITEMS];
 }
 
 // Slot checking — the mini-session equivalent of canBook()
@@ -97,9 +177,9 @@ export type SlotState = "open" | "taken";
 /**
  * Which of the event's slots can still be booked.
  *
- * Two sources of "taken", and both matter: `preBooked` above for the three
- * sold off-site, and the live bookings ledger for everything sold through the
- * form. Passing only one of them is how a slot gets sold twice.
+ * Two sources of "taken", and both matter: `preBooked` above for anything sold
+ * off-site, and the live bookings ledger for everything sold through the form.
+ * Passing only one of them is how a slot gets sold twice.
  */
 export function miniSlotStates(
   bookedTimes: readonly string[],

@@ -18,6 +18,32 @@ const nextConfig: NextConfig = {
    */
   async redirects() {
     return [
+      /**
+       * /mini — the link to put on OLX and in Telegram.
+       *
+       * `/book?service=mini-lokomotiv` already lands a visitor on step 2 with
+       * the date pinned, the venue shown, the price shown and the slot grid
+       * open, so no code was needed to make the mini-session one click away.
+       * What was needed is a URL a person can retype, read off a story, or
+       * paste into a bio — and one that does not carry next week's internal id
+       * in it.
+       *
+       * TEMPORARY (307), AND THAT IS THE WHOLE POINT. A 308 is cached by the
+       * browser and by Google, so the first visitor to follow a permanent
+       * /mini would keep being sent to THIS event for ever — including after
+       * the venue moved and the id changed. Every other row in this file is
+       * permanent because a retired service page never comes back; this one
+       * points at a moving target.
+       *
+       * No locale prefix, so the middleware resolves the visitor's own
+       * language from the cookie rather than this file deciding for them.
+       *
+       * UPDATE THIS WHEN THE EVENT CHANGES — it is the one place outside
+       * mini-sessions.ts that names the service id.
+       */
+      { source: "/mini", destination: "/book?service=mini-lokomotiv", permanent: false },
+      { source: "/:locale(en|ru|uz)/mini", destination: "/:locale/book?service=mini-lokomotiv", permanent: false },
+
       { source: "/:locale(en|ru|uz)/services/individual-portraits", destination: "/:locale/services/portraits", permanent: true },
       { source: "/services/individual-portraits", destination: "/services/portraits", permanent: true },
       { source: "/:locale(en|ru|uz)/services/pair-group", destination: "/:locale/services/portraits", permanent: true },

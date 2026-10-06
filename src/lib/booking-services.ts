@@ -13,7 +13,7 @@
 //
 //   1. A slug from services.ts — "portraits", "graduation". Its tiers, prices
 //      and locations all come from that file; nothing is copied.
-//   2. A ONE-OFF EVENT — the CCA mini-sessions. One date, fixed slots, one
+//   2. A ONE-OFF EVENT — the mini-sessions. One date, fixed slots, one
 //      price, no landing page. It has no business in services.ts, which is a
 //      catalogue of things offered indefinitely.
 //   3. Whatever service a client arrived from. A "Book this" link on any of
@@ -92,15 +92,18 @@ const CORE: BookingServiceOption[] = [
   },
   {
     id: MINI_EVENT.id,
+    // Written here rather than read off MINI_EVENT, so the venue and the date
+    // read naturally in three languages. They are the two things that change
+    // every event, so they are the two things to check on the way past.
     title: {
-      en: "Mini-sessions · CCA",
-      ru: "Мини-съёмки · CCA",
-      uz: "Mini-suratga olish · CCA",
+      en: "Mini-sessions · Lokomotiv Park",
+      ru: "Мини-съёмки · парк «Локомотив»",
+      uz: "Mini-suratga olish · «Lokomotiv» parki",
     },
     blurb: {
-      en: "One afternoon only, Sunday 27 September. Eight slots.",
-      ru: "Только один день — воскресенье, 27 сентября. Восемь слотов.",
-      uz: "Faqat bir kun — 27-sentabr, yakshanba. Sakkizta slot.",
+      en: "One afternoon only, Sunday 11 October. Six slots.",
+      ru: "Только один день — воскресенье, 11 октября. Шесть слотов.",
+      uz: "Faqat bir kun — 11-oktabr, yakshanba. Oltita slot.",
     },
     untilISO: MINI_EVENT.dateISO,
     onlyDateISO: MINI_EVENT.dateISO,

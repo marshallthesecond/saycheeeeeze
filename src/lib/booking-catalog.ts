@@ -7,7 +7,7 @@
 
 // One-off events. mini-sessions.ts takes only the CatalogItem TYPE back from
 // here, with `import type`, so this pair is not a runtime cycle.
-import { miniCatalog } from "./mini-sessions";
+import { miniPriceableItems } from "./mini-sessions";
 import {
   allPackages,
   servicesData,
@@ -237,7 +237,9 @@ function buildLiveIndex(): Map<string, CatalogItem> {
     if (!index.has(item.id)) index.set(item.id, item);
   };
   for (const service of servicesData) for (const item of catalogForService(service.slug)) add(item);
-  for (const item of miniCatalog()) add(item);
+  // miniPriceableItems(), not miniCatalog(): a finished event's tier must stay
+  // priceable so its bookings can still be named and an old link still works.
+  for (const item of miniPriceableItems()) add(item);
   for (const item of genericCatalog()) add(item);
   return index;
 }
