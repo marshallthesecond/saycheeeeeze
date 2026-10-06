@@ -43,7 +43,20 @@ export const BOOKING_LOCATIONS: BookingLocation[] = [
   // to real clients on the total line, which is worse than no number at all.
   { id: "studio", surchargePerHourUzs: 0, consultFirst: true },
   { id: "botanical", surchargePerHourUzs: 0 },
-  { id: "lokomotiv", surchargePerHourUzs: 0 },
+  { id: "anxor", surchargePerHourUzs: 0 },
+  /**
+   * RETIRED, NOT DELETED. Anxor replaced it on 2026-10-06 and nothing new
+   * should be booked here — but `location_id = 'lokomotiv'` is written into
+   * bookings rows that already exist, and a row whose location cannot be
+   * labelled reads as a blank on the one screen Marshall uses to find out
+   * where to turn up.
+   *
+   * `restricted` is exactly the right flag for that: it keeps the id priceable
+   * and labelled, and keeps it out of every fresh client's list unless it is
+   * already their selection. Deleting the entry instead would have been the
+   * tidier-looking change and the one that loses the history.
+   */
+  { id: "lokomotiv", surchargePerHourUzs: 0, restricted: true },
   { id: "city", surchargePerHourUzs: 0 },
 ];
 

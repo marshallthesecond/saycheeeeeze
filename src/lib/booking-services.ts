@@ -96,9 +96,9 @@ const CORE: BookingServiceOption[] = [
     // read naturally in three languages. They are the two things that change
     // every event, so they are the two things to check on the way past.
     title: {
-      en: "Mini-sessions · Lokomotiv Park",
-      ru: "Мини-съёмки · парк «Локомотив»",
-      uz: "Mini-suratga olish · «Lokomotiv» parki",
+      en: "Mini-sessions · Anxor Park",
+      ru: "Мини-съёмки · парк «Анхор»",
+      uz: "Mini-suratga olish · «Anxor» parki",
     },
     blurb: {
       en: "One afternoon only, Sunday 11 October. Six slots.",

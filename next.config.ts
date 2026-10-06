@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       /**
        * /mini — the link to put on OLX and in Telegram.
        *
-       * `/book?service=mini-lokomotiv` already lands a visitor on step 2 with
+       * `/book?service=mini-anxor` already lands a visitor on step 2 with
        * the date pinned, the venue shown, the price shown and the slot grid
        * open, so no code was needed to make the mini-session one click away.
        * What was needed is a URL a person can retype, read off a story, or
@@ -41,8 +41,8 @@ const nextConfig: NextConfig = {
        * UPDATE THIS WHEN THE EVENT CHANGES — it is the one place outside
        * mini-sessions.ts that names the service id.
        */
-      { source: "/mini", destination: "/book?service=mini-lokomotiv", permanent: false },
-      { source: "/:locale(en|ru|uz)/mini", destination: "/:locale/book?service=mini-lokomotiv", permanent: false },
+      { source: "/mini", destination: "/book?service=mini-anxor", permanent: false },
+      { source: "/:locale(en|ru|uz)/mini", destination: "/:locale/book?service=mini-anxor", permanent: false },
 
       { source: "/:locale(en|ru|uz)/services/individual-portraits", destination: "/:locale/services/portraits", permanent: true },
       { source: "/services/individual-portraits", destination: "/services/portraits", permanent: true },

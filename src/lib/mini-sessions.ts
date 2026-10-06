@@ -22,7 +22,7 @@
 
 import type { CatalogItem } from "./booking-catalog";
 
-// Lokomotiv Park — Sunday 11 October 2026
+// Anxor Park — Sunday 11 October 2026
 //
 // Six slots, 35 minutes apart, 170 000 each: 20–25 minutes of shooting and ten
 // minutes to change over.
@@ -49,10 +49,10 @@ import type { CatalogItem } from "./booking-catalog";
 
 export const MINI_EVENT = {
   /** The service id, and what /mini redirects to. New venue, new id. */
-  id: "mini-lokomotiv",
+  id: "mini-anxor",
   /** Sunday. Verified against the date, not the label on the sheet. */
   dateISO: "2026-10-11",
-  locationId: "lokomotiv",
+  locationId: "anxor",
   slots: ["15:00", "15:35", "16:10", "16:45", "17:20", "17:55"],
   /**
    * Sold off-site, so nothing in the database knows about them. The form must
@@ -68,7 +68,7 @@ export const MINI_EVENT = {
    * live: it is written permanently into `bookings` rows, into Telegram
    * messages and into whatever links are still in someone's history.
    */
-  packageId: "mini-lokomotiv-25m",
+  packageId: "mini-anxor-25m",
 } as const;
 
 /**
@@ -94,9 +94,9 @@ const MINI_ITEM: CatalogItem = {
   id: MINI_EVENT.packageId,
   serviceSlug: MINI_EVENT.id,
   serviceTitle: {
-    en: "Mini-session at Lokomotiv Park",
-    ru: "Мини-съёмка в парке «Локомотив»",
-    uz: "«Lokomotiv» parkida mini-suratga olish",
+    en: "Mini-session at Anxor Park",
+    ru: "Мини-съёмка в парке «Анхор»",
+    uz: "«Anxor» bog'ida mini-suratga olish",
   },
   groupKey: null,
   groupTitle: null,
@@ -127,7 +127,7 @@ const MINI_ITEM: CatalogItem = {
  * itself, and the API route rejects the id outright.
  *
  * They are deliberately NOT in miniCatalog(), because that is the list the
- * form OFFERS — a client booking Lokomotiv must not be shown a CCA tier. The
+ * form OFFERS — a client booking Anxor must not be shown a CCA tier. The
  * two lists exist precisely so "what can be sold" and "what can be priced"
  * can diverge, which after the second event they permanently do.
  */
@@ -151,6 +151,41 @@ const RETIRED_ITEMS: CatalogItem[] = [
     perks: [],
     note: null,
     locationIds: ["cca"],
+    asksPeople: null,
+  },
+  /**
+   * NEVER RAN, and still has to be here.
+   *
+   * The 11 October event was set up at Lokomotiv on 2026-10-06 and moved to
+   * Anxor the same day — but bookings were taken against this id in between,
+   * and `package_id` is written into those rows permanently. An id that has
+   * been live for five minutes is as unrenameable as one that ran for a month:
+   * what makes it permanent is that a row carries it, not how long it was on
+   * offer.
+   *
+   * Delete this entry and those bookings stop being nameable and priceable,
+   * which is the same breakage as dropping the CCA tier above — just less
+   * obvious, because the event it belongs to is the one still coming up.
+   */
+  {
+    id: "mini-lokomotiv-25m",
+    serviceSlug: "mini-lokomotiv",
+    serviceTitle: {
+      en: "Mini-session at Lokomotiv Park",
+      ru: "Мини-съёмка в парке «Локомотив»",
+      uz: "«Lokomotiv» parkida mini-suratga olish",
+    },
+    groupKey: null,
+    groupTitle: null,
+    duration: { en: "20–25 minutes", ru: "20–25 минут", uz: "20–25 daqiqa" },
+    durationMinutes: 25,
+    photos: { min: 12, max: 15 },
+    delivery: { days: 2 },
+    priceUzs: 170_000,
+    highlight: false,
+    perks: [],
+    note: null,
+    locationIds: ["lokomotiv"],
     asksPeople: null,
   },
 ];
