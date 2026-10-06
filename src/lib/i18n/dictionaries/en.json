@@ -165,6 +165,8 @@
     "review": "Review",
     "pickPackageForPrice": "Pick a package to see the price",
     "dayTaken": "That day was just taken — please pick another.",
+    "slotTaken": "That time was just taken — please pick another hour.",
+    "dismiss": "Dismiss",
     "priceChanged": "The price has changed to {price}. Check the summary and confirm again.",
     "doneBody": "I'll confirm within 24 hours.",
     "getUpdates": "Get updates on Telegram",

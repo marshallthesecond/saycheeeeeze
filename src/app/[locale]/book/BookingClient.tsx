@@ -21,7 +21,8 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Check, ChevronDown, Clock, MapPin, MessageCircle, Phone, Send, User, Users,
+  Check, ChevronDown, CircleAlert, Clock, MapPin, MessageCircle, Phone, Send,
+  User, Users, X,
 } from "lucide-react";
 
 import StickyHeader from "@/src/components/common/StickyHeader";
@@ -282,6 +283,11 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   const isEvent = state.serviceId === MINI_EVENT.id;
   const isGraduation = state.serviceId === "graduation";
   const isCeremony = isGraduation && state.isWiuterian && state.atCeremony;
+  /**
+   * The date was decided for the client rather than by them, so it is never
+   * the thing to clear or the thing to ask them to change.
+   */
+  const dateIsFixed = isEvent || isCeremony;
 
   /** The tiers for step 1. Graduation forks on the ceremony switch. */
   const offered = useMemo(
@@ -420,6 +426,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   }, []);
 
   const selectDate = useCallback((iso: string) => {
+    setError(null);
     // A new day invalidates the hour: 18:00 fits on a Thursday and not on a
     // Sunday. One update so the two never render apart.
     setState((prev) =>
@@ -429,7 +436,18 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     );
   }, []);
 
-  const setStartTime = useCallback((time: string | null) => set("startTime", time), [set]);
+  /**
+   * Choosing a time clears the error, because choosing a time is the answer to
+   * every error that sends the client back here. Leaving it up would have them
+   * dismissing a complaint they have already dealt with.
+   */
+  const setStartTime = useCallback(
+    (time: string | null) => {
+      set("startTime", time);
+      if (time) setError(null);
+    },
+    [set],
+  );
 
   const setMonth = useCallback((month: number, year: number) => {
     setState((prev) =>
@@ -454,6 +472,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // Four stable `() => setOpenStep(n)`. Inline arrows here were four new
   // functions per render, which is the whole reason the step headers could not
   // be left alone while someone typed.
+  const dismissError = useCallback(() => setError(null), []);
+
   const openOne = useCallback(() => setOpenStep(1), []);
   const openTwo = useCallback(() => setOpenStep(2), []);
   const openThree = useCallback(() => setOpenStep(3), []);
@@ -623,7 +643,22 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     if (offered.length === 1) set("packageId", offered[0].id);
   }, [offered, set]);
 
-  // The event decides its own date and place.
+  /**
+   * The event decides its own date and place — and KEEPS deciding it.
+   *
+   * `state.selectedISO` is in the dependency list on purpose. With only
+   * `[isEvent]` this ran once, when the service was chosen, and never again —
+   * so anything that cleared the date afterwards left it cleared for ever.
+   * That is not hypothetical: the 409 handler below used to clear it on every
+   * conflict, which made `step2Done` false, which disabled Submit, for a form
+   * that was still SHOWING the date because FixedDate renders
+   * MINI_EVENT.dateISO directly rather than the state. The client saw a
+   * complete form with a dead button and no explanation.
+   *
+   * The guard makes the extra runs free: when the date and place are already
+   * right it returns `prev` and React drops the update, so this costs one
+   * comparison per render of the parent and nothing else.
+   */
   useEffect(() => {
     if (!isEvent) return;
     setState((prev) =>
@@ -639,7 +674,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             locationCustom: "",
           },
     );
-  }, [isEvent]);
+  }, [isEvent, state.selectedISO, state.locationIds, state.locationCustom]);
 
   // Ceremony day is a date, not a choice. Pin it, move the calendar to the
   // month it is in so the client can see WHICH date they have been given, and
@@ -710,14 +745,28 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
       if (res.status === 409) {
         if (data?.error === "priceChanged") {
           setError(t("book.priceChanged").replace("{price}", data.priceLabel ?? ""));
-        } else {
-          // Someone took the day between page load and submit. Clear it so a
-          // fresh choice has to be made rather than resubmitting the same one.
-          set("selectedISO", null);
-          set("startTime", null);
-          setOpenStep(2);
-          setError(t("book.dayTaken"));
+          return;
         }
+
+        /**
+         * Somebody got there first between page load and submit.
+         *
+         * WHICH THING WAS TAKEN DECIDES WHAT TO CLEAR, and getting that wrong
+         * is how Submit ended up permanently dead. A mini-session conflict is
+         * about the HOUR: the date is the event's, the client never chose it
+         * and cannot change it. Clearing it anyway left `selectedISO` null on
+         * a form that still displayed the date, so `step2Done` was false for
+         * reasons nothing on screen could explain.
+         */
+        const slotTaken = data?.error === "slotTaken" || dateIsFixed;
+
+        setState((prev) => ({
+          ...prev,
+          startTime: null,
+          selectedISO: slotTaken ? prev.selectedISO : null,
+        }));
+        setOpenStep(2);
+        setError(t(slotTaken ? "book.slotTaken" : "book.dayTaken"));
         return;
       }
       if (!res.ok) {
@@ -1165,10 +1214,6 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 </div>
               )}
 
-              {error && (
-                <p className="text-xs text-[#e0a89f] bg-[#e0a89f]/10 rounded-xl px-4 py-3">{error}</p>
-              )}
-
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit || submitting}
@@ -1184,16 +1229,21 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
         </div>
       </div>
 
-      {doneCount > 0 && openStep !== 4 && (
-        <StatusBar
-          doneCount={doneCount}
-          total={4}
-          priceLabel={quote ? formatSom(quote.totalUzs, locale) : t("book.pickPackageForPrice")}
-          canSubmit={canSubmit}
-          submitting={submitting}
-          onSubmit={openFour}
-        />
-      )}
+      {/* One fixed stack, so the error and the progress bar cannot disagree
+          about width, gutter or how far they sit above the bottom nav. */}
+      <BottomStack>
+        <ErrorBanner message={error} onDismiss={dismissError} />
+        {doneCount > 0 && openStep !== 4 && (
+          <StatusBar
+            doneCount={doneCount}
+            total={4}
+            priceLabel={quote ? formatSom(quote.totalUzs, locale) : t("book.pickPackageForPrice")}
+            canSubmit={canSubmit}
+            submitting={submitting}
+            onSubmit={openFour}
+          />
+        )}
+      </BottomStack>
     </div>
   );
 }
@@ -1759,6 +1809,100 @@ const LocationPicker = memo(function LocationPicker({
   );
 });
 
+// The bottom stack
+
+/**
+ * Everything pinned to the bottom of the booking page, in one container.
+ *
+ * WHY A CONTAINER RATHER THAN TWO FIXED ELEMENTS. The progress bar and the
+ * error banner have to agree about three things — width, side gutter, and how
+ * far they clear the bottom navigation — and two independently positioned
+ * `fixed` elements agree about those only until one of them is edited. Here
+ * the stack owns the geometry and its children own nothing but their own
+ * appearance.
+ *
+ * `pointer-events-none` on the wrapper so the dead space either side of the
+ * bar does not eat taps meant for the form; each child turns them back on.
+ */
+function BottomStack({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none"
+      // BottomNav occupies roughly 4.5rem plus the device inset.
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
+    >
+      <div className="mx-auto max-w-2xl flex flex-col gap-2">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * The one place an error is allowed to appear.
+ *
+ * It used to render inside step 4's body — which is exactly where a client
+ * cannot see it, because every error that matters sends them back to an
+ * EARLIER step, collapsing step 4 and taking the explanation with it. The
+ * client was bounced to "When?" with no stated reason and a dead Submit
+ * button at the far end of a section they could not see.
+ *
+ * Bottom of the screen, full width of the bar it sits above, and it stays
+ * until either dismissed or resolved — a toast that times out is a toast the
+ * client scrolling the time grid will miss.
+ */
+const ErrorBanner = memo(function ErrorBanner({ message, onDismiss }: {
+  message: string | null;
+  onDismiss: () => void;
+}) {
+  const { t } = useT();
+
+  // The last non-null message, so the text survives the collapse. Reading
+  // `message` directly emptied the box a frame before it finished closing,
+  // which reads as the error being yanked away rather than dismissed.
+  const [held, setHeld] = useState(message);
+  useEffect(() => {
+    if (message) setHeld(message);
+  }, [message]);
+
+  // Kept mounted so it can animate out as well as in. Height is driven by the
+  // same 0fr/1fr grid the steps use, for one motion vocabulary on the page.
+  return (
+    <div
+      className="grid pointer-events-none"
+      style={{
+        gridTemplateRows: message ? "1fr" : "0fr",
+        transition: `grid-template-rows ${STEP_MS}ms ${STEP_EASE}`,
+      }}
+      aria-live="assertive"
+      role="alert"
+    >
+      <div className="overflow-hidden">
+        <div
+          className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-[#e0a89f]/35 bg-[#2a1d1b]/95 backdrop-blur-xl px-4 py-3.5 shadow-2xl shadow-black/60"
+          style={{
+            opacity: message ? 1 : 0,
+            transform: message ? "translateY(0)" : "translateY(0.5rem)",
+            transition: `opacity ${STEP_MS}ms ${STEP_EASE}, transform ${STEP_MS}ms ${STEP_EASE}`,
+          }}
+        >
+          {/* CircleAlert, not the AlertCircle alias — both exist in lucide 1.x,
+              but the alias is deprecated and aliases go in major versions. */}
+          <CircleAlert className="w-4 h-4 shrink-0 mt-0.5 text-[#e0a89f]" />
+          {/* The message is held even while collapsing, so the text does not
+              vanish a frame before the box it is in. */}
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-[#f0cfc8]">{held}</p>
+          <button
+            onClick={onDismiss}
+            aria-label={t("book.dismiss")}
+            className="shrink-0 -m-1.5 p-1.5 rounded-lg text-[#e0a89f]/60 hover:text-[#e0a89f] hover:bg-white/5 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // Sticky bar
 
 const StatusBar = memo(function StatusBar(
@@ -1772,36 +1916,33 @@ const StatusBar = memo(function StatusBar(
   },
 ) {
   const { t } = useT();
+  // Positioning belongs to BottomStack, which this now sits inside — two
+  // separately-positioned fixed elements is how an error banner and a progress
+  // bar end up overlapping on a short screen.
   return (
-    <div
-      className="fixed inset-x-0 bottom-0 z-30 px-3 pointer-events-none"
-      // Sits above BottomNav, which occupies roughly 4.5rem plus the inset.
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
-    >
-      <div className="pointer-events-auto mx-auto max-w-2xl bg-card/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
-        <div className="h-0.5 w-full bg-white/10">
-          <div
-            className="h-full bg-accent-warm transition-[width] duration-300"
-            style={{ width: `${(doneCount / total) * 100}%` }}
-          />
+    <div className="pointer-events-auto bg-card/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
+      <div className="h-0.5 w-full bg-white/10">
+        <div
+          className="h-full bg-accent-warm transition-[width] duration-300"
+          style={{ width: `${(doneCount / total) * 100}%` }}
+        />
+      </div>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">
+            {t("book.stepOf")
+              .replace("{n}", String(Math.min(doneCount + 1, total)))
+              .replace("{total}", String(total))}
+          </p>
+          <p className="text-sm font-bold text-white truncate">{priceLabel}</p>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">
-              {t("book.stepOf")
-                .replace("{n}", String(Math.min(doneCount + 1, total)))
-                .replace("{total}", String(total))}
-            </p>
-            <p className="text-sm font-bold text-white truncate">{priceLabel}</p>
-          </div>
-          <button
-            onClick={onSubmit}
-            disabled={submitting}
-            className="shrink-0 rounded-full px-6 min-h-11 text-xs font-bold bg-accent-warm hover:bg-(--sc-accent-hover) text-accent-ink transition active:scale-95"
-          >
-            {canSubmit ? t("book.review") : `${total - doneCount} ${t("book.left")}`}
-          </button>
-        </div>
+        <button
+          onClick={onSubmit}
+          disabled={submitting}
+          className="shrink-0 rounded-full px-6 min-h-11 text-xs font-bold bg-accent-warm hover:bg-(--sc-accent-hover) text-accent-ink transition active:scale-95"
+        >
+          {canSubmit ? t("book.review") : `${total - doneCount} ${t("book.left")}`}
+        </button>
       </div>
     </div>
   );

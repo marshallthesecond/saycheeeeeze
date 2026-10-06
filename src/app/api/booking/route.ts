@@ -258,8 +258,12 @@ export async function POST(req: NextRequest) {
     // the browser, because the browser's copy is as old as the page.
     const booked = await listTakenSlots(MINI_EVENT.dateISO);
     if (!miniSlotBookable(body.startTime ?? "", booked)) {
+      // `slotTaken`, not `dayTaken`. The two were the same code, so the form
+      // could not tell "this hour has gone" from "this whole day has gone" —
+      // and reacted to both by clearing the date, which on a fixed-date event
+      // is neither true nor something the client can act on.
       return NextResponse.json(
-        { error: "dayTaken", message: "That slot has gone" },
+        { error: "slotTaken", message: "That slot has gone" },
         { status: 409 },
       );
     }
@@ -343,8 +347,14 @@ export async function POST(req: NextRequest) {
 
   if (!created.ok) {
     if (created.code === "conflict") {
+      // Which unique index refused it decides what the client is asked to
+      // change. A mini-session collides on (date, time) and the date is the
+      // event's own; everything else collides on the date alone.
+      const slot = isMiniPackage(body.packageId);
       return NextResponse.json(
-        { error: "dayTaken", message: "That day was just taken — please pick another." },
+        slot
+          ? { error: "slotTaken", message: "That time was just taken — please pick another." }
+          : { error: "dayTaken", message: "That day was just taken — please pick another." },
         { status: 409 }
       );
     }

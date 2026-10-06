@@ -165,6 +165,8 @@
     "review": "Tekshirish",
     "pickPackageForPrice": "Narxni ko'rish uchun paketni tanlang",
     "dayTaken": "Bu kun hozirgina band qilindi — boshqasini tanlang.",
+    "slotTaken": "Bu vaqt hozirgina band qilindi — boshqa soatni tanlang.",
+    "dismiss": "Yopish",
     "priceChanged": "Narx {price} ga o'zgardi. Ma'lumotlarni tekshirib, qayta tasdiqlang.",
     "doneBody": "24 soat ichida tasdiqlayman.",
     "getUpdates": "Telegramda yangiliklar olish",
