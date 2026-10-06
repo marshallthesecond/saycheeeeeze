@@ -184,6 +184,7 @@
     "peopleFlatPrice": "Nechta odam kutishni bilishim uchun — narxga ta'sir qilmaydi.",
     "peopleEach": "kishi boshiga {price}",
     "peopleCount": "Kishi",
+    "priceFrom": "{price} dan",
     "basePrice": "Suratga olish narxi",
     "wiuterian": "Siz WIUTerianmisiz?",
     "wiuterianHint": "WIUT talabalari uchun marosim kuni variantlari ham bor.",

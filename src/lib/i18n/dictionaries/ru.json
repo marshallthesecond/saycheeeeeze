@@ -184,6 +184,7 @@
     "peopleFlatPrice": "Просто чтобы знать, скольких ждать — на цену это не влияет.",
     "peopleEach": "{price} с человека",
     "peopleCount": "Человек",
+    "priceFrom": "от {price}",
     "basePrice": "Стоимость съёмки",
     "wiuterian": "Вы WIUTerian?",
     "wiuterianHint": "Студентам WIUT доступны и варианты на день церемонии.",

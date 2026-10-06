@@ -491,10 +491,25 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     [state.packageId, state.peopleCount, state.locationIds, packages]
   );
 
-  // Per-step completion. A catalogue tier prices the session rather than the
-  // heads in it, so it has no head count to be missing.
+  /**
+   * Per-step completion.
+   *
+   * A head count that CHANGES THE PRICE has to be answered; one that does not
+   * is planning information and can be left alone. The difference is
+   * `pricePerPeople`, and getting it wrong in either direction is visible:
+   *
+   *   both required    `grad-campus-group` asks 2–8 for one flat price, and
+   *                    its own perk line says "one price however many of you
+   *                    come". Demanding a number there is a step that asks
+   *                    nothing.
+   *   both optional    the mini-sessions complete step 1 the instant the
+   *                    service is tapped — the single tier auto-selects — so
+   *                    the step collapses before the client has seen the
+   *                    170/250/330 choice, let alone made it. That is the bug
+   *                    this distinction fixes.
+   */
   const peopleOk = catalogItem
-    ? true
+    ? !(catalogItem.asksPeople && catalogItem.pricePerPeople) || state.peopleCount !== null
     : pkg
       ? peopleError(pkg, state.peopleCount) === null
       : false;
@@ -1552,10 +1567,6 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
   const { min, max } = item.asksPeople;
   const counts = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   const prices = item.pricePerPeople;
-  // Matches headCountFor() in booking-price.ts. The highlighted option and the
-  // quoted price have to be the same number before anyone has chosen, or the
-  // form shows one price and charges another.
-  const active = peopleCount ?? min;
 
   if (!prices) {
     return (
@@ -1598,7 +1609,10 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
       >
         {counts.map((count) => {
           const total = prices[count] ?? item.priceUzs;
-          const on = active === count;
+          // No pre-selection. When the number decides the price, a highlighted
+          // default is a price the client never chose — and step 1 now waits
+          // for a real answer, so there is nothing to pre-fill for.
+          const on = peopleCount === count;
           return (
             <button
               key={count}
@@ -1639,17 +1653,24 @@ const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
   peopleCount: number | null;
   onPeople: (count: number | null) => void;
 }) {
-  const { locale } = useT();
+  const { t, locale } = useT();
   // What this booking actually costs right now, so the figure at the top of
   // the card and the one in the price bar are never two different numbers.
-  const shown =
-    item.pricePerPeople?.[peopleCount ?? item.asksPeople?.min ?? 1] ?? item.priceUzs;
+  // `undefined`, not `null` — the line below tests for undefined, and a null
+  // here made the "from" prefix silently never render.
+  const chosen = peopleCount === null ? undefined : item.pricePerPeople?.[peopleCount];
+  const shown = chosen ?? item.priceUzs;
+  // "from 170 000" until a head count is picked, because 170 000 is the
+  // cheapest of three and printing it bare reads as the price.
+  const isFrom = !!item.pricePerPeople && chosen === undefined;
   return (
     <div className="rounded-2xl border border-accent-warm bg-accent-warm/10 p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="font-semibold text-base">{packageDuration(item, locale)}</p>
         <p className="text-sm font-bold shrink-0 tabular-nums">
-          {formatSom(shown, locale)}
+          {isFrom
+            ? t("book.priceFrom").replace("{price}", formatSom(shown, locale))
+            : formatSom(shown, locale)}
         </p>
       </div>
       <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">

@@ -43,11 +43,13 @@ export interface QuoteInput {
 /**
  * Which head count a tier is priced at.
  *
- * THE DEFAULT LIVES HERE, not in the booking form, and that is the whole point
- * of the function. The form quotes a price before the client has touched the
- * head-count selector, and the route re-quotes the same booking on submit; if
- * the two defaulted differently the route would answer a perfectly ordinary
- * booking with "the price changed".
+ * THE DEFAULT LIVES HERE, not in the booking form. The form will not let a
+ * client past step one without answering when the count decides the price, so
+ * a real booking always carries a number — but the form still needs a figure
+ * for the price bar before they have chosen, and the route re-quotes every
+ * booking on submit. One function deciding the fallback is what stops those
+ * three readings diverging into a route that answers an ordinary booking with
+ * "the price changed".
  *
  * Out-of-range counts are CLAMPED rather than rejected. The route validates
  * head counts only for the generic session packages, so a hand-made request

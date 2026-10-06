@@ -184,6 +184,7 @@
     "peopleFlatPrice": "Just so I know how many to expect — the price is the same either way.",
     "peopleEach": "{price} each",
     "peopleCount": "People",
+    "priceFrom": "from {price}",
     "basePrice": "Session price",
     "wiuterian": "Are you a WIUTerian?",
     "wiuterianHint": "WIUT students get the ceremony-day options too.",
