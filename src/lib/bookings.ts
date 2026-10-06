@@ -247,6 +247,37 @@ export async function bindTelegramChat(
 }
 
 /**
+ * Records that the admin notification for this booking went out.
+ *
+ * WHY A COLUMN AND NOT JUST A LOG LINE. The notification is sent outside the
+ * response, so nothing the client sees depends on it and a failure surfaces
+ * nowhere a human looks. That is not hypothetical: the Telegram message
+ * stopped being sent on production for an unknown number of bookings, every
+ * one of them returned 201, and the only reason it was noticed is that
+ * Marshall happened to be watching his own phone during a test.
+ *
+ * `notified_at` makes it a question the database can answer:
+ *
+ *   select ref, created_at, notified_at from bookings
+ *    where notified_at is null and created_at > now() - interval '7 days';
+ *
+ * Deliberately NOT fatal. A booking that exists but could not be announced is
+ * still a booking, and failing the write here would be the tail wagging the
+ * dog — so this swallows its own errors and says so in the log.
+ */
+export async function markAdminNotified(ref: string): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin()
+      .from("bookings")
+      .update({ notified_at: new Date().toISOString() })
+      .eq("ref", ref);
+    if (error) console.error(`Could not stamp notified_at for ${ref}:`, error.message);
+  } catch (e) {
+    console.error(`Could not stamp notified_at for ${ref}:`, e);
+  }
+}
+
+/**
  * Releases the days held by pending bookings older than the hold window.
  *
  * `pendingHoldHours` has been in the config since the beginning and read by

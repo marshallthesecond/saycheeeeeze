@@ -17,7 +17,7 @@
 // Env: TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_ADMIN_CHAT_ID,
 //      IP_HASH_SALT, NEXT_PUBLIC_SITE_URL, GOOGLE_*
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createHash, randomBytes } from "crypto";
 
 import {
@@ -26,7 +26,7 @@ import {
 } from "@/src/lib/availability";
 import {
   createBooking, expireStalePending, listBlackoutDates, listTakenDays,
-  listTakenSlots, rateLimited,
+  listTakenSlots, markAdminNotified, rateLimited,
 } from "@/src/lib/bookings";
 import { isCeremonyPackage, reservedDatesFor } from "@/src/lib/booking-services";
 import { MINI_EVENT, isMiniPackage, miniSlotBookable } from "@/src/lib/mini-sessions";
@@ -355,31 +355,60 @@ export async function POST(req: NextRequest) {
   const booking = created.booking;
   const priceLabel = formatSom(quote.totalUzs, locale);
 
-  // Fire-and-forget: the customer shouldn't wait on Telegram's API, and a
-  // failed notification is recoverable.
-  void notifyAdmin({
-    ref,
-    name,
-    telegram,
-    phone,
-    packageName: packageLabel,
-    serviceSlug: body.serviceSlug ?? null,
-    date: body.isoDate as string,
-    // A ceremony booking's start_time is a placeholder — the university sets
-    // the hour and the client usually does not know it yet. Printing
-    // "11:00–13:00" would read as a fact Marshall could turn up on.
-    slot: isCeremonyPackage(body.packageId)
-      ? "ceremony day — time to be confirmed"
-      : describeSlot(body.startTime as string, durationMinutes),
-    // Every place, joined. This notification is how Marshall finds out where
-    // to turn up, so listing only the first would be misleading.
-    location:
-      [...locationIds, (body.locationCustom ?? "").trim()].filter(Boolean).join(" + ") || "—",
-    people,
-    priceLabel,
-    notes: body.notes ?? null,
-    locale,
-  }).catch((e) => console.error("Admin notify failed:", e));
+  /**
+   * `after()`, NOT a bare floating promise. This is the whole bug.
+   *
+   * It used to be `void notifyAdmin(...)`, on the reasoning that the customer
+   * should not wait on Telegram's API — which is correct, and which works
+   * perfectly in `next dev`, because the Node process stays alive after the
+   * response and the fetch finishes in its own time.
+   *
+   * On Vercel it does not. The serverless invocation is frozen the moment the
+   * response is returned, and an in-flight fetch that nothing is awaiting goes
+   * with it. So every booking made on production returned 201, wrote its row,
+   * locked its slot — and silently never sent the message. Locally it worked
+   * every time, which is exactly why it survived testing.
+   *
+   * `after` is Next's answer to this: the callback runs once the response has
+   * been sent, and the platform keeps the invocation alive until it finishes.
+   * The client still waits for nothing.
+   *
+   * DO NOT "simplify" this back to `void`. The symptom is invisible from the
+   * browser, invisible in the booking row, and only shows up as a message that
+   * never arrives.
+   */
+  after(async () => {
+    const sent = await notifyAdmin({
+      ref,
+      name,
+      telegram,
+      phone,
+      packageName: packageLabel,
+      serviceSlug: body.serviceSlug ?? null,
+      date: body.isoDate as string,
+      // A ceremony booking's start_time is a placeholder — the university sets
+      // the hour and the client usually does not know it yet. Printing
+      // "11:00–13:00" would read as a fact Marshall could turn up on.
+      slot: isCeremonyPackage(body.packageId)
+        ? "ceremony day — time to be confirmed"
+        : describeSlot(body.startTime as string, durationMinutes),
+      // Every place, joined. This notification is how Marshall finds out where
+      // to turn up, so listing only the first would be misleading.
+      location:
+        [...locationIds, (body.locationCustom ?? "").trim()].filter(Boolean).join(" + ") || "—",
+      people,
+      priceLabel,
+      notes: body.notes ?? null,
+      locale,
+    }).catch((e) => {
+      console.error("Admin notify failed:", e);
+      return false;
+    });
+
+    // Stamped only on a confirmed send, so `notified_at is null` means exactly
+    // "nobody was told about this booking" and can be queried for.
+    if (sent) await markAdminNotified(ref);
+  });
 
   // The client hasn't linked a chat yet — this deep link is how they do it.
   const botUser = process.env.TELEGRAM_BOT_USERNAME;
@@ -420,12 +449,26 @@ interface AdminNotice {
   locale: string;
 }
 
-async function notifyAdmin(n: AdminNotice): Promise<void> {
+/**
+ * Returns whether the message actually reached Telegram.
+ *
+ * It used to return void, which left "sent" and "failed" indistinguishable to
+ * the caller and therefore to everyone. The boolean is what `notified_at`
+ * hangs off, so the answer survives the request instead of living in a log
+ * line nobody reads.
+ */
+async function notifyAdmin(n: AdminNotice): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
   if (!token || !chatId) {
-    console.error("Telegram admin env vars missing");
-    return;
+    // On Vercel this means the variables are not set for THIS environment —
+    // they can be perfectly correct in .env.local and absent from Production.
+    console.error(
+      "Telegram admin env vars missing:",
+      !token ? "TELEGRAM_BOT_TOKEN" : "",
+      !chatId ? "TELEGRAM_ADMIN_CHAT_ID" : "",
+    );
+    return false;
   }
 
   // HTML, not MarkdownV2. MarkdownV2 reserves eighteen characters EVERYWHERE,
@@ -489,5 +532,7 @@ async function notifyAdmin(n: AdminNotice): Promise<void> {
       `Telegram sendMessage failed (${res.status}) for ${n.ref}:`,
       await res.text(),
     );
+    return false;
   }
+  return true;
 }
