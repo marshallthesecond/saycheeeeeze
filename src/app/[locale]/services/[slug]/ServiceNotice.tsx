@@ -57,7 +57,7 @@ export default function ServiceNotice({
         title={triggerLabel}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/80 active:bg-white/15"
       >
-        <HelpCircle className="h-[18px] w-[18px]" />
+        <HelpCircle className="h-4.5 w-4.5" />
       </button>
 
       {open && (

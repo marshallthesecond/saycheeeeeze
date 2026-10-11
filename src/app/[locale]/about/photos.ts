@@ -19,6 +19,8 @@ export const BEST_PICKS: string[] = [
   "Portraits/9O6A2264.png",
   "Portraits/dude.jpg",
   "Portraits/3M0A4694.png",
+  "Portraits/Mekhrangiz/4P5A1850.png",
+  
   // "Clients/Mekhrangiz/4P5A1850.png"
 ];
 
