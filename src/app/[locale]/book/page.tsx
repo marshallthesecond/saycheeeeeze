@@ -5,6 +5,8 @@
 // only { date, status }. No names, phone numbers or prices reach the browser.
 
 import type { Metadata } from "next";
+import { isLocale, type Locale } from "@/src/lib/i18n/config";
+import { pageMetadata } from "@/src/lib/seo";
 import { DEFAULT_AVAILABILITY, toISODate, todayInTashkent } from "@/src/lib/availability";
 import {
   expireStalePending, listBlackoutDates, listTakenDays, listTakenSlots,
@@ -13,16 +15,15 @@ import { MINI_EVENT } from "@/src/lib/mini-sessions";
 import { getBookablePackages } from "@/src/lib/packages.server";
 import BookingClient from "./BookingClient";
 
-export const metadata: Metadata = {
-  title: "Book a session",
-  description:
-    "Book a photo session in Tashkent — portraits, graduation, fashion and commercial shoots. Pick a package, a date and a time.",
-  openGraph: {
-    title: "Book a session · saycheeeeeze",
-    description:
-      "Book a photo session in Tashkent — portraits, graduation, fashion and commercial shoots.",
-  },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  return pageMetadata("book", locale as Locale, "/book");
+}
 
 // A calendar cached for an hour will offer a day taken 59 minutes ago. The
 // INSERT re-checks regardless, so the worst case is a "just taken" message.

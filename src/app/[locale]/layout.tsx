@@ -6,38 +6,33 @@
 // This one only adds locale context.
 
 import { notFound } from "next/navigation";
-import { locales, isLocale, localeHreflang, type Locale } from "@/src/lib/i18n/config";
+import { locales, isLocale, type Locale } from "@/src/lib/i18n/config";
 import { getDictionary } from "@/src/lib/i18n/dictionaries";
 import { LanguageProvider } from "@/src/lib/i18n/LanguageProvider";
 import BottomNav from "@/src/components/common/BottomNav";
 import { NavLoadingProvider } from "@/src/lib/nav-loading";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.uz";
-
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
 
-// Tells search engines the three versions are translations of each other rather
-// than duplicate content — the main SEO payoff of URL-based locales.
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  if (!isLocale(locale)) return {};
-
-  const languages: Record<string, string> = {};
-  for (const l of locales) languages[localeHreflang[l]] = `${SITE_URL}/${l}`;
-
-  return {
-    alternates: {
-      canonical: `${SITE_URL}/${locale}`,
-      languages,
-    },
-  };
-}
+/**
+ * NO `alternates` HERE, and that is the fix rather than an omission.
+ *
+ * This layout wraps every page in the locale, and metadata declared in a
+ * layout is inherited by all of them. It used to set
+ * `canonical: <site>/<locale>` plus hreflang pointing at the three
+ * locale ROOTS — so /ru/portfolio, /ru/book and every service page inherited
+ * "the canonical version of this page is the home page", which is an
+ * instruction to drop them from the index in favour of a page they are not.
+ * The hreflang was wrong the same way: /ru/portfolio offered /uz and /en as
+ * its translations rather than /uz/portfolio and /en/portfolio.
+ *
+ * A layout cannot know its children's paths, so alternates belong on the
+ * pages. `alternatesFor()` in src/lib/seo.ts builds them from the locale and
+ * the path; a page that forgets simply self-canonicalises, which is correct by
+ * default — unlike inheriting someone else's URL.
+ */
 
 export default async function LocaleLayout({
   children,

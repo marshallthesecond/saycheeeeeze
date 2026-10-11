@@ -3,20 +3,21 @@
 // derivative ladder, dimensions and ThumbHash already attached.
 
 import type { Metadata } from "next";
+import { isLocale, type Locale } from "@/src/lib/i18n/config";
+import { pageMetadata } from "@/src/lib/seo";
 import PortfolioContent from "./PortfolioContent";
 import { getAllAlbums, getPortfolioPhotos } from "@/src/lib/albums";
 import { getGalleryIndex } from "@/src/lib/client-galleries";
 
-export const metadata: Metadata = {
-  title: "Portfolio",
-  description:
-    "Portraits, street scenes, editorial shoots and everything in between — photography from Tashkent by saycheeeeeze.",
-  openGraph: {
-    title: "Portfolio · saycheeeeeze",
-    description:
-      "Portraits, street scenes, editorial shoots and everything in between.",
-  },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  return pageMetadata("portfolio", locale as Locale, "/portfolio");
+}
 
 export default async function PortfolioPage() {
   const [photos, albums, galleries] = await Promise.all([

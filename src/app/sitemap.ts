@@ -36,7 +36,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...localised("",           "weekly",  1,    now),
     ...localised("/portfolio", "weekly",  0.9,  now),
     ...localised("/book",      "monthly", 0.8,  now),
-    ...localised("/about",     "monthly", 0.7,  now),
+    // /about is NOT listed: it renders the same component as the locale home
+    // and canonicalises there, and a sitemap should only ever carry canonical
+    // URLs. Put it back when the landing page ships and / stops being About —
+    // see the note in [locale]/about/page.tsx.
   ];
 
   const albumRoutes = (await getAllAlbumSlugs()).flatMap((slug) =>
