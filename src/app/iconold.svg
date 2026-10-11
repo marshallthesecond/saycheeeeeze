@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<!--
+  The site icon: a grin. "saycheeeeeze" is a catchphrase, not a lens, so the
+  mark is the smile rather than the hundredth aperture ring. One stroke, which
+  is what lets it survive 16px in a browser tab.
+
+  THIS FILE IS THE SOURCE. Two siblings are rasterised from it and Next picks
+  them up by filename (app/favicon.ico, app/icon.svg, app/apple-icon.png —
+  no <link> tags anywhere):
+
+    favicon.ico      16 + 32 + 48, rounded corners, for tabs and bookmarks
+    apple-icon.png   180, SQUARE — iOS applies its own rounded mask, so a
+                     pre-rounded one shows dark corners on the home screen
+
+  Change the curve here, then regenerate both. Colours are the site's own:
+  #0E1115 is --background, #F7F5F1 is the warm near-white text ramp.
+-->
+<rect width="64" height="64" rx="14" fill="#0E1115"/>
+<path d="M 15 26.6 Q 32 46.6 49 26.6" fill="none" stroke="#F7F5F1" stroke-width="6.8" stroke-linecap="round"/>
+</svg>
