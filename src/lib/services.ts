@@ -1,3 +1,5 @@
+import { bunnyUrl } from "./bunny-url";
+
 /**
  * A string written once, or once per language. A bare string means "the same
  * everywhere", so fields convert one at a time. `en` is required because it is
@@ -613,11 +615,19 @@ export const servicesData: ServiceData[] = [
       'portrait photoshoot Tashkent',
     ],
     iconName: 'User',
-    coverPath: 'Portraits/Radmir/3M0A0772.png',
+    coverPath: 'Portraits/Mekhrangiz/4P5A1811.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
-    galleryPaths: [],
+    galleryPaths: [
+      bunnyUrl('Portraits/Mekhrangiz/4P5A1850.png'),
+      bunnyUrl('Portraits/Radmir/3M0A0675.png'),
+      bunnyUrl('Portraits/Sara/3M0A1432.png'),
+      bunnyUrl('Portraits/Gulasal at WIUT/2W6A7098.png'),
+      bunnyUrl('Portraits/Diora/076A0398.png'),
+      bunnyUrl('Portraits/9O6A2264.png'),
+      bunnyUrl('Portraits/3M0A4694.png')
+    ],
     galleryCategory: 'Portraits',
     includes: [
       {
