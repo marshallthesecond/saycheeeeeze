@@ -171,6 +171,14 @@ export interface ResolvedPackage
   /** Rendered from durationMinutes (or the override) in the page's locale. */
   duration: string;
   photos: string;
+  /**
+   * "25–40 кадров" — the same count, short enough for the collapsed row.
+   *
+   * Both forms are carried because they appear in two places at once: this one
+   * on every row so the tiers can be compared at a glance, the long one inside
+   * the open panel where there is room for the noun.
+   */
+  photosShort: string;
   delivery: string;
   perks?: string[];
   note?: string;
@@ -573,11 +581,37 @@ export const servicesData: ServiceData[] = [
       ru: 'Студийная выверенность или уличная спонтанность — как вам ближе.',
       uz: 'Studiya aniqligi yoki ko‘cha erkinligi — qaysi biri yaqin bo‘lsa.',
     },
+    // THIS IS ALSO THE SEARCH SNIPPET. generateMetadata() hands `description`
+    // straight to <meta name="description">, so the first ~160 characters are
+    // what a stranger reads in Google before deciding whether to click.
+    //
+    // The old copy spent those characters on an abstraction — "одна гибкая
+    // съёмка, выстроенная под то, как вы хотите оказаться в кадре" — and did
+    // not name the city until the 137th character. This one leads with what it
+    // is and where it happens, then who it is for, and keeps the reassurance
+    // for last, where a truncated snippet can afford to lose it.
+    //
+    // NO PRICES IN HERE on purpose, however tempting: the numbers live in
+    // standardTiers(), the price list is six inches away on the page, and a
+    // stale price in a Google snippet is worse than no price at all.
     description: {
-      en: "Solo, a couple, a friend group or the whole family — and a LinkedIn headshot when you need one. Shot in-studio or as a relaxed photowalk through Tashkent's best backdrops instead of a fixed location. One flexible service built around however you want to show up on camera.",
-      ru: 'Соло, вдвоём, компанией или всей семьёй — и портрет для LinkedIn, если он нужен. В студии или на спокойной фотопрогулке по лучшим местам Ташкента вместо одной фиксированной локации. Одна гибкая съёмка, выстроенная под то, как вы хотите оказаться в кадре.',
-      uz: 'Yakka, juftlik, do‘stlar davrasi yoki butun oila — kerak bo‘lsa LinkedIn uchun portret ham. Studiyada yoki bitta qat’iy lokatsiya o‘rniga Toshkentning eng yaxshi joylari bo‘ylab tinch fotosayrda. Kadrda qanday ko‘rinishni xohlasangiz, shunga moslangan bitta moslashuvchan suratga olish.',
+      en: 'Portrait photography in Tashkent: a studio session or an unhurried photowalk through the city — your call. Solo, a couple, a friend group or the whole family, and a LinkedIn headshot when you need one. We shoot at whatever pace feels comfortable.',
+      ru: 'Портретная съёмка в Ташкенте: студия или спокойная фотопрогулка по городу — выбираете вы. Соло, вдвоём, компанией или всей семьёй, и портрет для LinkedIn, если он нужен. Снимаем в том темпе, в котором вам спокойно.',
+      uz: 'Toshkentda portret suratga olish: studiyada yoki shahar bo‘ylab tinch fotosayrda — o‘zingiz tanlaysiz. Yakka, juftlik, do‘stlar davrasi yoki butun oila, kerak bo‘lsa LinkedIn uchun portret ham. O‘zingizga qulay sur’atda suratga olamiz.',
     },
+    keywords: [
+      'фотограф в Ташкенте',
+      'портретная съёмка Ташкент',
+      'фотосессия в Ташкенте',
+      'портретный фотограф Ташкент',
+      'семейная фотосессия Ташкент',
+      'фото для LinkedIn Ташкент',
+      'Toshkentda fotograf',
+      'portret fotosessiya Toshkent',
+      'oilaviy fotosessiya Toshkent',
+      'portrait photographer Tashkent',
+      'portrait photoshoot Tashkent',
+    ],
     iconName: 'User',
     coverPath: 'Portraits/Radmir/3M0A0772.png',
     // "My best picks", in this order. EMPTY = the page picks for you.

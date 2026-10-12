@@ -60,6 +60,44 @@ export function alternatesFor(locale: Locale, path = "") {
   };
 }
 
+/**
+ * The city, in the reader's language.
+ *
+ * ONE DEFINITION, because it is now needed in four places — the business
+ * schema below, every service page's <title>, the Service/Offer schema on
+ * those pages, and the image alt text. Three of those were about to spell it
+ * out again inline, and a city that is "Ташкент" on the title and "Tashkent"
+ * in the schema of the same page is a weaker signal than either on its own.
+ */
+export function cityName(locale: Locale): string {
+  return locale === "ru" ? "Ташкент" : locale === "uz" ? "Toshkent" : "Tashkent";
+}
+
+/**
+ * "<thing> в Ташкенте" — a page title with the place in it.
+ *
+ * Russian and Uzbek need a case the bare noun does not carry (`в Ташкенте`,
+ * `Toshkentda`), and Uzbek puts the place FIRST, so this cannot be done by
+ * concatenating `cityName()` onto a title. It is three sentence patterns, and
+ * they are written out rather than assembled.
+ *
+ * Why titles need it at all: a service page's <title> was the service name and
+ * nothing else — "Портретная съёмка · saycheeeeeze" — on a site whose entire
+ * SEO problem is being found for "фотограф в Ташкенте". Every page built
+ * through PAGE_COPY already carries the city; the service pages were localised
+ * for language in an earlier pass and never for place.
+ */
+export function titleInCity(thing: string, locale: Locale): string {
+  if (locale === "ru") return `${thing} в Ташкенте`;
+  if (locale === "uz") return `Toshkentda ${lowerFirst(thing)}`;
+  return `${thing} in Tashkent`;
+}
+
+/** "Portret suratga olish" -> "portret suratga olish", mid-sentence in Uzbek. */
+function lowerFirst(s: string): string {
+  return s ? s[0].toLocaleLowerCase("uz") + s.slice(1) : s;
+}
+
 /** A localised string, one per locale, with no fallback: all three are written. */
 type Trio = Record<Locale, string>;
 
@@ -187,11 +225,10 @@ export function businessSchema(locale: Locale) {
     currenciesAccepted: "UZS",
     areaServed: {
       "@type": "City",
-      name: locale === "ru" ? "Ташкент" : locale === "uz" ? "Toshkent" : "Tashkent",
+      name: cityName(locale),
       address: {
         "@type": "PostalAddress",
-        addressLocality:
-          locale === "ru" ? "Ташкент" : locale === "uz" ? "Toshkent" : "Tashkent",
+        addressLocality: cityName(locale),
         addressCountry: "UZ",
       },
     },

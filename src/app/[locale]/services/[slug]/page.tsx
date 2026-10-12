@@ -22,11 +22,12 @@ import type {
 import {
   formatDelivery,
   formatPhotoCount,
+  formatPhotoCountShort,
   packageDuration,
 } from '@/src/lib/service-format';
 import { getDictionary } from '@/src/lib/i18n/dictionaries';
 import { isLocale, defaultLocale, type Locale } from '@/src/lib/i18n/config';
-import { alternatesFor } from '@/src/lib/seo';
+import { alternatesFor, cityName, titleInCity, SITE_URL } from '@/src/lib/seo';
 import { getPhotosByPaths, getPortfolioPhotos } from '@/src/lib/albums';
 import type { AlbumPhoto, PortfolioPhoto } from '@/src/lib/albums';
 import { bunnyUrl } from '@/src/lib/bunny-url';
@@ -81,6 +82,18 @@ export async function generateMetadata({
   const tagline = pickLocale(service.tagline, locale);
   const description = pickLocale(service.description, locale);
 
+  // AND THE CITY GOES IN THE TITLE. These pages shipped as "Портретная съёмка
+  // · saycheeeeeze" — the one line a search result is built from, on a site
+  // whose whole ranking problem is "фотограф в Ташкенте", and it did not say
+  // Ташкент. Everything routed through PAGE_COPY in seo.ts already carries the
+  // city; the service pages were localised for language in an earlier pass and
+  // never for place.
+  //
+  // The root layout appends " · saycheeeeeze", so the longest of these lands
+  // around fifty characters — inside the sixty Google shows before it cuts,
+  // and the keyword is at the front where a cut cannot reach it.
+  const titleWithCity = titleInCity(title, locale as Locale);
+
   // Social scrapers don't read srcset, so this has to be one plain URL, and
   // not the Optimizer's. The delivery JPEG over a WebP rung: a real JPEG that
   // every scraper accepts, at a fraction of the original.
@@ -90,7 +103,7 @@ export async function generateMetadata({
     : bunnyUrl(service.coverPath);
 
   return {
-    title,
+    title: titleWithCity,
     description,
     alternates: alternatesFor(locale as Locale, `/services/${slug}`),
     // What a student actually types. The root layout carries the site-wide
@@ -98,14 +111,14 @@ export async function generateMetadata({
     // searches in English, their parent in Russian, plenty of both in Uzbek.
     ...(service.keywords?.length ? { keywords: service.keywords } : {}),
     openGraph: {
-      title: `${title} · saycheeeeeze`,
+      title: `${titleWithCity} · saycheeeeeze`,
       description: tagline,
       type: 'article',
-      images: [{ url: ogImage, alt: title }],
+      images: [{ url: ogImage, alt: titleWithCity }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} · saycheeeeeze`,
+      title: `${titleWithCity} · saycheeeeeze`,
       description: tagline,
       images: [ogImage],
     },
@@ -220,7 +233,13 @@ export default async function ServicePage({
   const service = getServiceBySlug(slug);
   if (!service) notFound();
 
-  const dict = await getDictionary(isLocale(locale) ? locale : defaultLocale);
+  // Validated once. `locale` off the params is a string the router happens to
+  // have matched; everything below that needs a real Locale — the dictionary,
+  // the title, the alt text, the schema's city — takes this instead of casting
+  // the raw param each time and disagreeing about the fallback.
+  const loc: Locale = isLocale(locale) ? locale : defaultLocale;
+
+  const dict = await getDictionary(loc);
   const s = dict.service;
 
   const Icon = iconMap[service.iconName] ?? Camera;
@@ -285,6 +304,28 @@ export default async function ServicePage({
   const tagline = L(service.tagline);
   const description = L(service.description);
 
+  /**
+   * ALT TEXT, IN ONE LANGUAGE AT A TIME.
+   *
+   * The rail rendered `${title} example ${i + 1}` — "Портретная съёмка example
+   * 1", a Russian page describing its own photographs half in English, on the
+   * attribute Google Images reads. The hero was worse: bare `title`, so every
+   * service cover on the site was alt-labelled with two or three words that
+   * never said where any of it happened.
+   *
+   * Both now go through titleInCity(), which is where the city is declined
+   * properly (`в Ташкенте`, `Toshkentda …`) rather than concatenated. That
+   * makes the alt a real description of the photograph — what kind of session,
+   * which city — which is also exactly the phrase someone types.
+   *
+   * These are generic by necessity: nothing in the database describes an
+   * individual frame. If per-photo captions ever exist, this is the one place
+   * to feed them in.
+   */
+  const coverAlt = titleInCity(title, loc);
+  const photoAlt = (n: number) =>
+    s.photoAlt.replace('{title}', coverAlt).replace('{n}', String(n));
+
   // Down here rather than beside `picks` because the alt text needs the
   // resolved title, and an alt that says "Graduation Photography" on a Russian
   // page is the same bug as a heading that does.
@@ -334,6 +375,10 @@ export default async function ServicePage({
       ...pkg,
       duration: packageDuration(pkg, locale),
       photos: formatPhotoCount(pkg.photos, locale),
+      // The same count twice, long and short: the short one rides on every
+      // collapsed row so the tiers can be compared, the long one stays in the
+      // open panel. See formatPhotoCountShort.
+      photosShort: formatPhotoCountShort(pkg.photos, locale),
       delivery: formatDelivery(pkg.delivery, locale),
       perks: pkg.perks?.map((perk) => L(perk)),
       note: pickLocaleOpt(pkg.note, locale),
@@ -402,6 +447,62 @@ export default async function ServicePage({
     })),
   };
 
+  /**
+   * THE PRICES, MACHINE-READABLE.
+   *
+   * The FAQ schema above has been carrying this page alone. It tells a search
+   * engine the page answers questions; it says nothing about what is being
+   * sold, by whom, where, or for how much — so a page that answers "сколько
+   * стоит фотосессия в Ташкенте" with three exact numbers was invisible to the
+   * search that asks it.
+   *
+   * `provider` is an @id reference, not a copy. businessSchema() in seo.ts
+   * already publishes the full LocalBusiness under `${SITE_URL}/#business`;
+   * pointing at that node joins these offers to it instead of declaring a
+   * second, slightly different business on every service page.
+   *
+   * Every price on the page goes in, flattened across the groups, because
+   * graduation sells two kinds of session under one URL. The `url` is the same
+   * link the row's button uses — the tier is in the query string, so a result
+   * that surfaces one price lands on the form already holding it.
+   *
+   * No Offer where there are no packages: a service priced on request has no
+   * price, and inventing an `offers: []` is a worse signal than silence.
+   */
+  const offers = packageGroups.flatMap((g) =>
+    g.packages.map((pkg) => ({
+      '@type': 'Offer',
+      name: [g.title, pkg.duration].filter(Boolean).join(' · '),
+      price: String(pkg.priceUzs),
+      priceCurrency: 'UZS',
+      availability: 'https://schema.org/InStock',
+      url:
+        `${SITE_URL}/${loc}/book?service=${encodeURIComponent(slug)}` +
+        `&category=${encodeURIComponent(service.category)}` +
+        (pkg.id ? `&package=${encodeURIComponent(pkg.id)}` : ''),
+    })),
+  );
+
+  const serviceSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: titleInCity(title, loc),
+    serviceType: title,
+    description,
+    url: `${SITE_URL}/${loc}/services/${slug}`,
+    ...(cover && hasLadder(cover.ladder)
+      ? { image: downloadSrc(cover.ladder) }
+      : { image: bunnyUrl(service.coverPath) }),
+    provider: { '@type': 'LocalBusiness', '@id': `${SITE_URL}/#business` },
+    areaServed: { '@type': 'City', name: cityName(loc) },
+    ...(offers.length > 0 ? { offers } : {}),
+  };
+
+  // One <script> holding an array, rather than two tags. Both are valid
+  // JSON-LD and parsers read either; one tag is one place to look when a
+  // Rich Results test disagrees with the page.
+  const pageSchema = [faqSchema, serviceSchema];
+
   return (
     // Everything inside stays a server component: a client provider can take
     // server-rendered children as a prop. Only <AudienceText> and the islands
@@ -411,7 +512,7 @@ export default async function ServicePage({
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }}
       />
 
       {wantsStack ? (
@@ -458,7 +559,7 @@ export default async function ServicePage({
               src={fallbackSrc(cover.ladder)}
               srcSet={srcSet(cover.ladder, 'webp')}
               sizes="100vw"
-              alt={title}
+              alt={coverAlt}
               fetchPriority="high"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
@@ -467,7 +568,7 @@ export default async function ServicePage({
         ) : (
           <Image
             src={bunnyUrl(service.coverPath)}
-            alt={title}
+            alt={coverAlt}
             fill
             sizes="100vw"
             unoptimized
@@ -583,40 +684,24 @@ export default async function ServicePage({
               at speed. */}
           <div className="space-y-16 sm:space-y-20 min-w-0 order-3 lg:col-start-1 lg:row-start-2">
 
-            <section>
-              <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.included}</h2>
-              <ul className="space-y-3">
-                {includes.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-white/80">
-                    <span
-                      className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                      style={{ background: `${service.accentColor}33` }}
-                    >
-                      <Check className="w-3 h-3" style={{ color: service.accentColor }} />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {/* THE ORDER OF THIS COLUMN IS THE ARGUMENT.
 
-            <section>
-              <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.prepare}</h2>
-              <ul className="space-y-2">
-                {howToPrepare.map((tip, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                    <span
-                      className="shrink-0 font-bold text-xs mt-0.5"
-                      style={{ color: service.accentColor }}
-                    >
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    {tip}
-                  </li>
-                ))}
-              </ul>
-            </section>
+                It used to run: what's included, how to prepare, the work, the
+                FAQ. A page whose job is to sell photographs showed photographs
+                third, behind a list of features and a set of instructions —
+                and "Как подготовиться" is not persuasion at all. Outfits,
+                shoes and nap times are what you read AFTER deciding to book;
+                in front of the decision they read as conditions attached to a
+                thing you have not agreed to yet.
 
+                Now: the work, then what you get, then proof, then the
+                objections, and the homework last. The prices are not in this
+                column — on desktop they sit beside it from the first line, on
+                a phone they come directly after the intro — so nothing here
+                stands between anyone and a price.
+
+                This is the shared template, so it reorders all twelve service
+                pages. That is intended: the argument is the same on each. */}
             <section>
               <div className="flex items-end justify-between mb-5">
                 <div>
@@ -645,7 +730,7 @@ export default async function ServicePage({
                             src={fallbackSrc(pick.ladder)}
                             srcSet={srcSet(pick.ladder, 'webp')}
                             sizes={RAIL_SIZES}
-                            alt={`${title} example ${i + 1}`}
+                            alt={photoAlt(i + 1)}
                             loading="lazy"
                             decoding="async"
                             className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
@@ -654,7 +739,7 @@ export default async function ServicePage({
                       ) : (
                         <Image
                           src={pick.src}
-                          alt={`${title} example ${i + 1}`}
+                          alt={photoAlt(i + 1)}
                           fill
                           sizes={RAIL_SIZES}
                           unoptimized
@@ -672,6 +757,23 @@ export default async function ServicePage({
                   ))}
                 </div>
               </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.included}</h2>
+              <ul className="space-y-3">
+                {includes.map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-white/80">
+                    <span
+                      className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: `${service.accentColor}33` }}
+                    >
+                      <Check className="w-3 h-3" style={{ color: service.accentColor }} />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </section>
 
             {/* Absent, not empty. A "what clients say" heading over nothing
@@ -700,6 +802,23 @@ export default async function ServicePage({
             <section>
               <h2 className="text-2xl font-extrabold tracking-tight mb-2">{s.faq}</h2>
               <FAQList faqs={faqs} accent={service.accentColor} />
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.prepare}</h2>
+              <ul className="space-y-2">
+                {howToPrepare.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                    <span
+                      className="shrink-0 font-bold text-xs mt-0.5"
+                      style={{ color: service.accentColor }}
+                    >
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
             </section>
           </div>
 

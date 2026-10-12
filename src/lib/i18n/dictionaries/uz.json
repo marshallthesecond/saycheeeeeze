@@ -231,7 +231,8 @@
     "sharedShort": "{n} kishiga",
     "close": "Yopish",
     "privateGalleryTitle": "Faqat sizniki bo‘lgan shaxsiy galereya",
-    "privateGalleryBody": "Har bir paketda — kirish kodi bilan himoyalangan havola, faqat sizniki, umumiy disk papkasi emas."
+    "privateGalleryBody": "Har bir paketda — kirish kodi bilan himoyalangan havola, faqat sizniki, umumiy disk papkasi emas.",
+    "photoAlt": "{title} — namuna {n}"
   },
   "notFound": {
     "title": "Bu sahifa mavjud emas",

@@ -231,7 +231,8 @@
     "sharedShort": "shared by {n}",
     "close": "Close",
     "privateGalleryTitle": "Your own private gallery",
-    "privateGalleryBody": "In every package — a passkey-protected link that is yours alone, not a shared drive folder."
+    "privateGalleryBody": "In every package — a passkey-protected link that is yours alone, not a shared drive folder.",
+    "photoAlt": "{title} — example {n}"
   },
   "notFound": {
     "title": "This page doesn't exist",

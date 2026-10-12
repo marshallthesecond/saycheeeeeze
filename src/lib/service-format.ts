@@ -99,6 +99,33 @@ export function formatPhotoCount(count: PhotoCount, locale: string): string {
   return `${range} edited ${portraits ? 'portraits' : 'photos'}`;
 }
 
+/**
+ * The same range, short enough to sit on a price row: "25–40 кадров".
+ *
+ * WHY A SECOND FORMATTER. The frame count used to render only inside the
+ * expanded package, so two of three tiers showed a price and a duration and
+ * nothing else — the one number that explains the gap between 250 000 and
+ * 700 000 was three taps away, on a list whose entire purpose is comparison.
+ * Putting it on every row needs a version that fits beside the duration in a
+ * 380px column: "25–40 обработанных портретов" is 27 characters and wraps,
+ * "25–40 кадров" is 12 and does not.
+ *
+ * `of` is dropped on purpose. The noun is doing nothing here — the list is
+ * already under the heading of one service, and the long form in the open
+ * panel still says "портретов" for anyone reading closely.
+ */
+export function formatPhotoCountShort(count: PhotoCount, locale: string): string {
+  const l = lang(locale);
+  const range = count.max === undefined ? `${count.min}+` : `${count.min}–${count.max}`;
+  const governing = count.max ?? count.min;
+
+  // "кадр" declines, and a range is governed by its last number: 25–40 кадров,
+  // 80–120 кадров, and 21 кадр if a package ever ends on one.
+  if (l === 'ru') return `${range} ${ruPlural(governing, 'кадр', 'кадра', 'кадров')}`;
+  if (l === 'uz') return `${range} ta surat`;
+  return `${range} photos`;
+}
+
 /** "Delivery in 3 days", plus the same-evening preview where there is one. */
 export function formatDelivery(spec: DeliverySpec, locale: string): string {
   const l = lang(locale);

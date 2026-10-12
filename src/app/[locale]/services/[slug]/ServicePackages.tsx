@@ -235,6 +235,24 @@ export default function ServicePackages({
                       {pkg.duration}
                       {pkg.note ? ` · ${pkg.note}` : ''}
                     </span>
+                    {/* THE FRAME COUNT, ON EVERY ROW.
+
+                        It used to live only inside the expanded panel, so a
+                        visitor saw "250 000 · 1 час" and "700 000 · 2,5 часа"
+                        and nothing to explain the 450 000 between them. The
+                        duration is not that explanation: nobody buys minutes.
+                        Twenty-five frames against a hundred and twenty is the
+                        comparison, and it was three taps away on a list whose
+                        entire design goal was being comparable at a glance.
+
+                        Its own line rather than appended to the duration,
+                        because that line is `truncate` — inline, the number
+                        would be the first thing cut on a narrow phone, which
+                        is the one place it matters most. The long form with
+                        its noun stays in the open panel below. */}
+                    <span className="mt-0.5 block truncate text-[11px] font-medium text-white/55">
+                      {pkg.photosShort}
+                    </span>
                     {pkg.highlight && (
                       <span
                         className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider"
@@ -264,6 +282,11 @@ export default function ServicePackages({
                     className="space-y-1.5 border-t px-3.5 py-3"
                     style={{ borderColor: `${accentColor}44` }}
                   >
+                    {/* The long form — "25–40 обработанных портретов" — where
+                        there is room for the noun. The short one is on the row
+                        above and visible whether or not this panel is open;
+                        this repeats it once, in full, for the package someone
+                        has actually stopped on. */}
                     <Detail accent={accentColor}>{pkg.photos}</Detail>
                     <Detail accent={accentColor}>{pkg.delivery}</Detail>
                     {pkg.perks?.map((perk) => (
