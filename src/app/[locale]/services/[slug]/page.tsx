@@ -9,6 +9,7 @@ import type { LucideProps } from 'lucide-react';
 import {
   getServiceBySlug,
   getAllServiceSlugs,
+  offeredGroups,
   pickLocale,
   pickLocaleOpt,
 } from '@/src/lib/services';
@@ -322,6 +323,26 @@ export default async function ServicePage({
    * individual frame. If per-photo captions ever exist, this is the one place
    * to feed them in.
    */
+  /**
+   * WHAT THE RAIL IS CALLED.
+   *
+   * `galleryHeading` has been on ServiceData since the graduation page was
+   * built, is set to 'references' there, and was read by NOBODY — this heading
+   * was hardcoded to s.bestPicks, so the graduation rail has been labelled
+   * "Лучшие работы" while the field that was meant to say otherwise sat in the
+   * data doing nothing. The dictionary entries it wanted (service.references,
+   * service.referencesSub) were written at the same time and have never
+   * rendered either.
+   *
+   * The distinction is not cosmetic. "My best picks" claims the photographs
+   * are mine and the best of them; "References" says they are the direction a
+   * session can take. On a page whose rail is auto-sampled from a folder, the
+   * second is often the only honest one.
+   */
+  const useReferences = service.galleryHeading === 'references';
+  const railHeading = useReferences ? s.references : s.bestPicks;
+  const railSub = useReferences ? s.referencesSub : s.bestPicksSub;
+
   const coverAlt = titleInCity(title, loc);
   const photoAlt = (n: number) =>
     s.photoAlt.replace('{title}', coverAlt).replace('{n}', String(n));
@@ -359,9 +380,14 @@ export default async function ServicePage({
   const categoryLabel = dict.cat[service.category];
   const heroEyebrow = pickLocaleOpt(service.hero?.eyebrow, locale) ?? categoryLabel;
 
+  // offeredGroups(), not service.packageGroups: a withdrawn group must not
+  // appear as a tab on the page or as an Offer in the schema below. It still
+  // resolves through findCatalogItem() so old bookings stay nameable — see
+  // `retired` on ServicePackageGroup.
+  const groupsOnOffer = offeredGroups(service);
   const packageGroups: ResolvedPackageGroup[] = (
-    service.packageGroups && service.packageGroups.length > 0
-      ? service.packageGroups
+    groupsOnOffer.length > 0
+      ? groupsOnOffer
       // `packages` is optional now — a service with packageGroups has none —
         // so this fallback has to tolerate its absence rather than assume it.
       : [{ key: 'default', title: '', blurb: '', packages: service.packages ?? [] }]
@@ -705,9 +731,9 @@ export default async function ServicePage({
             <section>
               <div className="flex items-end justify-between mb-5">
                 <div>
-                  <h2 className="text-2xl font-extrabold tracking-tight">{s.bestPicks}</h2>
+                  <h2 className="text-2xl font-extrabold tracking-tight">{railHeading}</h2>
                   <p className="text-sm text-white/40 mt-1">
-                    {s.bestPicksSub}
+                    {railSub}
                   </p>
                 </div>
               </div>

@@ -7,7 +7,7 @@ import { bunnyUrl } from "@/src/lib/bunny-url";
 import Link from "next/link";
 import Lightbox from "@/src/components/common/Lightbox";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
-import { BEST_PICKS, CTA_BANNER, MY_WORKS, OPEN_TO } from "./photos";
+import { BEST_PHOTOS, CTA_BANNER, MY_WORKS, OPEN_TO, REFERENCE_PHOTOS } from "./photos";
 import type { WorksCategory } from "./photos";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 import { testimonials } from "@/src/lib/testimonials";
@@ -46,6 +46,62 @@ const socialLinks = [
 type WorksFilter = "All" | WorksCategory;
 /** Featured strip tiles: 45vw on a phone, a fixed 208px column above that. */
 const PICK_SIZES = "(max-width: 640px) 45vw, 208px";
+
+/**
+ * One card in either of the two top rails.
+ *
+ * Extracted when the single "My best picks" shelf became two. The markup was
+ * twenty-five lines of ladder handling inline in the page; duplicated, the
+ * second copy would have drifted from the first the first time either was
+ * touched — and the thing most likely to be touched here is the alt text,
+ * which is precisely what has to differ between the two rails.
+ *
+ * `alt` is passed in rather than built here, because what is true of a
+ * photograph in one rail is false of the same markup in the other: one is
+ * Marshall's work, the other is reference material.
+ */
+function PickCard({
+  photo,
+  alt,
+  onOpen,
+}: {
+  photo: AlbumPhoto;
+  alt: string;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      className="relative shrink-0 snap-start overflow-hidden rounded-xl bg-white/5 w-44 sm:w-52 h-56 sm:h-64 cursor-pointer group active:scale-[0.97] transition-transform"
+      onClick={onOpen}
+    >
+      {hasLadder(photo.ladder) ? (
+        <picture>
+          <source type="image/avif" sizes={PICK_SIZES} srcSet={srcSet(photo.ladder, "avif")} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fallbackSrc(photo.ladder)}
+            srcSet={srcSet(photo.ladder, "webp")}
+            sizes={PICK_SIZES}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover group-hover:brightness-90 transition-[filter] duration-200"
+          />
+        </picture>
+      ) : (
+        /* No row for this path — same plain CDN URL as before. */
+        <Image
+          src={photo.src}
+          alt={alt}
+          fill
+          sizes={PICK_SIZES}
+          unoptimized
+          className="object-cover group-hover:brightness-90 transition-[filter] duration-200"
+        />
+      )}
+    </button>
+  );
+}
 /** Service cards. */
 const CARD_SIZES = "(min-width: 1024px) 24vw, 224px";
 /** Album shelf cards. */
@@ -80,12 +136,31 @@ export default function AboutContent({
     [photoIndex],
   );
 
-  const bestPicks = useMemo(() => BEST_PICKS.map(pick), [pick]);
+  // Two rails now, and the split is a claim about authorship rather than a
+  // layout choice: BEST_PHOTOS is Marshall's own work, REFERENCE_PHOTOS is
+  // direction — some of it AI-generated — kept for what it communicates. See
+  // photos.ts.
+  const bestPhotos = useMemo(() => BEST_PHOTOS.map(pick), [pick]);
+  const referencePhotos = useMemo(() => REFERENCE_PHOTOS.map(pick), [pick]);
   const myWorks = useMemo(
     () => MY_WORKS.map((w) => ({ ...pick(w.path), cat: w.cat })),
     [pick],
   );
   const { t, locale } = useT();
+
+  /**
+   * "{n}" in a dictionary string, filled in.
+   *
+   * The alt text on these two rails used to be the hardcoded English
+   * `Featured photograph 3 by saycheeeeeze` — half of which was wrong on a
+   * Russian page and the other half of which was wrong on the reference rail,
+   * where the photographs are not his. Both corrections live in the
+   * dictionaries now, one key per rail.
+   */
+  const altFor = useCallback(
+    (key: string, i: number) => t(key).replace("{n}", String(i + 1)),
+    [t],
+  );
   const [worksFilter, setWorksFilter] = useState<WorksFilter>("All");
 
   /**
@@ -230,35 +305,58 @@ export default function AboutContent({
         </div>
       </section>
 
-      {/* My best picks */}
-      <Shelf title={t("about.bestPicks")} showAllLabel={t("common.showAll")} showAllHref={`/${locale}/portfolio`} className="mt-6 sm:mt-4 pb-4">
-        {bestPicks.map((p, i) => (
-          <button
-            key={i}
-            className="relative shrink-0 snap-start overflow-hidden rounded-xl bg-white/5 w-44 sm:w-52 h-56 sm:h-64 cursor-pointer group active:scale-[0.97] transition-transform"
-            onClick={() => openLightbox(bestPicks.map((b, n) => ({ ...b, alt: `Featured photograph ${n + 1} by saycheeeeeze` })), i)}
-          >
-            {hasLadder(p.ladder) ? (
-              <picture>
-                <source type="image/avif" sizes={PICK_SIZES} srcSet={srcSet(p.ladder, "avif")} />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={fallbackSrc(p.ladder)}
-                  srcSet={srcSet(p.ladder, "webp")}
-                  sizes={PICK_SIZES}
-                  alt={`Featured photograph ${i + 1} by saycheeeeeze`}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-cover group-hover:brightness-90 transition-[filter] duration-200"
-                />
-              </picture>
-            ) : (
-              /* No row for this path — same plain CDN URL as before. */
-              <Image src={p.src} alt={`Featured photograph ${i + 1} by saycheeeeeze`} fill sizes={PICK_SIZES} unoptimized className="object-cover group-hover:brightness-90 transition-[filter] duration-200" />
-            )}
-          </button>
-        ))}
-      </Shelf>
+      {/* My best photos — his own work, so it leads.
+
+          Renders nothing while BEST_PHOTOS is empty: a "My best photos"
+          heading over an empty rail is worse than no heading, and this one
+          starts empty by design (see photos.ts). "Show all" moved here from
+          the reference rail with it — the portfolio is his work, so that is
+          where a link to it belongs. */}
+      {bestPhotos.length > 0 && (
+        <Shelf
+          title={t("about.bestPhotos")}
+          showAllLabel={t("common.showAll")}
+          showAllHref={`/${locale}/portfolio`}
+          className="mt-6 sm:mt-4 pb-4"
+        >
+          {bestPhotos.map((p, i) => (
+            <PickCard
+              key={i}
+              photo={p}
+              alt={altFor("about.bestPhotoAlt", i)}
+              onOpen={() => openLightbox(
+                bestPhotos.map((b, n) => ({ ...b, alt: altFor("about.bestPhotoAlt", n) })), i,
+              )}
+            />
+          ))}
+        </Shelf>
+      )}
+
+      {/* Reference photos — direction, not portfolio.
+
+          The subtitle is load-bearing, not decoration. Some of these frames
+          are AI-generated, and a rail of photographs on a photographer's page
+          is read as the photographer's unless something says otherwise. The
+          alt text carries the same correction: it used to end "by
+          saycheeeeeze" on every one of them. */}
+      {referencePhotos.length > 0 && (
+        <Shelf
+          title={t("about.referencePhotos")}
+          subtitle={t("about.referencePhotosSub")}
+          className="mt-6 sm:mt-4 pb-4"
+        >
+          {referencePhotos.map((p, i) => (
+            <PickCard
+              key={i}
+              photo={p}
+              alt={altFor("about.referenceAlt", i)}
+              onOpen={() => openLightbox(
+                referencePhotos.map((b, n) => ({ ...b, alt: altFor("about.referenceAlt", n) })), i,
+              )}
+            />
+          ))}
+        </Shelf>
+      )}
 
       {/* Albums */}
       <Shelf title={t("about.galleries")} className="pb-6 mt-6 sm:mt-12">

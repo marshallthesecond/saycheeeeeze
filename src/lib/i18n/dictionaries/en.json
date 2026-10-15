@@ -18,7 +18,11 @@
     "close": "Close"
   },
   "about": {
-    "bestPicks": "My best picks",
+    "bestPhotos": "My best photos",
+    "bestPhotoAlt": "Photograph {n} by saycheeeeeze, Tashkent",
+    "referencePhotos": "Reference photos",
+    "referencePhotosSub": "Direction, not portfolio — the look and mood a session can aim at. Some of these are AI-generated.",
+    "referenceAlt": "Reference photograph {n} — look and mood for a session",
     "albums": "Albums",
     "testimonials": "Kind words",
     "openTo": "Open to",
@@ -186,12 +190,6 @@
     "peopleCount": "People",
     "priceFrom": "from {price}",
     "basePrice": "Session price",
-    "wiuterian": "Are you a WIUTerian?",
-    "wiuterianHint": "WIUT students get the ceremony-day options too.",
-    "atCeremony": "During the ceremony?",
-    "atCeremonyHint": "Coverage on graduation day itself, at the ceremony hall.",
-    "ceremonyTimeNote": "The date is fixed. The university runs two blocks on the day and we'll agree your exact call time once your booking is confirmed — no need to guess now.",
-    "timeTbc": "time to be confirmed",
     "eventDateLabel": "One day only",
     "eventSlotsLeft": "{n} slots left",
     "eventSoldOut": "Every slot has gone. Message me on Telegram and I'll tell you when the next one is."

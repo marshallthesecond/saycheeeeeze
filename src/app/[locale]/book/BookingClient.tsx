@@ -28,7 +28,7 @@ import {
 import StickyHeader from "@/src/components/common/StickyHeader";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import {
-  type AvailabilityConfig, type TakenDay, earliestBookableDate, fromISODate,
+  type AvailabilityConfig, type TakenDay, earliestBookableDate,
   toISODate, todayInTashkent,
 } from "@/src/lib/availability";
 import {
@@ -40,10 +40,7 @@ import {
   type CatalogItem,
 } from "@/src/lib/booking-catalog";
 import {
-  CEREMONY_DATE_ISO,
-  CEREMONY_PLACEHOLDER_START,
   catalogForBooking,
-  isCeremonyPackage,
   offeredServices,
   reservedDatesFor,
   type BookingServiceOption,
@@ -72,18 +69,19 @@ interface BookingState {
    */
   serviceId: string | null;
   /**
-   * The graduation page's audience switch, repeated here. Off, a client is
-   * offered the campus tiers only; the ceremony is a WIUT event and there is
-   * nothing to sell a non-WIUT graduate on that date.
+   * GONE WITH THE CEREMONY, 2026-10-15. Two fields used to live here —
+   * `isWiuterian` and `atCeremony` — and between them they chose which of the
+   * graduation service's two price lists the form showed.
+   *
+   * There is one price list now. `atCeremony` had nothing left to switch, and
+   * `isWiuterian` had nothing left to gate: it never reached the server, never
+   * moved a price and never changed a date, it only decided whether the
+   * ceremony switch was visible. A toggle that changes nothing is worse than
+   * no toggle, because a client presses it and watches the page not react.
+   *
+   * TO ASK THE QUESTION AGAIN — "are you a WIUT student?" is useful to know —
+   * it wants to be a field that is SUBMITTED, not one that gates a control.
    */
-  isWiuterian: boolean;
-  /**
-   * Ceremony day rather than a campus session. Changes the PRICE LIST, not
-   * only the date: the two are separate groups in services.ts at 500k/900k
-   * against 250/400/700, and pinning a campus tier to 22 October would be
-   * selling an hour on campus at the ceremony hall.
-   */
-  atCeremony: boolean;
   packageId: string | null;
   peopleCount: number | null;
   serviceSlug: string | null;
@@ -218,13 +216,9 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
 
   // A function initialiser, not an object literal. The literal was built on
   // every render and thrown away on all but the first — cheap in isolation,
-  // but it also ran isCeremonyPackage() and the location lookup each time.
+  // but it also ran the preset lookups each time.
   const [state, setState] = useState<BookingState>(() => ({
     serviceId: presetService,
-    // A ceremony link is by definition a WIUTerian one, so arriving on it with
-    // the switch off would show a price list the toggle above says is hidden.
-    isWiuterian: isCeremonyPackage(presetPackage),
-    atCeremony: isCeremonyPackage(presetPackage),
     packageId: presetPackage,
     peopleCount: null,
     serviceSlug: slugParam,
@@ -276,23 +270,23 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // Three shapes of booking now share one form, and everything below reads
   // these rather than re-testing the service id:
   //
-  //   normal     pick a day, pick an hour              portrait, campus grad
-  //   ceremony   one known date, no hour yet           graduation on the day
-  //   event      one known date, eight fixed blocks    mini-sessions at CCA
+  //   normal     pick a day, pick an hour              portrait, graduation
+  //   event      one known date, fixed blocks          mini-sessions
+  //
+  // There used to be a third, `ceremony` — one known date, no hour yet. It
+  // went with ceremony-day coverage on 2026-10-15.
 
   const isEvent = state.serviceId === MINI_EVENT.id;
-  const isGraduation = state.serviceId === "graduation";
-  const isCeremony = isGraduation && state.isWiuterian && state.atCeremony;
   /**
    * The date was decided for the client rather than by them, so it is never
    * the thing to clear or the thing to ask them to change.
    */
-  const dateIsFixed = isEvent || isCeremony;
+  const dateIsFixed = isEvent;
 
-  /** The tiers for step 1. Graduation forks on the ceremony switch. */
+  /** The tiers for step 1. */
   const offered = useMemo(
-    () => catalogForBooking(state.serviceId, { atCeremony: isCeremony }),
-    [state.serviceId, isCeremony],
+    () => catalogForBooking(state.serviceId),
+    [state.serviceId],
   );
 
   /**
@@ -383,19 +377,6 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // which is exactly when you need it not to be.
 
   const selectService = useCallback((id: string) => set("serviceId", id), [set]);
-
-  const setWiuterian = useCallback((on: boolean) => {
-    // One update, not two. As two `set` calls this was two renders of the
-    // whole form for one tap, and briefly a state where isWiuterian was off
-    // while atCeremony was still on — which catalogForBooking() reads.
-    setState((prev) => ({
-      ...prev,
-      isWiuterian: on,
-      atCeremony: on ? prev.atCeremony : false,
-    }));
-  }, []);
-
-  const setAtCeremony = useCallback((on: boolean) => set("atCeremony", on), [set]);
 
   const setPeople = useCallback((count: number | null) => set("peopleCount", count), [set]);
 
@@ -514,10 +495,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
       ? peopleError(pkg, state.peopleCount) === null
       : false;
   const step1Done = !!state.serviceId && !!selected && peopleOk;
-  // A ceremony booking has a date and no hour — the university sets the hour,
-  // and until Marshall knows which of the two slots the client is in there is
-  // nothing honest to put on a button. Everything else still needs both.
-  const step2Done = !!state.selectedISO && (isCeremony || !!state.startTime);
+  // Every booking now needs both a day and an hour. The ceremony was the one
+  // exception — a date with no hour, because the university set the hour — and
+  // it is no longer sold.
+  const step2Done = !!state.selectedISO && !!state.startTime;
   const step3Done = !!(state.locationIds.length > 0 || state.locationCustom.trim());
 
   const telegramOk = state.telegram === "" || TELEGRAM_RE.test(state.telegram);
@@ -647,8 +628,6 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
       startTime: null,
       locationIds: [],
       locationCustom: "",
-      atCeremony: prev.serviceId === "graduation" ? prev.atCeremony : false,
-      isWiuterian: prev.serviceId === "graduation" ? prev.isWiuterian : false,
     }));
   }, [state.serviceId]);
 
@@ -691,33 +670,6 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
     );
   }, [isEvent, state.selectedISO, state.locationIds, state.locationCustom]);
 
-  // Ceremony day is a date, not a choice. Pin it, move the calendar to the
-  // month it is in so the client can see WHICH date they have been given, and
-  // drop any hour picked before the switch went on. Turning the switch back
-  // off releases the date rather than leaving 22 October sitting there looking
-  // like the client's own choice.
-  useEffect(() => {
-    if (isCeremony) {
-      const d = fromISODate(CEREMONY_DATE_ISO);
-      setState((prev) => {
-        const month = d ? d.getMonth() : prev.month;
-        const year = d ? d.getFullYear() : prev.year;
-        return prev.selectedISO === CEREMONY_DATE_ISO &&
-          prev.startTime === null &&
-          prev.month === month &&
-          prev.year === year
-          ? prev
-          : { ...prev, selectedISO: CEREMONY_DATE_ISO, startTime: null, month, year };
-      });
-      return;
-    }
-    setState((prev) =>
-      prev.selectedISO === CEREMONY_DATE_ISO
-        ? { ...prev, selectedISO: null, startTime: null }
-        : prev,
-    );
-  }, [isCeremony]);
-
   const handleSubmit = async () => {
     if (!canSubmit || !selected || !quote) return;
     setSubmitting(true);
@@ -731,13 +683,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           peopleCount: state.peopleCount,
           serviceSlug: state.serviceId ?? state.serviceSlug,
           isoDate: state.selectedISO,
-          // A ceremony booking has no hour yet. The column is NOT NULL and a
-          // whole nullable-time model is more change than "for now" is worth,
-          // so the row records the ceremony's own published start and the
-          // route prints "time to be confirmed" instead of a range wherever
-          // Marshall reads it. Anything reading start_time on these rows must
-          // treat it as a placeholder, not a promise.
-          startTime: state.startTime ?? (isCeremony ? CEREMONY_PLACEHOLDER_START : null),
+          startTime: state.startTime,
           locationIds: state.locationIds,
           // Keeps the existing bookings row shape: first place is the primary
           // one, the rest travel in locationIds and the route records them as
@@ -821,8 +767,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           setOpenStep(1);
           serviceSettled.current = false;
           setState({
-            serviceId: null, isWiuterian: false, atCeremony: false,
-            packageId: null, peopleCount: null, serviceSlug: null,
+            serviceId: null, packageId: null, peopleCount: null, serviceSlug: null,
             selectedISO: null, month: firstOpenMonth.getMonth(), year: firstOpenMonth.getFullYear(),
             startTime: null, locationIds: [], locationCustom: "",
             name: "", telegram: "", phone: "", notes: "", consent: false,
@@ -899,20 +844,6 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 onSelect={selectService}
               />
 
-              {/* The graduation page's own switch, in the same position
-                  relative to the thing it changes: directly under the options,
-                  above the prices it decides. Off, the ceremony is not on
-                  offer at all — it is a WIUT event at a WIUT venue and there is
-                  nothing to sell a graduate of anywhere else on that date. */}
-              {isGraduation && (
-                <Switch
-                  label={t("book.wiuterian")}
-                  hint={t("book.wiuterianHint")}
-                  on={state.isWiuterian}
-                  onChange={setWiuterian}
-                />
-              )}
-
               {/* One tier is not a choice — the event has a single price, and
                   it is already selected. Show what it includes instead of a
                   list of one. */}
@@ -946,7 +877,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             summary={
               state.selectedISO
                 ? `${formatISO(state.selectedISO, locale)}${
-                    state.startTime ? ` · ${state.startTime}` : isCeremony ? ` · ${t("book.timeTbc")}` : ""
+                    state.startTime ? ` · ${state.startTime}` : ""
                   }`
                 : ""
             }
@@ -977,17 +908,11 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 </>
               ) : (
                 <>
-                  {/* Above the calendar, because it decides what the calendar
-                      is for. Only a WIUTerian sees it. */}
-                  {isGraduation && state.isWiuterian && (
-                    <Switch
-                      label={t("book.atCeremony")}
-                      hint={t("book.atCeremonyHint")}
-                      on={state.atCeremony}
-                      onChange={setAtCeremony}
-                    />
-                  )}
-
+                  {/* The "During the ceremony?" switch stood here until
+                      2026-10-15, above the calendar because it decided what
+                      the calendar was for. It pinned the date to 22 October,
+                      locked the grid and replaced the start times with a note.
+                      All three went with the product. */}
                   <CalendarPicker
                     selectedISO={state.selectedISO}
                     viewMonth={state.month}
@@ -997,34 +922,23 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     availability={availability}
                     taken={taken}
                     blackouts={closedDates}
-                    locked={isCeremony}
                   />
 
-                  {isCeremony ? (
-                    // No hour, on purpose. The university publishes two blocks
-                    // on the day and the client usually does not yet know which
-                    // one they are in, so offering a grid of start times would
-                    // be asking for a guess and then recording it as a fact.
-                    <p className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xs leading-relaxed text-white/55">
-                      {t("book.ceremonyTimeNote")}
+                  <div>
+                    <p className="text-[11px] text-white/40 mb-3 font-medium">
+                      {t("book.startTime")}
+                      {selected && (
+                        <span className="text-white/25"> · {selected.durationLabel}</span>
+                      )}
                     </p>
-                  ) : (
-                    <div>
-                      <p className="text-[11px] text-white/40 mb-3 font-medium">
-                        {t("book.startTime")}
-                        {selected && (
-                          <span className="text-white/25"> · {selected.durationLabel}</span>
-                        )}
-                      </p>
-                      <StartTimePicker
-                        selectedISO={state.selectedISO}
-                        durationMinutes={selected?.durationMinutes ?? 120}
-                        startTime={state.startTime}
-                        onChange={setStartTime}
-                        availability={availability}
-                      />
-                    </div>
-                  )}
+                    <StartTimePicker
+                      selectedISO={state.selectedISO}
+                      durationMinutes={selected?.durationMinutes ?? 120}
+                      startTime={state.startTime}
+                      onChange={setStartTime}
+                      availability={availability}
+                    />
+                  </div>
                 </>
               )}
             </div>
@@ -1487,45 +1401,10 @@ const ServicePicker = memo(function ServicePicker({ options, selectedId, onSelec
   );
 });
 
-/**
- * A labelled on/off switch.
- *
- * A checkbox would do the job and reads as paperwork. These two questions
- * change what the form is — which prices, which dates — so they are given the
- * weight of a control rather than a tick box.
- */
-const Switch = memo(function Switch({ label, hint, on, onChange }: {
-  label: string;
-  hint?: string;
-  on: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`flex items-center justify-between gap-4 rounded-2xl px-4 py-3.5 border text-left transition active:scale-[0.99]
-        ${on ? "border-accent-warm bg-accent-warm/10" : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
-    >
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold">{label}</span>
-        {hint && <span className="block text-xs text-white/40 mt-0.5">{hint}</span>}
-      </span>
-      <span
-        aria-hidden
-        className={`relative w-11 h-6 rounded-full shrink-0 transition
-          ${on ? "bg-accent-warm" : "bg-white/15"}`}
-      >
-        <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all
-            ${on ? "left-[1.375rem]" : "left-0.5"}`}
-        />
-      </span>
-    </button>
-  );
-});
+// The labelled on/off Switch lived here. Its only two users were the
+// "WIUTerian?" and "During the ceremony?" toggles, both removed with
+// ceremony-day coverage on 2026-10-15, and an unused component is a lint
+// error. It is in git history if a third question ever wants one.
 
 /** A date that was decided for the client, shown rather than chosen. */
 const FixedDate = memo(function FixedDate(

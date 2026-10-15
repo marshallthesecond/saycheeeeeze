@@ -161,6 +161,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "package" }, { status: 400 });
   }
 
+  /**
+   * PRICEABLE IS NOT SELLABLE.
+   *
+   * findCatalogItem() resolves a withdrawn tier on purpose — `package_id` is
+   * written permanently into `bookings` rows, so an existing booking has to
+   * stay nameable and an old link has to stay priceable. Until this check,
+   * that also meant the route would happily create a NEW booking for it.
+   *
+   * The form cannot offer one: catalogForService() drops retired groups. But
+   * the form is not the only thing that can POST here, and the ceremony-day
+   * graduation tiers are the case that makes it matter — they were withdrawn
+   * on 15 October with the ceremony still a week away, so the date validation
+   * that quietly covered the retired mini-sessions does nothing for them.
+   *
+   * Deliberately the same `error: "package"` the form already handles, with a
+   * code beside it for the logs. There is no client-facing copy for "that tier
+   * was withdrawn" because no client should ever reach this.
+   */
+  if (catalogItem?.retired) {
+    return NextResponse.json({ error: "package", code: "retired" }, { status: 400 });
+  }
+
   const people = body.peopleCount == null ? null : Math.floor(Number(body.peopleCount));
 
   // Head count only constrains the generic packages; a catalogue tier prices

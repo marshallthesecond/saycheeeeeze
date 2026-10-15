@@ -2,6 +2,16 @@ import Link from "next/link";
 
 interface ShelfProps {
   title: string;
+  /**
+   * One line under the heading, for a shelf whose title does not fully say
+   * what is in it.
+   *
+   * Added for "Reference photos" on the About page: the pictures there are
+   * mood references rather than Marshall's own work, and a rail of photographs
+   * on a photographer's page is read as the photographer's unless something
+   * says otherwise.
+   */
+  subtitle?: string;
   /** When set, renders a "Show all" link on the right of the heading. */
   showAllHref?: string;
   showAllLabel?: string;
@@ -16,6 +26,7 @@ interface ShelfProps {
  */
 export default function Shelf({
   title,
+  subtitle,
   showAllHref,
   showAllLabel = "Show all",
   children,
@@ -24,7 +35,10 @@ export default function Shelf({
   return (
     <section className={`relative z-10 ${className}`}>
       <div className="flex items-baseline justify-between px-4 sm:px-8 mb-3">
-        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h2>
+          {subtitle && <p className="text-sm text-white/40 mt-1">{subtitle}</p>}
+        </div>
         {showAllHref && (
           <Link
             href={showAllHref}

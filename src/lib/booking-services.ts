@@ -37,24 +37,29 @@ export interface BookingServiceOption {
 
 // Graduation
 //
-// The two groups already exist in services.ts. Nothing about the prices is
-// decided here — this only names the groups so the form can show one or the
-// other, and says which date the ceremony falls on.
+// ONE PRODUCT NOW, NOT TWO. Ceremony-day coverage was withdrawn on 2026-10-15
+// — Marshall is not taking bookings for the day itself — so the "ceremony"
+// group in services.ts is marked `retired` and everything that used to fork on
+// it is gone: the "During the ceremony?" switch in the form, the pinned date,
+// the placeholder start time, and the group constant that named the fork.
+//
+// The ceremony DATE did not go anywhere; it just has one home now. It lives on
+// the graduation service's `event` block, which the page renders as a deadline
+// for booking a campus session. The CEREMONY_DATE_ISO constant that used to
+// sit here had no second reader once the form stopped pinning to it, and two
+// copies of a date are two chances to disagree.
 
 export const GRAD_CAMPUS_GROUP = "session";
-export const GRAD_CEREMONY_GROUP = "ceremony";
 
 /**
- * WIUT graduation day.
+ * Is this a withdrawn ceremony-day tier?
  *
- * ONE LINE TO CHANGE when the university confirms. Marshall gave 22 October
- * 2026, a Thursday. Worth knowing: the project notes record the 2023 and 2024
- * ceremonies as being in NOVEMBER (18 Nov 2023, 22 Nov 2024), and registration
- * closed about nine days beforehand. If the date moves, this constant and the
- * `event` block on the graduation service page are the two places that say it.
+ * Kept — and kept narrow — because /api/booking still reads it to print "time
+ * to be confirmed" instead of an hour range for any booking that carries one
+ * of these ids. Those rows exist; `grad-ceremony-2h` and `grad-ceremony-4h`
+ * were live from September to 15 October. Nothing NEW can be created with one:
+ * the route refuses a retired tier before it gets this far.
  */
-export const CEREMONY_DATE_ISO = "2026-10-22";
-
 export function isCeremonyPackage(id: string | null | undefined): boolean {
   return !!id && id.startsWith("grad-ceremony-");
 }
@@ -84,10 +89,11 @@ const CORE: BookingServiceOption[] = [
   {
     id: GRADUATION_SLUG,
     title: { en: "Graduation", ru: "Выпускной", uz: "Bitiruv" },
+    // "or on the day itself" came out with the product it advertised.
     blurb: {
-      en: "Cap and gown, on campus or on the day itself.",
-      ru: "Мантия и шапочка — на кампусе или в день церемонии.",
-      uz: "Mantiya va shapka — kampusda yoki marosim kuni.",
+      en: "Cap and gown on campus, on a day that suits you.",
+      ru: "Мантия и шапочка на кампусе, в удобный для вас день.",
+      uz: "Kampusda mantiya va shapka — o‘zingizga qulay kunda.",
     },
   },
   {
@@ -141,25 +147,24 @@ export function offeredServices(
 /**
  * The tiers for one service.
  *
- * Graduation is the only one with a fork: the campus group by default, the
- * ceremony group once "During the ceremony?" is on. They are different
- * products at different prices — 250/400/700 against 500/900 — so switching
- * has to switch the price list, not just the date.
+ * Graduation USED TO fork here — the campus group by default, the ceremony
+ * group once "During the ceremony?" was on. With ceremony-day coverage
+ * withdrawn there is one group left, and the filter below is what makes that
+ * true rather than assumed: catalogForService() already drops retired groups,
+ * so this narrows to the campus key and falls back to everything if that key
+ * is ever renamed.
+ *
+ * Falling back to everything rather than to nothing is deliberate: a renamed
+ * group key should make the form show too much, not leave a client staring at
+ * a step with no options and no explanation.
  */
-export function catalogForBooking(
-  serviceId: string | null,
-  opts: { atCeremony?: boolean } = {},
-): CatalogItem[] {
+export function catalogForBooking(serviceId: string | null): CatalogItem[] {
   if (!serviceId) return [];
   if (serviceId === MINI_EVENT.id) return miniCatalog();
 
   if (serviceId === GRADUATION_SLUG) {
-    const want = opts.atCeremony ? GRAD_CEREMONY_GROUP : GRAD_CAMPUS_GROUP;
     const all = catalogForService(GRADUATION_SLUG);
-    const group = all.filter((i) => i.groupKey === want);
-    // Falling back to everything rather than to nothing: a renamed group key
-    // should make the form show too much, not leave a client staring at a step
-    // with no options and no explanation.
+    const group = all.filter((i) => i.groupKey === GRAD_CAMPUS_GROUP);
     return group.length > 0 ? group : all;
   }
 
@@ -185,19 +190,3 @@ export function reservedDatesFor(serviceId: string | null): string[] {
 export function eventFor(serviceId: string | null) {
   return serviceId === MINI_EVENT.id ? MINI_EVENT : null;
 }
-
-
-/**
- * What a ceremony-day booking records as its start time.
- *
- * `bookings.start_time` is NOT NULL, and an all-day booking has no hour yet —
- * the university publishes two blocks (11:00–14:00 and 15:00–18:00) and the
- * client usually does not know which one they are in when they book. Rather
- * than making the column nullable and teaching every reader of it about the
- * exception, the row carries the ceremony's own published start and everything
- * Marshall reads says "time to be confirmed" instead of a range.
- *
- * A PLACEHOLDER, NOT A PROMISE. Anything that starts treating this as the real
- * call time is a bug.
- */
-export const CEREMONY_PLACEHOLDER_START = "11:00";

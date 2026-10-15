@@ -144,10 +144,19 @@ const MINI_ITEM: CatalogItem = {
   locationIds: [MINI_EVENT.locationId],
   asksPeople: { min: 1, max: 3 },
   pricePerPeople: MINI_PRICES,
+  // The event that is currently ON. The two below are not.
+  retired: false,
 };
 
 /**
  * EVENTS THAT HAVE HAPPENED. Priceable for ever, offered never.
+ *
+ * Each now also carries `retired: true`, which closes a hole these two only
+ * ever escaped by accident: findCatalogItem() resolving them meant
+ * /api/booking would ACCEPT them, and the single thing standing in the way was
+ * that their dates had passed and the date check refused the booking. The
+ * ceremony-day graduation tiers made that visible by being withdrawn while
+ * their date was still a week away.
  *
  * Each past event sold bookings, and those rows carry its package id. Drop the
  * item and `findCatalogItem("mini-cca-25m")` returns undefined, which breaks
@@ -181,6 +190,7 @@ const RETIRED_ITEMS: CatalogItem[] = [
     note: null,
     locationIds: ["cca"],
     asksPeople: null,
+    retired: true,
   },
   /**
    * NEVER RAN, and still has to be here.
@@ -216,6 +226,7 @@ const RETIRED_ITEMS: CatalogItem[] = [
     note: null,
     locationIds: ["lokomotiv"],
     asksPeople: null,
+    retired: true,
   },
 ];
 

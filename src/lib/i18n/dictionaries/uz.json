@@ -18,7 +18,11 @@
     "close": "Yopish"
   },
   "about": {
-    "bestPicks": "Eng yaxshi ishlarim",
+    "bestPhotos": "Eng yaxshi ishlarim",
+    "bestPhotoAlt": "{n}-surat — saycheeeeeze, Toshkent",
+    "referencePhotos": "Referens suratlar",
+    "referencePhotosSub": "Portfolio emas, yo‘nalish — suratga olishda mo‘ljal qilinadigan kayfiyat va yorug‘lik. Ba’zilari sun’iy intellekt yaratgan.",
+    "referenceAlt": "{n}-referens — suratga olish uchun kayfiyat va yorug‘lik",
     "albums": "Albomlar",
     "testimonials": "Mijozlar fikri",
     "openTo": "Ishlashga tayyorman",
@@ -186,12 +190,6 @@
     "peopleCount": "Kishi",
     "priceFrom": "{price} dan",
     "basePrice": "Suratga olish narxi",
-    "wiuterian": "Siz WIUTerianmisiz?",
-    "wiuterianHint": "WIUT talabalari uchun marosim kuni variantlari ham bor.",
-    "atCeremony": "Marosim vaqtidami?",
-    "atCeremonyHint": "Bitiruv kunining o‘zida, marosim zalida suratga olish.",
-    "ceremonyTimeNote": "Sana aniq. O‘sha kuni universitet ikki blok o‘tkazadi — aniq vaqtni buyurtma tasdiqlangach kelishamiz, hozir taxmin qilish shart emas.",
-    "timeTbc": "vaqt keyin aniqlanadi",
     "eventDateLabel": "Faqat bir kun",
     "eventSlotsLeft": "{n} ta slot qoldi",
     "eventSoldOut": "Barcha slotlar band. Telegramda yozing — keyingisi qachonligini aytaman."

@@ -10,6 +10,7 @@
 import { miniPriceableItems } from "./mini-sessions";
 import {
   allPackages,
+  offeredGroups,
   servicesData,
   standardTiers,
   type DeliverySpec,
@@ -62,6 +63,27 @@ export interface CatalogItem {
    * the form and the API route cannot disagree about the arithmetic.
    */
   pricePerPeople?: Record<number, number>;
+  /**
+   * WITHDRAWN. Still priceable, no longer sellable — and the gap between
+   * those two words is the whole reason this field exists.
+   *
+   * findCatalogItem() deliberately resolves a retired tier: `package_id` is
+   * written permanently into `bookings` rows, so an existing booking has to
+   * stay nameable and an old `/book?package=…` link has to stay priceable.
+   * But "the catalogue can price it" was also, until this flag, "the API
+   * route will accept it" — so a hand-made POST could still buy a thing that
+   * had been taken off the shelf.
+   *
+   * Two live cases. The ceremony-day graduation tiers, withdrawn on
+   * 2026-10-15 while 22 October was still a week in the FUTURE — the date
+   * validation that quietly protects a finished mini-session does nothing
+   * here. And the retired mini-session tiers, which had the same hole in
+   * theory and were only ever saved by their dates having passed.
+   *
+   * Required, not optional, so the compiler enumerates every place a
+   * CatalogItem is built rather than letting one be forgotten.
+   */
+  retired: boolean;
 }
 
 function toItem(
@@ -70,8 +92,10 @@ function toItem(
   groupKey: string | null,
   groupTitle: Localized | null,
   locationIds: string[],
+  retired = false,
 ): CatalogItem {
   return {
+    retired,
     id: pkg.id as string,
     serviceSlug: service.slug,
     serviceTitle: service.title,
@@ -136,6 +160,7 @@ export function genericCatalog(): CatalogItem[] {
     // us anything about where the shoot happens, so the full list is right.
     locationIds: [],
     asksPeople: pkg.asksPeople ?? null,
+    retired: false,
   }));
   return genericCache;
 }
@@ -168,15 +193,35 @@ export function catalogForService(slug: string): CatalogItem[] {
   return built;
 }
 
+/**
+ * WHAT IS OFFERED. Retired groups are not in here, which is what takes them
+ * off the service page's price list and out of the booking form.
+ */
 function buildCatalogForService(slug: string): CatalogItem[] {
+  return buildForService(slug, { includeRetired: false });
+}
+
+/**
+ * WHAT CAN BE PRICED — the offered tiers plus the withdrawn ones.
+ *
+ * Read only by buildLiveIndex() below, so findCatalogItem() keeps resolving a
+ * retired id while nothing that renders a choice ever sees one. Exactly the
+ * miniCatalog() / miniPriceableItems() split, applied to service groups.
+ */
+function priceableForService(slug: string): CatalogItem[] {
+  return buildForService(slug, { includeRetired: true });
+}
+
+function buildForService(slug: string, opts: { includeRetired: boolean }): CatalogItem[] {
   const service = servicesData.find((s) => s.slug === slug);
   if (!service) return [];
 
   if (service.packageGroups?.length) {
-    return service.packageGroups.flatMap((g) =>
+    const groups = opts.includeRetired ? service.packageGroups : offeredGroups(service);
+    return groups.flatMap((g) =>
       g.packages
         .filter((p) => p.id)
-        .map((p) => toItem(service, p, g.key, g.title, g.locationIds ?? [])),
+        .map((p) => toItem(service, p, g.key, g.title, g.locationIds ?? [], g.retired === true)),
     );
   }
   return allPackages(service)
@@ -257,7 +302,10 @@ function buildLiveIndex(): Map<string, CatalogItem> {
   const add = (item: CatalogItem) => {
     if (!index.has(item.id)) index.set(item.id, item);
   };
-  for (const service of servicesData) for (const item of catalogForService(service.slug)) add(item);
+  // priceableForService(), not catalogForService(): a withdrawn tier must stay
+  // resolvable so its bookings can still be named and an old link still
+  // prices. `retired` on the item is what stops it being SOLD again.
+  for (const service of servicesData) for (const item of priceableForService(service.slug)) add(item);
   // miniPriceableItems(), not miniCatalog(): a finished event's tier must stay
   // priceable so its bookings can still be named and an old link still works.
   for (const item of miniPriceableItems()) add(item);

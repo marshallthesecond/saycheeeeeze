@@ -1,5 +1,3 @@
-import { bunnyUrl } from "./bunny-url";
-
 /**
  * A string written once, or once per language. A bare string means "the same
  * everywhere", so fields convert one at a time. `en` is required because it is
@@ -18,9 +16,31 @@ export function allPackages(service: ServiceData): ServicePackage[] {
   return service.packages ?? [];
 }
 
-/** The one to quote a "from" price against — the cheapest thing on offer. */
+/**
+ * The groups still ON OFFER — what the page shows and the form sells.
+ *
+ * Everything that renders a price list to a client goes through this; only the
+ * catalogue's priceable index reads `packageGroups` raw. See `retired` on
+ * ServicePackageGroup.
+ */
+export function offeredGroups(service: ServiceData): ServicePackageGroup[] {
+  return (service.packageGroups ?? []).filter((g) => !g.retired);
+}
+
+/** Every package a service still offers — allPackages minus the retired groups. */
+export function offeredPackages(service: ServiceData): ServicePackage[] {
+  if (service.packageGroups?.length) return offeredGroups(service).flatMap((g) => g.packages);
+  return service.packages ?? [];
+}
+
+/**
+ * The one to quote a "from" price against — the cheapest thing on offer.
+ *
+ * OFFERED, not all: a withdrawn tier must not set the "from" price on a card
+ * for something nobody can buy.
+ */
 export function entryPackage(service: ServiceData): ServicePackage | undefined {
-  const all = allPackages(service);
+  const all = offeredPackages(service);
   if (all.length === 0) return undefined;
   return all.reduce((cheapest, p) => (p.priceUzs < cheapest.priceUzs ? p : cheapest));
 }
@@ -165,6 +185,26 @@ export interface ServicePackageGroup {
    */
   locationIds?: string[];
   packages: ServicePackage[];
+  /**
+   * SOLD ONCE, NEVER AGAIN. Priceable for ever, offered never.
+   *
+   * A retired group is gone from the service page and gone from the booking
+   * form, but its tier ids still resolve through findCatalogItem(), because
+   * `package_id` is written permanently into `bookings` rows, into Telegram
+   * messages and into whatever links are still in someone's history. Delete
+   * the group outright and an existing booking stops being nameable and an old
+   * `/book?package=…` link lands on a form that cannot price itself.
+   *
+   * This is the same split mini-sessions.ts makes with miniCatalog() against
+   * miniPriceableItems(), for the same reason: "what can be sold" and "what can
+   * be priced" diverge the moment anything is withdrawn.
+   *
+   * It is NOT enough on its own. `CatalogItem.retired` carries the flag through
+   * to /api/booking, which refuses a new booking against a retired tier — see
+   * the check there. Priceable has to stop short of sellable or a hand-made
+   * POST sells the thing that was withdrawn.
+   */
+  retired?: boolean;
 }
 
 /** The same, after pickLocale() has run — what the client components receive. */
@@ -800,7 +840,20 @@ export const servicesData: ServiceData[] = [
     // someone books from. Venue and slots render regardless; a countdown
     // appears the moment a real date lands here.
     event: {
-      date: '',
+      // CONFIRMED by Marshall on 2026-10-15: Thursday 22 October 2026. Worth
+      // knowing that 2023 was 18 November and 2024 was 22 November, so this
+      // year breaks the pattern — it is the official date, not an inference.
+      //
+      // This is now the ONLY place the ceremony date is written. It used to be
+      // duplicated in booking-services.ts as CEREMONY_DATE_ISO, which the form
+      // pinned ceremony bookings to; with ceremony-day coverage withdrawn that
+      // constant had no second reader and was deleted rather than left to
+      // disagree with this line.
+      //
+      // The block it drives is context, not an offer: the countdown is the
+      // deadline for booking a CAMPUS session, which is the thing still for
+      // sale. Nothing on this page sells coverage at the venue.
+      date: '2026-10-22',
       label: {
         en: 'WIUT Graduation Ceremony',
         ru: 'Церемония вручения дипломов WIUT',
@@ -811,10 +864,16 @@ export const servicesData: ServiceData[] = [
         ru: 'Дворец кино имени Алишера Навои («Панорама»), Навои 15',
         uz: 'Alisher Navoiy nomidagi kino saroyi («Panorama»), Navoiy 15',
       },
+      // A DEADLINE, NOT AN OFFER. Ceremony-day coverage was withdrawn on
+      // 2026-10-15, so this block no longer introduces a product — it is the
+      // date the gown goes back and the reason to book the campus session this
+      // week. The two-slot schedule went with the package it belonged to: it
+      // existed to help someone find me at the venue, and nobody is meeting me
+      // at the venue now.
       note: {
-        en: 'Held off campus, in two slots — Business Management and Business Information Systems in the morning, every other course in the afternoon. Registration has closed about a week and a half beforehand in past years.',
-        ru: 'Проходит не на кампусе, в двух потоках: Business Management и Business Information Systems утром, остальные направления днём. В прошлые годы регистрация закрывалась примерно за полторы недели до церемонии.',
-        uz: 'Kampusda emas, ikki bosqichda o‘tadi: ertalab Business Management va Business Information Systems, tushdan keyin qolgan yo‘nalishlar. O‘tgan yillarda ro‘yxatdan o‘tish taxminan bir yarim hafta oldin yopilgan.',
+        en: 'I shoot the gown session on campus, not the ceremony itself — so the day to book is any day before this one. Most people leave it to the last week and find the good light has been taken.',
+        ru: 'Съёмка в мантии проходит на кампусе, а не на самой церемонии, — так что бронировать стоит любой день до этой даты. Большинство тянет до последней недели и обнаруживает, что лучшее время уже занято.',
+        uz: 'Mantiyali suratga olish kampusda bo‘ladi, marosimning o‘zida emas — shuning uchun shu sanagacha istalgan kunni band qilish kerak. Ko‘pchilik oxirgi haftagacha cho‘zadi va eng yaxshi vaqt olib bo‘linganini ko‘radi.',
       },
       // Real numbers only. Raise `booked` as sessions fill; the page says
       // nothing about scarcity until there is something true to say.
@@ -968,8 +1027,29 @@ export const servicesData: ServiceData[] = [
           },
         ],
       },
+      /**
+       * WITHDRAWN 2026-10-15 — Marshall is not taking ceremony-day bookings.
+       *
+       * `retired` rather than deleted, and the distinction is the point: these
+       * two ids have been live since September and `package_id` is written
+       * permanently into any row that carries one. See ServicePackageGroup's
+       * `retired` for what the flag does and where it is read.
+       *
+       * The group is now invisible — no "On the day" tab on the service page,
+       * no ceremony fork in the booking form, and /api/booking refuses the ids
+       * for a NEW booking. The 22 October date survives on the `event` block
+       * above as context and a deadline: the ceremony still happens, and it is
+       * the reason to book a campus session this week.
+       *
+       * TO BRING IT BACK: delete this flag. Nothing else was removed from this
+       * group — the prices, perks and locations are all still here. The form's
+       * ceremony fork was removed though, so a revived group would appear as a
+       * second tab on the page and a second set of tiers in the form rather
+       * than behind the old "During the ceremony?" switch.
+       */
       {
         key: 'ceremony',
+        retired: true,
         locationIds: ['panorama', 'studio'],
         title: { en: 'On the day', ru: 'В день церемонии', uz: 'Marosim kuni' },
         blurb: {
@@ -1019,9 +1099,14 @@ export const servicesData: ServiceData[] = [
           uz: 'Marosimning o‘zi qayerda o‘tadi?',
         },
         answer: {
-          en: 'Not on campus. WIUT holds it at the Alisher Navoi Cinema Palace (Panorama) on Navoi Street, in two slots — Business Management and Business Information Systems in the morning, every other course in the afternoon. If you want photographs there, book the ceremony-day package.',
-          ru: 'Не на кампусе. WIUT проводит её во Дворце кино имени Алишера Навои («Панорама») на улице Навои, в двух потоках: Business Management и Business Information Systems утром, остальные направления днём. Если нужны фотографии оттуда — берите пакет на день церемонии.',
-          uz: 'Kampusda emas. WIUT uni Navoiy ko‘chasidagi Alisher Navoiy nomidagi kino saroyida («Panorama») ikki bosqichda o‘tkazadi: ertalab Business Management va Business Information Systems, tushdan keyin qolgan yo‘nalishlar. O‘sha yerdan suratlar kerak bo‘lsa — marosim kuni paketini tanlang.',
+          // The last sentence used to read "if you want photographs there,
+          // book the ceremony-day package". That package no longer exists, so
+          // the answer now says plainly that the day itself is not covered —
+          // better read here, in the section where the question is asked, than
+          // discovered at the bottom of a booking form.
+          en: 'Not on campus — WIUT holds it at the Alisher Navoi Cinema Palace (Panorama) on Navoi Street. I do not shoot at the ceremony itself: the hall is dark, the running order is not mine to control, and a gown session on a quiet campus gives you better photographs than a crowd does. Book one before 22 October and you have them in hand for the day.',
+          ru: 'Не на кампусе — WIUT проводит её во Дворце кино имени Алишера Навои («Панорама») на улице Навои. На самой церемонии я не снимаю: в зале темно, порядок выхода не в моих руках, а съёмка в мантии на спокойном кампусе даёт кадры лучше, чем толпа. Снимемся до 22 октября — и к самому дню фотографии уже у вас.',
+          uz: 'Kampusda emas — WIUT uni Navoiy ko‘chasidagi Alisher Navoiy nomidagi kino saroyida («Panorama») o‘tkazadi. Marosimning o‘zida men suratga olmayman: zal qorong‘i, chiqish tartibi mening ixtiyorimda emas, tinch kampusdagi mantiyali suratga olish esa olomondan ko‘ra yaxshiroq kadrlar beradi. 22-oktabrgacha suratga tushsak, o‘sha kunga suratlar qo‘lingizda bo‘ladi.',
         },
       },
       {
