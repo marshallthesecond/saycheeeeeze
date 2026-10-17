@@ -134,6 +134,19 @@ type PhotoRow = Pick<
   | "source_bytes"
 >;
 
+/**
+ * One album cover, as the card-grid query fetches it.
+ *
+ * Everything `toAlbum` needs to give a tile its derivatives, and nothing more:
+ * no dimensions, no alt, no byte counts. Ten rows per page load of the About
+ * and Portfolio grids, against the full photo rows that would otherwise have
+ * to be selected for every photograph in every album to find ten covers.
+ */
+type CoverRow = Pick<
+  PhotoRow,
+  "id" | "gallery_id" | "storage_path" | "checksum8" | "thumbhash" | "variants" | "ladder_rev"
+>;
+
 /** Time-based backstop. On-demand revalidateTag is the real refresh path. */
 const REVALIDATE_SECONDS = 3600;
 
@@ -149,7 +162,17 @@ const PUBLIC_CDN = (process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE ?? "").replace(/\/$/
  * which is the entire point of the ladder. Client galleries take the signed
  * path in client-galleries.ts instead.
  */
-function ladderFor(p: PhotoRow, galleryId: string): LadderSources | undefined {
+/**
+ * The four columns a ladder is built from, and nothing else.
+ *
+ * Narrower than PhotoRow on purpose: the card-grid query below fetches ONLY
+ * the cover rows and only these columns, so it has no `width`, no `alt`, no
+ * `sort_order`. A full PhotoRow still satisfies this, so the album query's
+ * call site is unchanged.
+ */
+type LadderRow = Pick<PhotoRow, "id" | "checksum8" | "variants" | "ladder_rev">;
+
+function ladderFor(p: LadderRow, galleryId: string): LadderSources | undefined {
   const variants = parseVariants(p.variants);
   if (!p.checksum8 || variants.length === 0 || !PUBLIC_CDN) return undefined;
   return {
@@ -178,7 +201,21 @@ function toPhoto(p: PhotoRow): AlbumPhoto {
   };
 }
 
-function toAlbum(g: GalleryRow, photos: PhotoRow[], count?: number): AlbumData {
+/**
+ * `coverRow` is for the CARD GRIDS, which pass `photos: []`.
+ *
+ * Without it there was nothing to search for the cover, so `coverLadder` came
+ * out undefined on every tile and the About and Portfolio grids fell through
+ * to `cover` — the untouched original. Ten of those, at 136×136 on About and
+ * 168×168 on Portfolio, and the three newest albums were a 71 MB, a 64 MB and
+ * a 27 MB PNG. See loadAllAlbums, which now resolves them.
+ */
+function toAlbum(
+  g: GalleryRow,
+  photos: PhotoRow[],
+  count?: number,
+  coverRow?: CoverRow,
+): AlbumData {
   const ordered = [...photos].sort(
     (a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id),
   );
@@ -186,9 +223,11 @@ function toAlbum(g: GalleryRow, photos: PhotoRow[], count?: number): AlbumData {
   // Match the cover back to its row so the hero can use the ladder too. When
   // cover_path is null the first photo is what the hero falls back to anyway,
   // so it is the right row to take derivatives from.
-  const heroRow = g.cover_path
-    ? ordered.find((p) => p.storage_path === g.cover_path)
-    : ordered[0];
+  const heroRow =
+    coverRow ??
+    (g.cover_path
+      ? ordered.find((p) => p.storage_path === g.cover_path)
+      : ordered[0]);
 
   return {
     slug: g.slug,
@@ -385,6 +424,56 @@ export const getAllAlbumSlugs = unstable_cache(
  * embedded array truncates and the count goes low. At a few hundred photographs
  * per album that is not close.
  */
+/**
+ * Gallery + path, which is how a cover row is identified.
+ *
+ * KEYED ON BOTH, not on the path alone. A storage path is unique in practice,
+ * but "in practice" is how the wrong photograph ends up on a tile after
+ * someone re-uploads a folder under a second gallery. The NUL separator cannot
+ * occur in either half, so no pair of values can collide by concatenation.
+ */
+function coverKey(galleryId: string, path: string): string {
+  return `${galleryId}\u0000${path}`;
+}
+
+/**
+ * The photo rows behind a set of album covers, keyed by gallery + path.
+ *
+ * NEVER THROWS. A failure here costs the grids their derivatives and they
+ * degrade to exactly what they did before this function existed — which is to
+ * say, badly, but not blankly. Taking the whole album list down because the
+ * thumbnails would be heavy is the wrong trade.
+ */
+async function loadCoverRows(paths: string[]): Promise<Map<string, CoverRow>> {
+  const out = new Map<string, CoverRow>();
+  if (paths.length === 0) return out;
+
+  try {
+    // The column list is written inline rather than held in a constant so
+    // supabase-js can infer the row type from the literal: the assignment
+    // below is then a real check against CoverRow, and dropping a column here
+    // stops this compiling rather than failing at runtime.
+    const { data, error } = await supabaseRead()
+      .from("photos")
+      .select("id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev")
+      .in("storage_path", [...new Set(paths)]);
+
+    if (error) {
+      console.warn(`[albums] cover ladders unavailable: ${error.message}`);
+      return out;
+    }
+    const rows: CoverRow[] = data ?? [];
+    for (const row of rows) {
+      out.set(coverKey(row.gallery_id, row.storage_path), row);
+    }
+  } catch (e) {
+    console.warn(
+      `[albums] cover ladders unavailable: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  return out;
+}
+
 const loadAllAlbums = unstable_cache(
   async (): Promise<AlbumData[]> => {
     const [manifest, { data, error }] = await Promise.all([
@@ -399,8 +488,16 @@ const loadAllAlbums = unstable_cache(
 
     if (error) throw new Error(`Supabase: failed to load albums: ${error.message}`);
 
-    const out: AlbumData[] = [];
-    for (const row of data ?? []) {
+    // PASS ONE — decide which albums survive, and what each one's cover is.
+    //
+    // Split from the build below because `cover_path` is not known until
+    // curation has run: an album whose chosen cover was hidden falls back to
+    // its first visible photograph, so asking the database for cover rows any
+    // earlier would ask for the wrong ones.
+    const rows = data ?? [];
+    type Kept = { gallery: Omit<(typeof rows)[number], "photos">; count: number };
+    const kept: Kept[] = [];
+    for (const row of rows) {
       const { photos, ...gallery } = row;
 
       if (gallery.is_published === false) continue;
@@ -413,7 +510,33 @@ const loadAllAlbums = unstable_cache(
       if (all.length > 0 && visible.length === 0) continue;
 
       gallery.cover_path = coverAfterCuration(gallery.cover_path, visible, manifest);
-      out.push(toAlbum(gallery, [], visible.length));
+      kept.push({ gallery, count: visible.length });
+    }
+
+    // THE COVER ROWS — one query, one row per tile.
+    //
+    // This is the whole fix. The select above asks for `photos(storage_path)`
+    // and `toAlbum` was then called with an empty photo array, so there was
+    // nothing to match `cover_path` against and `coverLadder` came out
+    // undefined on every tile. Both grids already branch on `hasLadder` and
+    // fall back to `<Image src={cover}>` — the untouched original — so ten
+    // thumbnails were fetching full-size PNGs. The three newest albums were
+    // 71 MB, 64 MB and 27 MB, which is exactly why they were the slow ones.
+    //
+    // A targeted query rather than widening the select above: ten rows of
+    // seven columns, against the ladder columns for every photograph in every
+    // album. The embedded select stays as cheap as its comment claims.
+    const coverByKey = await loadCoverRows(
+      kept.map((k) => k.gallery.cover_path).filter((p): p is string => Boolean(p)),
+    );
+
+    // PASS TWO — build.
+    const out: AlbumData[] = [];
+    for (const { gallery, count } of kept) {
+      const cover = gallery.cover_path
+        ? coverByKey.get(coverKey(gallery.id, gallery.cover_path))
+        : undefined;
+      out.push(toAlbum(gallery, [], count, cover));
     }
     return out;
   },

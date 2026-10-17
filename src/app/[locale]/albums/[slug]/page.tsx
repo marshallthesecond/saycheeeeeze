@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getAlbumBySlug, getAllAlbumSlugs, getAlbumPhotos } from '@/src/lib/albums';
+import { hasLadder, shareSrc } from '@/src/lib/ladder';
 import AlbumView from './AlbumView';
 
 export async function generateStaticParams() {
@@ -23,6 +24,29 @@ export async function generateMetadata({
     album.description ||
     `${album.title} — photographed in ${album.location}, ${album.year}.`;
 
+  /**
+   * THE SHARE RENDITION, not the cover URL.
+   *
+   * `album.cover` is the untouched original, and for these albums that means
+   * og:image was a 71 MB PNG on Mekhrangiz and 64 MB on Diyora. Every paste of
+   * an album link into Telegram, WhatsApp or a DM sends a scraper after it —
+   * and a scraper on a 71 MB file does not render a slow preview, it times out
+   * and renders none, so the link that was meant to show the work shows a bare
+   * URL instead.
+   *
+   * share.jpg is 2048px at q82, which the ladder already builds: around half a
+   * megabyte, and comfortably over the 1200×630 any of them want. Social
+   * scrapers do not read srcset, so this has to stay one plain URL — the same
+   * reason the service pages use downloadSrc() rather than a rung.
+   *
+   * Falls back to the original when a cover has no ladder. A heavy preview
+   * beats no preview, and an album in that state is one the worker has not
+   * reached yet.
+   */
+  const ogImage = hasLadder(album.coverLadder)
+    ? shareSrc(album.coverLadder)
+    : album.cover;
+
   return {
     title: album.title,
     description,
@@ -30,13 +54,13 @@ export async function generateMetadata({
       title: `${album.title} · saycheeeeeze`,
       description,
       type: 'article',
-      images: [{ url: album.cover, alt: album.title }],
+      images: [{ url: ogImage, alt: album.title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: `${album.title} · saycheeeeeze`,
       description,
-      images: [album.cover],
+      images: [ogImage],
     },
   };
 }
