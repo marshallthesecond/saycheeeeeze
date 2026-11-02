@@ -7,8 +7,10 @@ import { bunnyUrl } from "@/src/lib/bunny-url";
 import Link from "next/link";
 import Lightbox from "@/src/components/common/Lightbox";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
-import { BEST_PHOTOS, CTA_BANNER, MY_WORKS, OPEN_TO, REFERENCE_PHOTOS } from "./photos";
+import { BEST_PICKS, CTA_BANNER, MY_WORKS, OPEN_TO } from "./photos";
 import type { WorksCategory } from "./photos";
+import BestPicks, { type PickItem } from "./BestPicks";
+import { FALLBACK_RATIO, formatPickDate } from "./best-picks";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 import { testimonials } from "@/src/lib/testimonials";
 import { entryPackage, getServiceBySlug } from "@/src/lib/services";
@@ -22,10 +24,9 @@ import { Button } from "@/components/ui/button";
 import { pfps } from "@/src/lib/pfps";
 import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 
-// One word each. They sit inline in the hero meta bar separated by hairline
-// rules, so anything longer breaks the rhythm — and "photography" is redundant
-// once the list is grouped under a photographer.
-const tags = ["Portrait", "Fashion", "Graduation","Commercial"];
+// The discipline tags (PORTRAIT | FASHION | GRADUATION | COMMERCIAL) that sat
+// in the hero meta bar were removed on 2026-11-02 at Marshall's request; the
+// social links took their place on both layouts.
 
 // Text-only in the new hero — the meta bar is a typographic strip, so the
 // lucide glyphs that used to sit in the pill buttons are gone.
@@ -44,64 +45,6 @@ const socialLinks = [
 ];
 
 type WorksFilter = "All" | WorksCategory;
-/** Featured strip tiles: 45vw on a phone, a fixed 208px column above that. */
-const PICK_SIZES = "(max-width: 640px) 45vw, 208px";
-
-/**
- * One card in either of the two top rails.
- *
- * Extracted when the single "My best picks" shelf became two. The markup was
- * twenty-five lines of ladder handling inline in the page; duplicated, the
- * second copy would have drifted from the first the first time either was
- * touched — and the thing most likely to be touched here is the alt text,
- * which is precisely what has to differ between the two rails.
- *
- * `alt` is passed in rather than built here, because what is true of a
- * photograph in one rail is false of the same markup in the other: one is
- * Marshall's work, the other is reference material.
- */
-function PickCard({
-  photo,
-  alt,
-  onOpen,
-}: {
-  photo: AlbumPhoto;
-  alt: string;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      className="relative shrink-0 snap-start overflow-hidden rounded-xl bg-white/5 w-44 sm:w-52 h-56 sm:h-64 cursor-pointer group active:scale-[0.97] transition-transform"
-      onClick={onOpen}
-    >
-      {hasLadder(photo.ladder) ? (
-        <picture>
-          <source type="image/avif" sizes={PICK_SIZES} srcSet={srcSet(photo.ladder, "avif")} />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={fallbackSrc(photo.ladder)}
-            srcSet={srcSet(photo.ladder, "webp")}
-            sizes={PICK_SIZES}
-            alt={alt}
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover group-hover:brightness-90 transition-[filter] duration-200"
-          />
-        </picture>
-      ) : (
-        /* No row for this path — same plain CDN URL as before. */
-        <Image
-          src={photo.src}
-          alt={alt}
-          fill
-          sizes={PICK_SIZES}
-          unoptimized
-          className="object-cover group-hover:brightness-90 transition-[filter] duration-200"
-        />
-      )}
-    </button>
-  );
-}
 /** Service cards. */
 const CARD_SIZES = "(min-width: 1024px) 24vw, 224px";
 /** Album shelf cards. */
@@ -136,31 +79,12 @@ export default function AboutContent({
     [photoIndex],
   );
 
-  // Two rails now, and the split is a claim about authorship rather than a
-  // layout choice: BEST_PHOTOS is Marshall's own work, REFERENCE_PHOTOS is
-  // direction — some of it AI-generated — kept for what it communicates. See
-  // photos.ts.
-  const bestPhotos = useMemo(() => BEST_PHOTOS.map(pick), [pick]);
-  const referencePhotos = useMemo(() => REFERENCE_PHOTOS.map(pick), [pick]);
   const myWorks = useMemo(
     () => MY_WORKS.map((w) => ({ ...pick(w.path), cat: w.cat })),
     [pick],
   );
   const { t, locale } = useT();
 
-  /**
-   * "{n}" in a dictionary string, filled in.
-   *
-   * The alt text on these two rails used to be the hardcoded English
-   * `Featured photograph 3 by saycheeeeeze` — half of which was wrong on a
-   * Russian page and the other half of which was wrong on the reference rail,
-   * where the photographs are not his. Both corrections live in the
-   * dictionaries now, one key per rail.
-   */
-  const altFor = useCallback(
-    (key: string, i: number) => t(key).replace("{n}", String(i + 1)),
-    [t],
-  );
   const [worksFilter, setWorksFilter] = useState<WorksFilter>("All");
 
   /**
@@ -180,6 +104,40 @@ export default function AboutContent({
     },
     [t],
   );
+  /**
+   * Best picks, resolved for the grid: photo, shape and caption.
+   *
+   * The caption's category goes through worksLabel, so "Portrait" reads
+   * "Портрет" here exactly as it does on the MY_WORKS filter below; the date is
+   * formatted per language by formatPickDate (written-out month names, so the
+   * server and the browser print the same string).
+   *
+   * `ratio` falls back to 4:5 when the database has no dimensions — a path
+   * that was never synced still gets a tile rather than collapsing the column.
+   */
+  const pickItems = useMemo<PickItem[]>(
+    () =>
+      BEST_PICKS.map((p, index) => {
+        const photo = pick(p.path);
+        const category = worksLabel(p.cat);
+        const subject = p.title || category;
+        return {
+          index,
+          photo,
+          ratio: photo.width && photo.height ? photo.width / photo.height : FALLBACK_RATIO,
+          category,
+          date: formatPickDate(p.date, locale),
+          title: p.title,
+          alt: t("about.bestPickAlt", { subject }),
+        };
+      }),
+    [pick, worksLabel, locale, t],
+  );
+  const pickPhotos = useMemo(
+    () => pickItems.map((it) => ({ ...it.photo, alt: it.alt })),
+    [pickItems],
+  );
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // AlbumPhoto, not { src, alt } — narrowing here would drop ladder and
   // thumbhash on the way into the lightbox and silently undo the migration.
@@ -256,107 +214,61 @@ export default function AboutContent({
           </div>
         </div>
 
-        {/* Meta bar: disciplines left, socials right (desktop only) */}
-        <div className="mt-5 sm:mt-8 flex items-center justify-between gap-6 h-9 lg:h-11 px-3 lg:px-5 rounded-sm border border-white/8 bg-white/4">
-          <div className="flex items-center min-w-0 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-            {tags.map((tag, i) => (
-              <span key={tag} className="flex items-center shrink-0">
-                {i > 0 && <span aria-hidden className="w-px h-4 bg-white/12 mx-3 lg:mx-4" />}
-                <span className="font-mono text-[8.5px] lg:text-xs uppercase tracking-[0.14em] text-fg-muted whitespace-nowrap">
-                  {tag}
-                </span>
-              </span>
-            ))}
-          </div>
+        {/* Meta bar: the social links, on both layouts.
 
-          <div className="hidden lg:flex items-center gap-5 shrink-0">
-            {socialLinks.map((s) => (
-              <SocialLink key={s.label} {...s} />
-            ))}
-          </div>
-        </div>
-
-        {/* Welcome, then bio */}
-        {/* Static, and deliberately so: it is the one line that has to be
-            readable in the first frame, before the variant chunk resolves and
-            before anything starts typing. It is also the only sentence on the
-            page that says what the page IS.
-
-            A step and a half larger than the bio at each breakpoint (16/18 vs
-            the bio's 14/15) so it reads as the greeting and the bio reads as
-            the detail under it — same width, so they share a left edge. */}
-        <p className="mt-8 sm:mt-10 mx-auto max-w-2xl text-center text-lg sm:text-2xl font-semibold leading-snug text-balance text-white">
-          {t("about.welcome")}
-        </p>
-        {/* Centred column, left-aligned text. The welcome line above is centred
-            because it is a statement; this is not, because a typewriter on
-            centred text re-centres on every character and the whole paragraph
-            jitters as it types. Sharing the column keeps them one block. */}
-        <BioTypewriter className="mt-4 sm:mt-5 mx-auto" />
-
-        {/* Mobile CTAs + socials */}
-        <div className="lg:hidden mt-0">
-          <HeroActions locale={locale} portfolioLabel={t("about.viewPortfolio")} bookLabel={t("about.bookSession")} />
-        </div>
-        <div className="lg:hidden mt-6 pt-5 border-t border-white/8 flex flex-wrap gap-x-5 gap-y-3">
+            They used to share this strip with four discipline tags on desktop
+            and sit in a separate row below the buttons on a phone. The tags
+            are gone (2026-11-02) and the links moved up into their place, so
+            the first thing under the name is where else to find the work.
+            Spread edge to edge on a phone, where four short words in a
+            full-width bar otherwise bunch up on the left; left-aligned with a
+            fixed gap on desktop, where spreading them across 1200px would turn
+            four links into four islands. Scrolls sideways on a very narrow
+            screen rather than wrapping inside a fixed-height bar. */}
+        <div className="mt-5 sm:mt-8 flex items-center justify-between lg:justify-start gap-5 lg:gap-8 h-9 lg:h-11 px-3 lg:px-5 rounded-sm border border-white/8 bg-white/4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           {socialLinks.map((s) => (
             <SocialLink key={s.label} {...s} />
           ))}
         </div>
+
+        {/* Intro, as a film caption (Marshall's pick, 2026-11-02).
+
+            It was a centred 18–24px bold welcome over a 14–15px bio, and on a
+            phone the two together took most of the first screen for what is
+            only a bio. Now: a tiny mono label, a hairline, and the welcome and
+            the bio as ONE small italic paragraph, left-aligned — the way the
+            caption under a printed photograph reads.
+
+            The welcome is still static and still first — it is the one line
+            that must be readable in the first frame, before anything types,
+            and the only sentence that says what the page is. It is passed to
+            BioTypewriter as a prefix so it sits at the head of the same
+            paragraph, slightly brighter, and the bio types on after it. */}
+        <div className="mt-6 sm:mt-8 max-w-2xl">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-fg-faint">
+            {t("about.captionLabel")}
+          </p>
+          <div aria-hidden className="mt-2 h-px w-full bg-white/12" />
+          <BioTypewriter prefix={t("about.welcome")} className="mt-3" />
+        </div>
+
+        {/* Mobile CTAs. The social row that used to follow them moved up
+            into the meta bar under the name. */}
+        <div className="lg:hidden mt-5">
+          <HeroActions locale={locale} portfolioLabel={t("about.viewPortfolio")} bookLabel={t("about.bookSession")} />
+        </div>
       </section>
 
-      {/* My best photos — his own work, so it leads.
-
-          Renders nothing while BEST_PHOTOS is empty: a "My best photos"
-          heading over an empty rail is worse than no heading, and this one
-          starts empty by design (see photos.ts). "Show all" moved here from
-          the reference rail with it — the portfolio is his work, so that is
-          where a link to it belongs. */}
-      {bestPhotos.length > 0 && (
-        <Shelf
-          title={t("about.bestPhotos")}
-          showAllLabel={t("common.showAll")}
-          showAllHref={`/${locale}/portfolio`}
-          className="mt-6 sm:mt-4 pb-4"
-        >
-          {bestPhotos.map((p, i) => (
-            <PickCard
-              key={i}
-              photo={p}
-              alt={altFor("about.bestPhotoAlt", i)}
-              onOpen={() => openLightbox(
-                bestPhotos.map((b, n) => ({ ...b, alt: altFor("about.bestPhotoAlt", n) })), i,
-              )}
-            />
-          ))}
-        </Shelf>
-      )}
-
-      {/* Reference photos — direction, not portfolio.
-
-          The subtitle is load-bearing, not decoration. Some of these frames
-          are AI-generated, and a rail of photographs on a photographer's page
-          is read as the photographer's unless something says otherwise. The
-          alt text carries the same correction: it used to end "by
-          saycheeeeeze" on every one of them. */}
-      {referencePhotos.length > 0 && (
-        <Shelf
-          title={t("about.referencePhotos")}
-          subtitle={t("about.referencePhotosSub")}
-          className="mt-6 sm:mt-4 pb-4"
-        >
-          {referencePhotos.map((p, i) => (
-            <PickCard
-              key={i}
-              photo={p}
-              alt={altFor("about.referenceAlt", i)}
-              onOpen={() => openLightbox(
-                referencePhotos.map((b, n) => ({ ...b, alt: altFor("about.referenceAlt", n) })), i,
-              )}
-            />
-          ))}
-        </Shelf>
-      )}
+      {/* Best picks — the grid from Marshall's sketch. See BestPicks.tsx for
+          the layout and photos.ts for what goes in it and the captions. */}
+      <BestPicks
+        heading={t("about.bestPicks")}
+        items={pickItems}
+        loadMoreLabel={t("about.loadMore")}
+        fullPortfolioLabel={t("about.fullPortfolio")}
+        portfolioHref={`/${locale}/portfolio`}
+        onOpen={(i) => openLightbox(pickPhotos, i)}
+      />
 
       {/* Albums */}
       <Shelf title={t("about.galleries")} className="pb-6 mt-6 sm:mt-12">

@@ -11,51 +11,52 @@
 // have pointed at folders that were never uploaded and rendered as broken.
 
 /**
- * MY BEST PHOTOS — the real work, hand-picked, at the top of the page.
+ * BEST PICKS — the grid near the top of the page.
  *
- * Empty on purpose. This shelf renders nothing at all until there is
- * something in it, because an empty "My best photos" heading on a
- * photographer's page says the opposite of what it is there to say.
+ * Order is display order, with one exception: the FIRST entry is the big
+ * feature tile, and the four beside it are chosen by shape — landscape frames
+ * for the two short slots, portrait frames for the two tall ones — so a
+ * portrait never gets cropped into a 3:2 box. Everything else follows in the
+ * order written here. See best-picks.ts for the layout itself.
  *
- * TO FILL IT, run the picker and copy a path per line:
+ * NINE fills the first screen exactly, as in the sketch: the feature, the four
+ * beside it and one row of four. With fewer the second row has a gap; with
+ * more, "Load more" appears and reveals eight at a time.
  *
- *   node --env-file=.env.local scripts/contact-sheet.mjs
+ * THE CAPTION under each photo, left to right:
  *
- * Six to ten is the right number. More than that and it stops being a
- * selection; the filterable MY_WORKS grid further down is where volume goes.
+ *   cat    bold, top left — one of the WorksCategory values below, shown in
+ *          the reader's language (Portrait / Портрет / Portret).
+ *   date   top right. Write "2026-11-10", "2026-11" or just "2026"; it is
+ *          formatted per language ("10 Nov, 2026" / "10 ноя 2026"). Nothing
+ *          in the database records when a photograph was taken, so this is
+ *          the only place the date can come from. Leave it out and the corner
+ *          stays empty.
+ *   title  italic, second line. Optional. The defaults below are the
+ *          subject's name from the folder; write anything you like instead.
  *
- * These are the frames that carry the page, so it is worth being ruthless:
- * every one of them should be a photograph someone would book you for.
+ * History, so nobody is surprised by git blame: on 2026-10-15 this list was
+ * split into a "reference photos" rail with an AI-generated note, because some
+ * of these frames are; on 2026-11-02 Marshall had it put back to Best picks
+ * with no note, and will swap the AI frames for real work himself.
  */
-export const BEST_PHOTOS: string[] = [];
+export interface BestPick {
+  path: string;
+  cat: WorksCategory;
+  title?: string;
+  date?: string;
+}
 
-/**
- * REFERENCE PHOTOS — direction, not portfolio.
- *
- * This list used to be BEST_PICKS and was presented as Marshall's best work.
- * It is not: some of these frames are AI-generated, kept because they say
- * usefully what a session could look like. Renaming the section is the honest
- * fix and the cheap one — the pictures stay, the claim about them goes.
- *
- * A rail of photographs on a photographer's page is read as the
- * photographer's unless something says otherwise, so the heading is not doing
- * this alone: the shelf carries a subtitle, and its alt text no longer says
- * "by saycheeeeeze".
- *
- * Anything genuinely his that is in here belongs in BEST_PHOTOS above
- * instead — it is being undersold sitting in a reference strip.
- */
-export const REFERENCE_PHOTOS: string[] = [
-  "Portraits/Sara/3M0A1432.png",
-  "Portraits/Radmir/3M0A0675.png",
-  "WIUT-Fashion-Show/3M0A3551.png",
-  "WIUT/5I9A3029.png",
-  "Portraits/9O6A2264.png",
-  "Portraits/dude.jpg",
-  "Portraits/3M0A4694.png",
-  "Portraits/Mekhrangiz/4P5A1850.png",
-
-  // "Clients/Mekhrangiz/4P5A1850.png"
+export const BEST_PICKS: BestPick[] = [
+  // The feature tile. Choose this one deliberately.
+  { path: "Portraits/Sara/3M0A1432.png", cat: "Portrait", title: "Sara", date: "2026" },
+  { path: "Portraits/Radmir/3M0A0675.png", cat: "Portrait", title: "Radmir", date: "2026" },
+  { path: "WIUT-Fashion-Show/3M0A3551.png", cat: "Fashion", title: "WIUT Fashion Show", date: "2026" },
+  { path: "WIUT/5I9A3029.png", cat: "WIUT" },
+  { path: "Portraits/9O6A2264.png", cat: "Portrait" },
+  { path: "Portraits/dude.jpg", cat: "Portrait" },
+  { path: "Portraits/3M0A4694.png", cat: "Portrait" },
+  { path: "Portraits/Mekhrangiz/4P5A1850.png", cat: "Portrait", title: "Mekhrangiz", date: "2026" },
 ];
 
 export type WorksCategory =
@@ -126,8 +127,7 @@ export const CTA_BANNER = "Random/itsmelol.jpg";
 /** Every storage path this page needs, deduplicated — what the server resolves. */
 export const ABOUT_PHOTO_PATHS: string[] = Array.from(
   new Set([
-    ...BEST_PHOTOS,
-    ...REFERENCE_PHOTOS,
+    ...BEST_PICKS.map((p) => p.path),
     ...MY_WORKS.map((w) => w.path),
     ...OPEN_TO.map((o) => o.path),
     CTA_BANNER,

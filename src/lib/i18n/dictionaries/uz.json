@@ -18,11 +18,11 @@
     "close": "Yopish"
   },
   "about": {
-    "bestPhotos": "Eng yaxshi ishlarim",
-    "bestPhotoAlt": "{n}-surat — saycheeeeeze, Toshkent",
-    "referencePhotos": "Referens suratlar",
-    "referencePhotosSub": "Portfolio emas, yo‘nalish — suratga olishda mo‘ljal qilinadigan kayfiyat va yorug‘lik. Ba’zilari sun’iy intellekt yaratgan.",
-    "referenceAlt": "{n}-referens — suratga olish uchun kayfiyat va yorug‘lik",
+    "bestPicks": "Eng yaxshi ishlarim",
+    "bestPickAlt": "{subject} — saycheeeeeze surati, Toshkent",
+    "loadMore": "Yana ko‘rsatish",
+    "fullPortfolio": "To‘liq portfolio",
+    "captionLabel": "Shamshod — Toshkent — 2022-yildan",
     "albums": "Albomlar",
     "testimonials": "Mijozlar fikri",
     "openTo": "Ishlashga tayyorman",

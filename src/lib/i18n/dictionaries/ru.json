@@ -18,11 +18,11 @@
     "close": "Закрыть"
   },
   "about": {
-    "bestPhotos": "Мои лучшие работы",
-    "bestPhotoAlt": "Фотография {n} — saycheeeeeze, Ташкент",
-    "referencePhotos": "Референсы",
-    "referencePhotosSub": "Направление, а не портфолио — настроение и свет, к которым можно стремиться на съёмке. Часть кадров сгенерирована ИИ.",
-    "referenceAlt": "Референс {n} — настроение и свет для съёмки",
+    "bestPicks": "Лучшие работы",
+    "bestPickAlt": "{subject} — фото saycheeeeeze, Ташкент",
+    "loadMore": "Показать ещё",
+    "fullPortfolio": "Всё портфолио",
+    "captionLabel": "Shamshod — Ташкент — с 2022",
     "albums": "Альбомы",
     "testimonials": "Отзывы",
     "openTo": "Что я снимаю",

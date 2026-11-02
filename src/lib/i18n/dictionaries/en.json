@@ -18,11 +18,11 @@
     "close": "Close"
   },
   "about": {
-    "bestPhotos": "My best photos",
-    "bestPhotoAlt": "Photograph {n} by saycheeeeeze, Tashkent",
-    "referencePhotos": "Reference photos",
-    "referencePhotosSub": "Direction, not portfolio — the look and mood a session can aim at. Some of these are AI-generated.",
-    "referenceAlt": "Reference photograph {n} — look and mood for a session",
+    "bestPicks": "Best picks",
+    "bestPickAlt": "{subject} — photographed by saycheeeeeze in Tashkent",
+    "loadMore": "Load more",
+    "fullPortfolio": "Full portfolio",
+    "captionLabel": "Shamshod — Tashkent — since 2022",
     "albums": "Albums",
     "testimonials": "Kind words",
     "openTo": "Open to",
