@@ -20,7 +20,7 @@ import StickyHeader from "@/src/components/common/StickyHeader";
 import Shelf from "@/src/components/common/Shelf";
 import BioTypewriter from "@/src/components/common/BioTypewriter";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/src/components/ui/button";
 import { pfps } from "@/src/lib/pfps";
 import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 
