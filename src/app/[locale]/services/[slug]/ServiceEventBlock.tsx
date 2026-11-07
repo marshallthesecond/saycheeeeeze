@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarDays, MapPin, Info } from 'lucide-react';
+import { accentText } from './accent';
 
 interface Props {
   date?: string;
@@ -92,30 +93,30 @@ export default function ServiceEventBlock({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-white">{label}</p>
+          <p className="text-sm font-bold text-foreground">{label}</p>
 
           {dateLine && (
-            <p className="mt-0.5 text-sm font-semibold" style={{ color: accent }}>
+            <p className="mt-0.5 text-sm font-semibold" style={{ color: accentText(accent) }}>
               {dateLine}
             </p>
           )}
 
           {venue && (
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-white/60">
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
               <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
               {venue}
             </p>
           )}
 
           {note && (
-            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-white/50">
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               {note}
             </p>
           )}
 
           {showScarcity && (
-            <p className="mt-3 text-xs font-semibold text-white/80">
+            <p className="mt-3 text-xs font-semibold text-foreground/80">
               {remaining === 0
                 ? labels.fullyBooked
                 : labels.spotsLeft

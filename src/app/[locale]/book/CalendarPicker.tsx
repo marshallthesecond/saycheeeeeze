@@ -35,9 +35,11 @@ const STATUS_STYLE: Record<DayStatus, string> = {
   // with nothing at all — no background, just brighter text — so the calendar
   // read as a grid of disabled cells with a few slightly-less-grey ones in it,
   // and the thing the client came to find was the one thing not marked.
-  open:    "bg-white/12 hover:bg-white/20 active:bg-white/25 text-white/90",
-  pending: "bg-white/[0.04] text-white/25 cursor-not-allowed",
-  booked:  "bg-white/[0.04] text-white/25 cursor-not-allowed line-through",
+  open:    "bg-foreground/12 hover:bg-foreground/20 active:bg-foreground/25 text-foreground/90",
+  // Unavailable days stay faint on purpose — they are disabled controls, which
+  // WCAG exempts, and the contrast between them and an open day is the point.
+  pending: "bg-foreground/[0.04] text-foreground/30 cursor-not-allowed",
+  booked:  "bg-foreground/[0.04] text-foreground/30 cursor-not-allowed line-through",
   closed:  "opacity-20 cursor-not-allowed",
 };
 
@@ -51,9 +53,9 @@ const STATUS_STYLE: Record<DayStatus, string> = {
  * maps adjacent is the only thing that stops them drifting again.
  */
 const LEGEND_SWATCH = {
-  available: "bg-white/12",
-  taken: "bg-white/[0.05]",
-  closed: "ring-1 ring-white/12",
+  available: "bg-foreground/12",
+  taken: "bg-foreground/[0.05]",
+  closed: "ring-1 ring-border",
 } as const;
 
 interface CalendarProps {
@@ -159,7 +161,7 @@ export const CalendarPicker = memo(function CalendarPicker({
 
   return (
     <div
-      className={`bg-white/5 border border-white/10 rounded-2xl p-4 transition
+      className={`bg-foreground/5 border border-border rounded-2xl p-4 transition
         ${locked ? "opacity-60 pointer-events-none select-none" : ""}`}
       aria-disabled={locked || undefined}
     >
@@ -169,7 +171,7 @@ export const CalendarPicker = memo(function CalendarPicker({
           disabled={atFirst}
           aria-label={t("book.prevMonth")}
           className={`w-11 h-11 flex items-center justify-center rounded-lg transition
-            ${atFirst ? "opacity-20 cursor-not-allowed" : "hover:bg-white/10 active:bg-white/15"}`}
+            ${atFirst ? "opacity-20 cursor-not-allowed" : "hover:bg-foreground/10 active:bg-foreground/15"}`}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -179,7 +181,7 @@ export const CalendarPicker = memo(function CalendarPicker({
           disabled={atLast}
           aria-label={t("book.nextMonth")}
           className={`w-11 h-11 flex items-center justify-center rounded-lg transition
-            ${atLast ? "opacity-20 cursor-not-allowed" : "hover:bg-white/10 active:bg-white/15"}`}
+            ${atLast ? "opacity-20 cursor-not-allowed" : "hover:bg-foreground/10 active:bg-foreground/15"}`}
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -187,7 +189,7 @@ export const CalendarPicker = memo(function CalendarPicker({
 
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map((d, i) => (
-          <div key={`${d}-${i}`} className="text-center text-[10px] text-white/30 font-medium py-1">
+          <div key={`${d}-${i}`} className="text-center text-[10px] text-muted-foreground font-medium py-1">
             {d}
           </div>
         ))}
@@ -210,8 +212,8 @@ export const CalendarPicker = memo(function CalendarPicker({
               aria-label={`${MONTHS[viewMonth]} ${d} — ${t(`book.aria.${info.status}`)}`}
               aria-pressed={selected}
               className={`relative flex items-center justify-center rounded-lg min-h-11 text-xs font-medium transition active:scale-95
-                ${selected ? "bg-accent-warm text-accent-ink font-bold" : STATUS_STYLE[info.status]}
-                ${isToday && !selected ? "ring-1 ring-white/40" : ""}`}
+                ${selected ? "bg-primary text-primary-foreground font-bold" : STATUS_STYLE[info.status]}
+                ${isToday && !selected ? "ring-1 ring-foreground/40" : ""}`}
             >
               {d}
             </button>
@@ -219,7 +221,7 @@ export const CalendarPicker = memo(function CalendarPicker({
         })}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 pt-3 border-t border-white/10 text-[10px] text-white/40">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4 pt-3 border-t border-border text-[10px] text-muted-foreground">
         <Legend className={LEGEND_SWATCH.available} label={t("book.available")} />
         {/* One entry for pending and confirmed both: to a client they are the
             same fact — that day is gone. Which of the two it is matters to
@@ -265,10 +267,10 @@ export const StartTimePicker = memo(function StartTimePicker({
   const bands = useMemo(() => groupStartTimes(slots), [slots]);
 
   if (!selectedISO) {
-    return <p className="text-xs text-white/30">{t("book.pickDateFirst")}</p>;
+    return <p className="text-xs text-muted-foreground">{t("book.pickDateFirst")}</p>;
   }
   if (slots.length === 0) {
-    return <p className="text-xs text-white/50">{t("book.noSlots")}</p>;
+    return <p className="text-xs text-muted-foreground">{t("book.noSlots")}</p>;
   }
 
   return (
@@ -278,7 +280,7 @@ export const StartTimePicker = memo(function StartTimePicker({
       <Band label={t("book.evening")}   slots={bands.evening}   startTime={startTime} onChange={onChange} />
 
       {slots.some((s) => s.goldenHour) && (
-        <p className="flex items-center gap-1.5 text-[11px] text-white/35">
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Sun className="w-3 h-3 text-accent-warm shrink-0" />
           {t("book.goldenHourHint")}
         </p>
@@ -296,7 +298,7 @@ const Band = memo(function Band({ label, slots, startTime, onChange }: {
   if (slots.length === 0) return null;
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
         {label}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -310,8 +312,8 @@ const Band = memo(function Band({ label, slots, startTime, onChange }: {
               title={`${s.time}–${s.endsAt}`}
               className={`relative h-11 px-4 rounded-lg text-xs font-medium transition active:scale-95
                 ${active
-                  ? "bg-accent-warm text-accent-ink font-bold"
-                  : "bg-white/[0.07] text-white/65 hover:bg-white/[0.14] hover:text-white"}`}
+                  ? "bg-primary text-primary-foreground font-bold"
+                  : "bg-foreground/[0.07] text-foreground/80 hover:bg-foreground/[0.14] hover:text-foreground"}`}
             >
               {s.time}
               {s.goldenHour && !active && (
@@ -349,7 +351,7 @@ export const EventSlotPicker = memo(function EventSlotPicker({ slots, startTime,
   const openCount = slots.filter((s) => s.state === "open").length;
 
   if (openCount === 0) {
-    return <p className="text-xs text-white/50">{t("book.eventSoldOut")}</p>;
+    return <p className="text-xs text-muted-foreground">{t("book.eventSoldOut")}</p>;
   }
 
   return (
@@ -367,17 +369,17 @@ export const EventSlotPicker = memo(function EventSlotPicker({ slots, startTime,
               aria-label={`${s.time} — ${t(taken ? "book.aria.booked" : "book.aria.open")}`}
               className={`h-11 rounded-lg text-xs font-medium transition active:scale-95
                 ${active
-                  ? "bg-accent-warm text-accent-ink font-bold"
+                  ? "bg-primary text-primary-foreground font-bold"
                   : taken
-                    ? "bg-white/[0.04] text-white/25 line-through cursor-not-allowed"
-                    : "bg-white/[0.07] text-white/65 hover:bg-white/[0.14] hover:text-white"}`}
+                    ? "bg-foreground/[0.04] text-foreground/30 line-through cursor-not-allowed"
+                    : "bg-foreground/[0.07] text-foreground/80 hover:bg-foreground/[0.14] hover:text-foreground"}`}
             >
               {s.time}
             </button>
           );
         })}
       </div>
-      <p className="text-[11px] text-white/35">
+      <p className="text-[11px] text-muted-foreground">
         {t("book.eventSlotsLeft").replace("{n}", String(openCount))}
       </p>
     </div>

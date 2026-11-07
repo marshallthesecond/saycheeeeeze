@@ -55,6 +55,7 @@ import {
   AudienceToggle,
 } from './ServiceAudience';
 import StickyHeader from '@/src/components/common/StickyHeader';
+import { accentText } from './accent';
 
 /** The horizontal examples rail under the packages. */
 const RAIL_SIZES = '(max-width: 768px) 45vw, 224px';
@@ -534,7 +535,7 @@ export default async function ServicePage({
     // server-rendered children as a prop. Only <AudienceText> and the islands
     // reading the context are client-side.
     <AudienceProvider>
-    <div className="min-h-screen bg-background text-white relative overflow-x-clip">
+    <div className="min-h-screen bg-background text-foreground relative overflow-x-clip">
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
@@ -564,10 +565,10 @@ export default async function ServicePage({
           accent={service.accentColor}
         />
       ) : (
-        // Full-bleed cover photo melting into the page via the service's own
-        // accent: no rounded card, no seam, the image is the header. A JS
-        // comment rather than a JSX one because a ternary branch holds one
-        // expression and {/* … */} is itself an expression.
+        // Full-bleed cover photo melting into the page: no rounded card, no
+        // seam, the image is the header. A JS comment rather than a JSX one
+        // because a ternary branch holds one expression and {/* … */} is
+        // itself an expression.
         <div
         // A hero has to say what this is and then get out of the way. At 44vh
         // it fills the top of the screen while leaving the first section
@@ -602,16 +603,23 @@ export default async function ServicePage({
             priority
           />
         )}
-        {/* Accent wash + fade to page background */}
+        {/* Fade to the page ground — no colour. This used to run through the
+            service's accent (13% at mid-height, 53% under the title) on its
+            way to black: a red or blue cast across the lower half of the
+            photograph. Photographs stay untinted, so it is now the page ground
+            alone, cream or wine-black, and the title below is set in the
+            theme's ink rather than white — by the time the text starts, the
+            ground is most of what is behind it. */}
         <div
           aria-hidden
           className="absolute inset-0"
           style={{
             background: `linear-gradient(to bottom,
-              rgba(0,0,0,0.35) 0%,
-              ${service.accentColor}22 45%,
-              ${service.accentColor}88 78%,
-              rgba(0,0,0,1) 100%)`,
+              transparent 0%,
+              transparent 28%,
+              color-mix(in oklab, var(--background) 45%, transparent) 46%,
+              color-mix(in oklab, var(--background) 84%, transparent) 66%,
+              var(--background) 88%)`,
           }}
         />
 
@@ -629,19 +637,19 @@ export default async function ServicePage({
             >
               <Icon className="h-3.5 w-3.5 text-white" />
             </span>
-            <span className="text-[11px] font-bold uppercase tracking-widest text-white/70">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-foreground/80">
               {categoryLabel}
             </span>
           </div>
           <h1 className="text-[30px] sm:text-6xl font-extrabold tracking-tighter leading-[0.95] max-w-3xl">
             {title}
           </h1>
-          <p className="text-sm sm:text-base text-white/75 mt-2.5 max-w-xl">{tagline}</p>
+          <p className="text-sm sm:text-base text-foreground/85 mt-2.5 max-w-xl">{tagline}</p>
         </div>
       </div>
       )}
 
-      <StickyHeader title={title} accent={service.accentColor} fadeOver={320} backHref={`/${locale}`} />
+      <StickyHeader title={title} fadeOver={320} backHref={`/${locale}`} />
 
       <main className="relative z-10 px-4 sm:px-8 pt-8 pb-32">
 
@@ -668,7 +676,7 @@ export default async function ServicePage({
         <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-10 lg:gap-y-0">
 
           <div className="order-1 mb-12 min-w-0 max-w-2xl sm:mb-14 lg:col-start-1 lg:row-start-1">
-            <p className="text-sm text-white/70 leading-relaxed">
+            <p className="text-sm text-foreground/70 leading-relaxed">
               <AudienceText base={description} alt={audience?.description} />
             </p>
 
@@ -732,7 +740,7 @@ export default async function ServicePage({
               <div className="flex items-end justify-between mb-5">
                 <div>
                   <h2 className="text-2xl font-extrabold tracking-tight">{railHeading}</h2>
-                  <p className="text-sm text-white/40 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {railSub}
                   </p>
                 </div>
@@ -774,11 +782,9 @@ export default async function ServicePage({
                       )}
 
                       <div className="absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent opacity-70" />
-
-                      <div
-                        className="absolute top-4 left-4 w-10 h-1 rounded-full"
-                        style={{ background: service.accentColor }}
-                      />
+                      {/* There was an accent bar painted on every photograph
+                          here, top left. Photographs carry no colour of the
+                          brand's; it lives on the controls. */}
                     </div>
                   ))}
                 </div>
@@ -789,12 +795,12 @@ export default async function ServicePage({
               <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.included}</h2>
               <ul className="space-y-3">
                 {includes.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-white/80">
+                  <li key={i} className="flex items-start gap-3 text-sm text-foreground/80">
                     <span
                       className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                       style={{ background: `${service.accentColor}33` }}
                     >
-                      <Check className="w-3 h-3" style={{ color: service.accentColor }} />
+                      <Check className="w-3 h-3" style={{ color: accentText(service.accentColor) }} />
                     </span>
                     {item}
                   </li>
@@ -810,12 +816,12 @@ export default async function ServicePage({
                 <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.proofHeading}</h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {proof.map((quote, i) => (
-                    <figure key={i} className="rounded-2xl border border-white/10 bg-white/3 p-5">
-                      <Quote className="h-4 w-4" style={{ color: service.accentColor }} />
-                      <blockquote className="mt-3 text-sm leading-relaxed text-white/80">
+                    <figure key={i} className="rounded-2xl border border-border bg-foreground/3 p-5">
+                      <Quote className="h-4 w-4" style={{ color: accentText(service.accentColor) }} />
+                      <blockquote className="mt-3 text-sm leading-relaxed text-foreground/80">
                         {quote.quote}
                       </blockquote>
-                      <figcaption className="mt-3 text-xs text-white/45">
+                      <figcaption className="mt-3 text-xs text-muted-foreground">
                         {quote.name}
                         {quote.detail ? ` · ${quote.detail}` : ''}
                       </figcaption>
@@ -834,10 +840,10 @@ export default async function ServicePage({
               <h2 className="text-2xl font-extrabold tracking-tight mb-4">{s.prepare}</h2>
               <ul className="space-y-2">
                 {howToPrepare.map((tip, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-white/70">
+                  <li key={i} className="flex items-start gap-3 text-sm text-foreground/70">
                     <span
                       className="shrink-0 font-bold text-xs mt-0.5"
-                      style={{ color: service.accentColor }}
+                      style={{ color: accentText(service.accentColor) }}
                     >
                       {String(i + 1).padStart(2, '0')}
                     </span>
@@ -901,7 +907,7 @@ export default async function ServicePage({
                 }}
               />
 
-              <p className="text-center text-xs text-white/40">
+              <p className="text-center text-xs text-muted-foreground">
                 {s.questions}
               </p>
             </div>

@@ -106,7 +106,7 @@ export default function NavPerimeterGlow({ active }: { active: boolean }) {
             d={d}
             pathLength={100}
             fill="none"
-            stroke="var(--sc-accent-hover)"
+            stroke="var(--sc-accent)"
             strokeWidth={STROKE * 2.5}
             strokeLinecap="round"
             opacity={0.3}
@@ -119,7 +119,7 @@ export default function NavPerimeterGlow({ active }: { active: boolean }) {
             d={d}
             pathLength={100}
             fill="none"
-            stroke="var(--sc-accent-hover)"
+            stroke="var(--sc-accent)"
             strokeWidth={STROKE}
             strokeLinecap="round"
           />

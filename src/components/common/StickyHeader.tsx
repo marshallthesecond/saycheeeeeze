@@ -6,10 +6,13 @@ import { ChevronLeft } from "lucide-react";
 import LanguageSwitcher from "@/src/components/common/LanguageSwitcher";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 
+/** Frosted page ground behind the chevron while the bar is still transparent:
+ *  over a hero photograph it has to carry an ink chevron in light mode and a
+ *  cream one in dark, and a fixed black pill only did the second. */
+const BACK_PILL = "color-mix(in oklab, var(--background) 90%, transparent)";
+
 interface StickyHeaderProps {
   title: string;
-  /** Hex accent the bar tints toward as it fades in. Defaults to near-black. */
-  accent?: string;
   /** Scroll distance (px) over which the bar fades from transparent to solid. */
   fadeOver?: number;
   /** Optional back link. Omit to show no chevron. */
@@ -26,12 +29,16 @@ interface StickyHeaderProps {
 
 /**
  * Spotify-style top bar: transparent over the hero, then fades into a solid
- * tinted bar with the page title as you scroll past it. Stays out of the way
- * on first paint so the hero image gets the full screen.
+ * bar with the page title as you scroll past it. Stays out of the way on first
+ * paint so the hero image gets the full screen.
+ *
+ * The bar is the page ground, not a colour. It used to take an `accent` hex
+ * and fade into that — a service's accent, an album's colour — which under the
+ * pomegranate palette would put a full-width red bar over every service page.
+ * Red is for actions; the bar is furniture.
  */
 export default function StickyHeader({
   title,
-  accent = "#0a0a0a",
   fadeOver = 220,
   backHref,
   onBack,
@@ -77,45 +84,39 @@ export default function StickyHeader({
       style={{
         paddingTop: "env(safe-area-inset-top)",
         height: "calc(2.5rem + env(safe-area-inset-top))",
-        boxShadow: progress > 0.9 ? "0 1px 0 rgba(255,255,255,0.06)" : "none",
+        boxShadow: progress > 0.9 ? "0 1px 0 var(--border)" : "none",
         backdropFilter: progress > 0.15 ? "blur(16px)" : "none",
         WebkitBackdropFilter: progress > 0.15 ? "blur(16px)" : "none",
         // Ignore taps while the bar is still invisible over the hero.
         pointerEvents: progress > 0.5 ? "auto" : "none",
       }}
     >
-      {/* Separate tinted layer so the title stays fully opaque while the
+      {/* Separate layer so the title stays fully opaque while the
           background alone animates its alpha. */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10"
-        style={{ backgroundColor: accent, opacity: progress }}
+        className="absolute inset-0 -z-10 bg-background"
+        style={{ opacity: progress }}
       />
 
       {(backHref || onBack) && (
         onBack ? (
           <button
             onClick={onBack}
-            className="flex items-center justify-center min-w-9 min-h-9 -ml-1 rounded-full active:bg-white/10 transition"
-            style={{
-              pointerEvents: "auto",
-              backgroundColor: progress > 0.5 ? "transparent" : "rgba(0,0,0,0.35)",
-            }}
+            className="flex items-center justify-center min-w-9 min-h-9 -ml-1 rounded-full backdrop-blur-md active:bg-foreground/10 transition"
+            style={{ pointerEvents: "auto", backgroundColor: progress > 0.5 ? "transparent" : BACK_PILL }}
             aria-label={backLabel}
           >
-            <ChevronLeft className="w-6 h-6 text-white" />
+            <ChevronLeft className="w-6 h-6 text-foreground" />
           </button>
         ) : (
           <Link
             href={backHref!}
-            className="flex items-center justify-center min-w-9 min-h-9 -ml-1 rounded-full active:bg-white/10 transition"
-            style={{
-              pointerEvents: "auto",
-              backgroundColor: progress > 0.5 ? "transparent" : "rgba(0,0,0,0.35)",
-            }}
+            className="flex items-center justify-center min-w-9 min-h-9 -ml-1 rounded-full backdrop-blur-md active:bg-foreground/10 transition"
+            style={{ pointerEvents: "auto", backgroundColor: progress > 0.5 ? "transparent" : BACK_PILL }}
             aria-label={backLabel}
           >
-            <ChevronLeft className="w-6 h-6 text-white" />
+            <ChevronLeft className="w-6 h-6 text-foreground" />
           </Link>
         )
       )}
@@ -124,16 +125,19 @@ export default function StickyHeader({
         /* Absolutely centred so the back chevron and language switcher don't
            push it off-axis. aria-hidden on the wrapper isn't needed — it's the
            accessible name of the bar, just never a layout participant. */
+        // The same frosted ground as the chevron until the bar is solid:
+        // "legible from first paint" has to hold over a hero photograph too,
+        // which on an album page is exactly where it first paints.
         <span
-          className="absolute left-1/2 -translate-x-1/2 h-10 flex items-center max-w-[55%] truncate
-                     font-mono text-[11px] uppercase tracking-[0.22em] text-fg-muted"
-          style={{ top: "env(safe-area-inset-top)" }}
+          className="absolute left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top)+0.3125rem)] h-7.5 px-3 rounded-full flex items-center max-w-[55%] truncate
+                     font-mono text-[11px] uppercase tracking-[0.22em] text-fg-muted backdrop-blur-md transition-colors"
+          style={{ backgroundColor: progress > 0.5 ? "transparent" : BACK_PILL }}
         >
           {title}
         </span>
       ) : (
         <span
-          className="text-base font-bold text-white truncate"
+          className="text-base font-bold text-foreground truncate"
           style={{ opacity: progress }}
         >
           {title}

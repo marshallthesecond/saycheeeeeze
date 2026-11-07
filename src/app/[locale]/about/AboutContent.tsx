@@ -160,25 +160,26 @@ export default function AboutContent({
     : myWorks.filter((w) => w.cat === worksFilter);
 
   return (
-    <div className="min-h-screen bg-background text-white overflow-x-clip">
+    <div className="min-h-screen bg-background text-foreground overflow-x-clip">
 
-      {/* Hero wash: a warm veil at the very top that melts into the page
-             background. Much quieter than the old block — the new hero carries
-             its weight typographically, so the gradient only needs to keep the
-             top of the page from reading as flat black. Does NOT fade on
+      {/* Hero wash: a clay veil at the very top that melts into the page
+             background. Quiet — the hero carries its weight typographically,
+             so the gradient only needs to keep the top of the page from
+             reading as flat. Clay rather than red: large areas are cream,
+             clay and surface; the red is for the button. Does NOT fade on
              scroll; the sticky header handles that instead. ── */}
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-105 pointer-events-none z-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(255,236,205,0.045) 0%, rgba(255,236,205,0.018) 45%, rgba(14,12,9,0) 100%)",
+            "linear-gradient(to bottom, color-mix(in oklab, var(--secondary) 22%, transparent) 0%, color-mix(in oklab, var(--secondary) 7%, transparent) 45%, transparent 100%)",
         }}
       />
 
       {/* Sticky bar — the wordmark stays centred and legible from first paint,
-          and the tinted background still fades in as you scroll past the hero */}
-      <StickyHeader title="saycheeeeeze" accent="#0e0c09" fadeOver={260} variant="wordmark" />
+          and the page-coloured background still fades in as you scroll past the hero */}
+      <StickyHeader title="saycheeeeeze" fadeOver={260} variant="wordmark" />
 
       {/* Hero */}
       <section
@@ -225,7 +226,7 @@ export default function AboutContent({
             fixed gap on desktop, where spreading them across 1200px would turn
             four links into four islands. Scrolls sideways on a very narrow
             screen rather than wrapping inside a fixed-height bar. */}
-        <div className="mt-5 sm:mt-8 flex items-center justify-between lg:justify-start gap-5 lg:gap-8 h-9 lg:h-11 px-3 lg:px-5 rounded-sm border border-white/8 bg-white/4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div className="mt-5 sm:mt-8 flex items-center justify-between lg:justify-start gap-5 lg:gap-8 h-9 lg:h-11 px-3 lg:px-5 rounded-sm border border-border bg-foreground/4 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           {socialLinks.map((s) => (
             <SocialLink key={s.label} {...s} />
           ))}
@@ -248,7 +249,7 @@ export default function AboutContent({
           <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-fg-faint">
             {t("about.captionLabel")}
           </p>
-          <div aria-hidden className="mt-2 h-px w-full bg-white/12" />
+          <div aria-hidden className="mt-2 h-px w-full bg-border" />
           <BioTypewriter prefix={t("about.welcome")} className="mt-3" />
         </div>
 
@@ -278,11 +279,13 @@ export default function AboutContent({
             href={`/${locale}/albums/${a.slug}`}
             // Spotify card anatomy: square art, then title + meta BELOW it on a
             // tinted panel — not text overlaid on the photo. Keeps the image clean.
-            className="group shrink-0 snap-start w-40 sm:w-48 rounded-xl p-3 bg-white/4 hover:bg-white/9 active:bg-white/12 transition-colors"
+            className="group shrink-0 snap-start w-40 sm:w-48 rounded-xl p-3 bg-foreground/4 hover:bg-foreground/9 active:bg-foreground/12 transition-colors"
           >
             <div
               className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 shadow-lg"
-              style={{ boxShadow: `0 8px 24px -8px ${a.color}`, ...blurStyle(a.coverThumbhash) }}
+              // A neutral shadow. It was the album's own colour — a tinted glow
+              // round every cover — and photographs carry no colour but their own.
+              style={{ boxShadow: "0 8px 24px -10px rgba(0,0,0,0.35)", ...blurStyle(a.coverThumbhash) }}
             >
               {hasLadder(a.coverLadder) ? (
                 <picture>
@@ -302,8 +305,8 @@ export default function AboutContent({
                 <Image src={a.cover} alt={`${a.title} — album cover, ${a.location} ${a.year}`} fill sizes={ALBUM_COVER_SIZES} unoptimized className="object-cover" />
               )}
             </div>
-            <p className="text-sm font-bold text-white truncate">{a.title}</p>
-            <p className="text-xs text-white/50 mt-0.5 truncate">
+            <p className="text-sm font-bold text-foreground truncate">{a.title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {a.year} · {a.photoCount} photos
             </p>
           </Link>
@@ -316,14 +319,14 @@ export default function AboutContent({
           {testimonials.map((quote, i) => (
             <figure
               key={i}
-              className="shrink-0 snap-start w-72 sm:w-80 rounded-xl p-5 bg-white/4 flex flex-col justify-between"
+              className="shrink-0 snap-start w-72 sm:w-80 rounded-xl p-5 bg-foreground/4 flex flex-col justify-between"
             >
-              <blockquote className="text-sm text-white/85 leading-relaxed">
+              <blockquote className="text-sm text-foreground/85 leading-relaxed">
                 &ldquo;{quote.quote}&rdquo;
               </blockquote>
-              <figcaption className="mt-4 pt-3 border-t border-white/10">
-                <p className="text-sm font-bold text-white">{quote.name}</p>
-                <p className="text-xs text-white/40 mt-0.5">{quote.context}</p>
+              <figcaption className="mt-4 pt-3 border-t border-border">
+                <p className="text-sm font-bold text-foreground">{quote.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{quote.context}</p>
               </figcaption>
             </figure>
           ))}
@@ -335,9 +338,9 @@ export default function AboutContent({
         <Shelf title={t("about.openTo")} className="pb-6 mt-6">
           {OPEN_TO.map((o, i) => <OpenToCard key={i} item={o} photo={pick(o.path)} locale={locale} fromLabel={t("about.from")} detailsLabel={t("about.viewDetails")} />)}
         </Shelf>
-        <p className="px-4 -mt-2 mb-6 text-xs leading-relaxed text-white/40">
+        <p className="px-4 -mt-2 mb-6 text-xs leading-relaxed text-muted-foreground">
           {t("about.alsoOnRequest")}{" "}
-          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-white/70 underline underline-offset-2 hover:text-white">
+          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-accent-warm underline underline-offset-2 hover:text-(--sc-accent-hover)">
             {t("about.alsoOnRequestCta")}
           </a>
         </p>
@@ -347,9 +350,9 @@ export default function AboutContent({
         <div className="grid grid-cols-4 gap-4 px-8">
           {OPEN_TO.map((o, i) => <OpenToCard key={i} item={o} photo={pick(o.path)} locale={locale} fromLabel={t("about.from")} detailsLabel={t("about.viewDetails")} />)}
         </div>
-        <p className="px-8 mt-5 text-sm leading-relaxed text-white/40">
+        <p className="px-8 mt-5 text-sm leading-relaxed text-muted-foreground">
           {t("about.alsoOnRequest")}{" "}
-          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-white/70 underline underline-offset-2 hover:text-white">
+          <a href={ON_REQUEST_TELEGRAM} target="_blank" rel="noopener noreferrer" className="text-accent-warm underline underline-offset-2 hover:text-(--sc-accent-hover)">
             {t("about.alsoOnRequestCta")}
           </a>
         </p>
@@ -385,7 +388,8 @@ export default function AboutContent({
           <div className="absolute inset-0 bg-black/25" />
         </div>
 
-        <div className="relative z-10 flex h-full min-h-104 sm:min-h-120 flex-col justify-center px-6 sm:px-10 lg:px-16 py-10">
+        {/* On the photograph's black scrim, so white in both themes. */}
+        <div className="relative z-10 flex h-full min-h-104 sm:min-h-120 flex-col justify-center px-6 sm:px-10 lg:px-16 py-10 text-white">
           <h2 className="text-4xl font-bold leading-[1.08] tracking-tight max-w-68">
             {t("about.ctaTitle")}
           </h2>
@@ -394,13 +398,13 @@ export default function AboutContent({
             {t("about.ctaSub")}
           </p>
 
-          <p className="mt-4 max-w-60 text-[11px] leading-[1.65] text-white/70">
+          <p className="mt-4 max-w-60 text-[11px] leading-[1.65] text-white/80">
             {t("about.ctaBody")}
           </p>
 
           <Link
             href={`/${locale}/book`}
-            className="mt-6 self-start rounded-full bg-white px-5 py-2.5 text-[11px] font-bold text-black transition hover:bg-white/80"
+            className="mt-6 self-start rounded-full bg-primary px-5 py-2.5 text-[11px] font-bold text-primary-foreground transition hover:bg-primary-hover"
           >
             {t("about.ctaButton")} →
           </Link>
@@ -418,7 +422,7 @@ export default function AboutContent({
                 key={f}
                 onClick={() => setWorksFilter(f)}
                 className={`rounded-full px-4 py-2.5 text-xs font-semibold transition active:scale-95
-                  ${worksFilter === f ? "bg-white text-black" : "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white"}`}
+                  ${worksFilter === f ? "bg-primary text-primary-foreground" : "bg-foreground/8 text-foreground/75 hover:bg-foreground/15 hover:text-foreground"}`}
               >
                 {worksLabel(f)}
               </button>
@@ -433,9 +437,9 @@ export default function AboutContent({
           gap={2}
         />
 
-        <p className="text-center text-xs text-white/40 mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-6">
           {t("about.viewMorePrefix")}{" "}
-          <Link href={`/${locale}/portfolio`} className="text-white font-medium hover:underline">
+          <Link href={`/${locale}/portfolio`} className="text-accent-warm font-medium hover:underline">
             {t("about.portfolioPage")}
           </Link>
         </p>
@@ -459,7 +463,11 @@ export default function AboutContent({
 /**
  * The hero's two calls to action. Rendered twice — beside the name on desktop,
  * below the bio on mobile — so only one is in the DOM at a given width.
- * Portfolio is the primary action: photographs first, booking second.
+ *
+ * Portfolio still comes FIRST — photographs first, booking second — but Book
+ * is the one in pomegranate. The palette spends its red on actions, and of
+ * these two only booking is an action; two red buttons side by side would
+ * spend it twice. Portfolio is the outline.
  */
 
 const heroActionClasses =
@@ -471,11 +479,15 @@ const heroActionClasses =
 function HeroActions({ locale, portfolioLabel, bookLabel }: { locale: string; portfolioLabel: string; bookLabel: string }) {
   return (
     <div className="flex items-center gap-3 w-full lg:w-auto">
-      <Button asChild className={heroActionClasses}>
+      <Button
+        asChild
+        variant="outline"
+        className={`${heroActionClasses} bg-transparent border-foreground/25 text-foreground hover:bg-foreground/8 dark:bg-transparent dark:border-foreground/25 dark:hover:bg-foreground/8`}
+      >
         <Link href={`/${locale}/portfolio`}>{portfolioLabel}</Link>
       </Button>
 
-      <Button asChild variant="outline" className={`${heroActionClasses} bg-black border-white/20 text-white hover:bg-white/8`}>
+      <Button asChild className={`${heroActionClasses} hover:bg-primary-hover`}>
         <Link href={`/${locale}/book`}>{bookLabel}</Link>
       </Button>
     </div>
@@ -483,31 +495,36 @@ function HeroActions({ locale, portfolioLabel, bookLabel }: { locale: string; po
 }
 
 /**
- * Gradients for the two links that are somebody else's brand.
+ * Gradients for the two links that are somebody else's brand — one per theme.
  *
- * Real Instagram and Telegram hues with the dark ends lifted; .sc-brand-text
- * in globals.css carries the contrast measurements. The angle is a few degrees
- * off horizontal so the sweep tilts the way Instagram's own mark does — over
- * one short line the vertical component is nearly nothing, which is the point.
+ * Real Instagram and Telegram hues, each stop moved in lightness only until it
+ * clears 4.6:1 on the meta bar: lifted for the dark ground, deepened for
+ * cream. The dark set is the old one with two stops lifted a step further for
+ * the new wine-black ground (#EE467F and #C551D6 had dropped to 4.5 and 4.3);
+ * the light set is new — the dark one on cream starts with a yellow at 1.3:1.
+ * .sc-brand-text in globals.css picks the set by theme. The angle is a few
+ * degrees off horizontal so the sweep tilts the way Instagram's own mark does.
  *
  * Keyed by label, so a social link with no brand here keeps the
- * muted-to-white treatment and nothing has to be passed in.
+ * muted-to-foreground treatment and nothing has to be passed in.
  */
-const BRAND_GRADIENT: Record<string, string> = {
-  Instagram:
-    "linear-gradient(100deg,#FEDA75 0%,#F98033 27%,#EE467F 55%,#C551D6 78%,#9490FF 100%)",
-  Telegram:
-    "linear-gradient(100deg,#6FD5FF 0%,#37BBFE 35%,#2AABEE 65%,#2196D6 100%)",
-};
-
-/** What the letters fall back to where the gradient cannot be painted. */
-const BRAND_FALLBACK: Record<string, string> = {
-  Instagram: "#EE467F",
-  Telegram: "#2AABEE",
+const BRAND: Record<string, { dark: string; light: string; inkDark: string; inkLight: string }> = {
+  Instagram: {
+    dark: "linear-gradient(100deg,#FEDA75 0%,#F98033 27%,#F24A82 55%,#CD59DE 78%,#9490FF 100%)",
+    light: "linear-gradient(100deg,#826000 0%,#B23F00 27%,#C5125E 55%,#A42DB5 78%,#6057C0 100%)",
+    inkDark: "#F24A82",
+    inkLight: "#C5125E",
+  },
+  Telegram: {
+    dark: "linear-gradient(100deg,#6FD5FF 0%,#37BBFE 35%,#2AABEE 65%,#2196D6 100%)",
+    light: "linear-gradient(100deg,#006D93 0%,#0069A7 35%,#0062A0 65%,#005C99 100%)",
+    inkDark: "#2AABEE",
+    inkLight: "#0069A8",
+  },
 };
 
 function SocialLink({ label, href }: { label: string; href: string }) {
-  const gradient = BRAND_GRADIENT[label];
+  const brand = BRAND[label];
   return (
     <a
       href={href}
@@ -515,17 +532,20 @@ function SocialLink({ label, href }: { label: string; href: string }) {
       rel="noopener noreferrer"
       className={
         "font-mono text-[11px] lg:text-xs uppercase tracking-[0.14em] whitespace-nowrap " +
-        (gradient
+        (brand
           ? "sc-brand-text"
-          : "text-fg-muted hover:text-white transition-colors")
+          : "text-fg-muted hover:text-foreground transition-colors")
       }
       style={
-        gradient
+        brand
           ? ({
-              "--sc-brand-gradient": gradient,
-              // Not decoration: this is what shows if background-clip:text is
-              // unavailable, and what ::selection and any underline use.
-              color: BRAND_FALLBACK[label],
+              "--sc-brand-gradient-dark": brand.dark,
+              "--sc-brand-gradient-light": brand.light,
+              // Not decoration: the ink is what shows if background-clip:text
+              // is unavailable, and what ::selection and any underline use.
+              // Set as variables, not `color`, so the stylesheet can choose.
+              "--sc-brand-ink-dark": brand.inkDark,
+              "--sc-brand-ink-light": brand.inkLight,
             } as CSSProperties)
           : undefined
       }
@@ -547,9 +567,11 @@ function OpenToCard({ item, photo, locale, fromLabel, detailsLabel }: { item: (t
   return (
     <Link
       href={`/${locale}/services/${item.slug}`}
-      className="group shrink-0 snap-start lg:shrink w-56 lg:w-auto bg-white/4 hover:bg-white/9 active:bg-white/12 rounded-xl overflow-hidden flex flex-col transition-colors"
+      className="group shrink-0 snap-start lg:shrink w-56 lg:w-auto bg-foreground/4 hover:bg-foreground/9 active:bg-foreground/12 rounded-xl overflow-hidden flex flex-col transition-colors"
     >
-      <div className="relative h-36 lg:h-54 bg-gray-900">
+      {/* Black under the photograph in both themes: the image sits at 80% and
+          lifts to 100% on hover, which should dim it, not fade it to cream. */}
+      <div className="relative h-36 lg:h-54 bg-black">
         {hasLadder(photo.ladder) ? (
           <picture>
             <source type="image/avif" sizes={CARD_SIZES} srcSet={srcSet(photo.ladder, "avif")} />
@@ -568,15 +590,15 @@ function OpenToCard({ item, photo, locale, fromLabel, detailsLabel }: { item: (t
           <Image src={photo.src} alt={item.title} fill sizes={CARD_SIZES} unoptimized className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
         )}
         {fromPrice && (
-          <div className="absolute top-2 right-2 bg-[#2a6045] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+          <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
             {fromLabel} {fromPrice}
           </div>
         )}
       </div>
       <div className="p-3 flex flex-col gap-2 flex-1">
         <p className="text-xl font-semibold">{item.title}</p>
-        <p className="text-[11px] text-white/40 leading-snug flex-1">{item.sub}</p>
-        <span className="mt-2 w-full bg-white/10 group-hover:bg-white/20 transition text-white text-sm font-semibold py-2 rounded-xl text-center">
+        <p className="text-[11px] text-muted-foreground leading-snug flex-1">{item.sub}</p>
+        <span className="mt-2 w-full bg-foreground/10 group-hover:bg-foreground/20 transition text-foreground text-sm font-semibold py-2 rounded-xl text-center">
           {detailsLabel} →
         </span>
       </div>

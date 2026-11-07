@@ -48,7 +48,7 @@ export default function PhotoFrame({
   src,
   alt,
   thumbhash,
-  accent = "#2a2f36",
+  accent = "var(--muted)",
   sizes,
   className = "",
   imgClassName = "absolute inset-0 h-full w-full object-cover",

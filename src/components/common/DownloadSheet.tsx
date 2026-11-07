@@ -162,7 +162,7 @@ export default function DownloadSheet({
       onClick={onClose}
     >
       <div
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-neutral-950 ring-1 ring-white/10 sm:rounded-3xl"
+        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card ring-1 ring-border sm:rounded-3xl"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -170,11 +170,11 @@ export default function DownloadSheet({
         aria-label={heading}
       >
         <div className="flex items-center justify-between px-6 pb-2 pt-6">
-          <h2 className="text-lg font-semibold text-white">{heading}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
           <button
             onClick={onClose}
             aria-label={tx("common.close", "Close")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
           >
             <X className="h-4 w-4" />
           </button>
@@ -196,26 +196,26 @@ export default function DownloadSheet({
                 onClick={() => setTier(t)}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
                   active
-                    ? "border-white/70 bg-white/[0.07]"
-                    : "border-white/10 hover:border-white/30"
+                    ? "border-accent-warm bg-accent-warm/[0.07]"
+                    : "border-border hover:border-foreground/30"
                 }`}
               >
                 <span
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                    active ? "border-white bg-white text-black" : "border-white/40 text-transparent"
+                    active ? "border-primary bg-primary text-primary-foreground" : "border-input text-transparent"
                   }`}
                 >
                   <Check className="h-3 w-3" strokeWidth={3} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-white">
+                  <span className="block text-sm font-bold text-foreground">
                     {tx(`download.tier.${copy.key}`, copy.name)}
                   </span>
-                  <span className="mt-0.5 block text-xs text-white/45">
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
                     {tx(`download.tier.${copy.key}Blurb`, copy.blurb)}
                   </span>
                 </span>
-                <span className="shrink-0 font-mono text-xs text-white/60">
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
                   {formatBytes(bytes)}
                 </span>
               </button>
@@ -245,7 +245,7 @@ export default function DownloadSheet({
                 SECOND file and silently drops the rest if the client dismisses
                 it — and they find out by counting their photos a week later. */}
             {!asZip && (
-              <p className="mt-2 text-xs text-white/40">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {tx(
                   "download.separateNote",
                   "Your browser may ask permission to save several files at once.",
@@ -256,7 +256,7 @@ export default function DownloadSheet({
         )}
 
         {zipOnly && (
-          <p className="mt-4 px-6 text-xs text-white/40">
+          <p className="mt-4 px-6 text-xs text-muted-foreground">
             {tx(
               "download.zipOnlyNote",
               "Over {n} photos are always sent as one ZIP — browsers cannot save that many separately.",
@@ -265,9 +265,9 @@ export default function DownloadSheet({
         )}
 
         {heavy && (
-          <div className="mx-6 mt-4 flex gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-white/50" />
-            <p className="text-xs text-white/60">
+          <div className="mx-6 mt-4 flex gap-2 rounded-2xl border border-border bg-foreground/[0.04] px-4 py-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
               {metered
                 ? tx(
                     "download.meteredNote",
@@ -282,9 +282,12 @@ export default function DownloadSheet({
         )}
 
         {blobZipRisk && (
-          <div className="mx-6 mt-4 flex gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-            <p className="text-xs text-amber-100/80">
+          // A caution, not an error and not brand: a clay ground, ink text,
+          // and the warning icon in the error hue so it still reads as "mind
+          // this" without the box itself turning red.
+          <div className="mx-6 mt-4 flex gap-2 rounded-2xl border border-secondary bg-secondary/25 px-4 py-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <p className="text-xs text-foreground/85">
               {tx(
                 "download.tooBigForBrowser",
                 "This browser has to build the whole archive in memory, and {size} is likely to fail. Choose a lighter quality, or download in smaller batches.",
@@ -298,7 +301,7 @@ export default function DownloadSheet({
           <button
             type="button"
             onClick={() => onConfirm({ tier, asZip: zipOnly ? true : asZip, remember })}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-sm font-semibold text-black transition hover:bg-white/90"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover"
           >
             <Download className="h-4 w-4" />
             {total === undefined
@@ -306,12 +309,12 @@ export default function DownloadSheet({
               : `${tx("download.confirm", "Download")} · ${formatBytes(total)}`}
           </button>
 
-          <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-xs text-white/45">
+          <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 accent-white"
+              className="h-4 w-4 accent-primary"
             />
             {tx("download.remember", "Remember this choice")}
           </label>
@@ -340,8 +343,8 @@ function PackagingOption({
       onClick={onClick}
       className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-semibold transition ${
         active
-          ? "border-white/70 bg-white/[0.07] text-white"
-          : "border-white/10 text-white/60 hover:border-white/30"
+          ? "border-accent-warm bg-accent-warm/[0.07] text-foreground"
+          : "border-border text-muted-foreground hover:border-foreground/30"
       }`}
     >
       {icon}

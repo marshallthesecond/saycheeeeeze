@@ -5,10 +5,40 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Design tokens. One palette for the whole site: a cool near-black ground, a
-  neutral text ramp and a single slate-blue accent. Every page reads from
-  these — change them here and the portfolio, booking flow and about page all
-  move together.
+  Design tokens — the "Pomegranate + clay" palette, light and dark.
+
+  The site follows the phone: next-themes (attribute="class",
+  defaultTheme="system") puts .dark on <html> when the system asks for it, and
+  :root below is the light palette. Every page reads from these variables —
+  change them here and the portfolio, booking flow and about page all move
+  together. There is no second colour system: the brand colours are mapped onto
+  the shadcn variables, plus a handful of --sc-* names the components already
+  used.
+
+  Two reds, on purpose. Pomegranate is a FILL colour and a TEXT colour, and
+  no single lightness is both everywhere. On the dark ground, white on the
+  proposed #D2556B measures 4.0:1 and #D2556B as text on the card 4.06:1 —
+  both under AA. So --primary (fills: Book, selected days, the progress bar,
+  ::selection) and --sc-accent (text, borders, icons, the focus ring —
+  `accent-warm` in classes) are the same hue at two lightnesses: in dark, the
+  fill a shade deeper (#C64A61) and the text a shade lighter (#ED6E82); in
+  light, the fill is #B8334A as proposed and the text a hair deeper (#AF2943)
+  so it still clears AA on its own 8–12% tint, which is what a selected card
+  is drawn with.
+
+  Measured (WCAG 2.x), light | dark:
+    foreground on background / card ......  13.73 / 14.94 | 15.29 / 13.87
+    muted-foreground on background / card    5.52 /  6.01 |  7.41 /  6.72
+    white on primary / primary-hover .......  5.82 / 10.14 |  4.61 /  5.82
+    accent-warm (text) on background / card  5.58 /  6.07 |  6.09 /  5.52
+    destructive on background / card .......  4.62 /  5.02 |  5.09 /  4.61
+    input border on background / card ......  3.01 /  3.27 |  3.33 /  3.02  (1.4.11)
+    clay (secondary) .......................  FILLS ONLY. Text on clay is
+                                              ink: 8.69 light, 7.83 dark.
+  The foreground opacity ramp passes AA down to /65 in both modes; /60 and
+  below fail on cream, so secondary text is text-muted-foreground, never
+  text-foreground/50. Errors are burnt orange (hue 41–44° against the brand's
+  15°) and always carry an icon.
 */
 
 @theme inline {
@@ -22,6 +52,8 @@
     --font-mono: var(--font-mono);
 
     --color-accent-warm: var(--sc-accent);
+
+    --color-primary-hover: var(--primary-hover);
 
     --color-accent-ink: var(--sc-accent-ink);
 
@@ -115,82 +147,154 @@
        with no JS, no locale detection and no font swap after hydration. */
     --font-serif: var(--font-serif-latin), var(--font-serif-cyrillic), Georgia, serif;
 
-    /* Signature accent: muted slate blue. ONE accent for the whole site —
-       the eyebrow labels, the focus brackets, the primary button, focus rings.
-       Nowhere else. */
-    --sc-accent: oklch(0.4942 0.039 247.29);
-    --sc-accent-ink: oklch(0.98 0.005 95);
+    /* ── Light: cream ground, ink text, pomegranate actions ─────────────── */
+
+    /* Brand red as TEXT, borders, icons and the focus ring (`accent-warm`).
+       Used sparingly: links, eyebrow labels, small highlights, active states.
+       A hair deeper than the fill so it still clears AA where it sits on its
+       own 12% tint (a selected card) or on a 10% ink tint (a chip). */
+    --sc-accent: oklch(0.5021 0.1693 15.26);          /* #AF2943 */
+    --sc-accent-hover: oklch(0.3928 0.1248 12.40);    /* #7A1F33 wine */
+    --sc-accent-ink: oklch(1 0 0);                    /* text on a red fill */
 
     /* sRGB mirror of --sc-accent. three.js can't parse oklch(), so
        CameraScene reads this instead of hardcoding a hex — the old version
        hardcoded 0xBC0024 (crimson) under a comment claiming it matched the
        CSS accent, which is where the red lens ring came from.
-       KEEP THESE TWO IN SYNC. */
-    --sc-accent-hex: #506477;
+       KEEP THESE TWO IN SYNC, in both palettes. */
+    --sc-accent-hex: #AF2943;
 
-    --sc-accent-hover: oklch(0.62 0.055 247.29);
+    /* How much of a service's own accent survives when it is used as TEXT —
+       see accentText() in services/[slug]/accent.ts. Mixed with the
+       foreground, so in light mode the colour deepens toward ink and in dark
+       it lifts toward cream. 85% keeps #B8334A at 5.2:1 and graduation navy
+       at 6.8:1 on cream; dark needs 55% (5.9 and 5.2) because both accents are
+       mid-tone colours that sink into a dark ground. */
+    --sc-accent-mix: 85%;
 
-    /* Cool neutral text ramp, brightest to faintest. */
-    --sc-fg-muted: oklch(0.65 0.012 230);
-    --sc-fg-dim: oklch(0.55 0.012 230);
-    --sc-fg-faint: oklch(0.45 0.012 230);
+    /* Secondary text ramp. On cream there is no headroom below
+       muted-foreground — anything lighter fails AA on the tinted surfaces —
+       so in light mode all three are the same colour and hierarchy comes from
+       size and weight. */
+    --sc-fg-muted: var(--muted-foreground);
+    --sc-fg-dim: var(--muted-foreground);
+    --sc-fg-faint: var(--muted-foreground);
 
-    /* Deep charcoal page background. */
-    --background: oklch(0.16 0.008 230);
+    --background: oklch(0.9471 0.0176 73.07);          /* #F5ECE1 cream */
+    --foreground: oklch(0.2513 0.0204 13.49);          /* #2B1E1F */
 
-    --foreground: oklch(0.95 0.006 110);
+    --card: oklch(0.9753 0.0096 72.66);                /* #FBF6F0 */
+    --card-foreground: oklch(0.2513 0.0204 13.49);
 
-    /* Dark gray surfaces. */
-    --card: oklch(0.20 0.009 230);
-    --card-foreground: oklch(0.95 0.006 110);
+    --popover: oklch(0.9753 0.0096 72.66);
+    --popover-foreground: oklch(0.2513 0.0204 13.49);
 
-    --popover: oklch(0.20 0.009 230);
-    --popover-foreground: oklch(0.95 0.006 110);
+    /* Brand red as a FILL: Book, primary buttons, selected days, progress. */
+    --primary: oklch(0.5285 0.1687 15.44);             /* #B8334A */
+    --primary-foreground: oklch(1 0 0);
+    --primary-hover: oklch(0.3928 0.1248 12.40);       /* #7A1F33 wine */
 
-    /* Primary actions use the slate-blue accent. */
-    --primary: oklch(0.4942 0.039 247.29);
-    --primary-foreground: oklch(0.98 0.005 95);
+    /* Clay. Fills only — as text it measures 1.6:1 on cream. */
+    --secondary: oklch(0.8059 0.0549 65.08);           /* #D9B99B */
+    --secondary-foreground: oklch(0.2513 0.0204 13.49);
 
-    /* Slightly lighter charcoal for secondary UI. */
-    --secondary: oklch(0.23 0.009 230);
-    --secondary-foreground: oklch(0.95 0.006 110);
+    /* A quiet clay-tinted surface for hover states. */
+    --muted: oklch(0.9059 0.0288 69.14);               /* #EDDDCC */
+    /* #7A6A64 was the proposal: 4.41 on cream, under AA. #776761 just clears
+       cream (4.61) but drops to 3.8 on the 10% ink tint that chips and inputs
+       sit on, so one step deeper — same hue, still plainly "muted". */
+    --muted-foreground: oklch(0.4850 0.0231 41.65);    /* #6B5B55 */
 
-    --muted: oklch(0.23 0.009 230);
-    --muted-foreground: oklch(0.65 0.012 230);
+    --accent: oklch(0.8841 0.0349 67.35);              /* #E9D5C1 */
+    --accent-foreground: oklch(0.2513 0.0204 13.49);
 
-    /* Subtle cool-gray accent surface. */
-    --accent: oklch(0.27 0.012 230);
-    --accent-foreground: oklch(0.95 0.006 110);
+    /* Errors are burnt orange, not pomegranate: 26° away in hue so an error
+       never reads as "brand", and every error message also carries an icon. */
+    --destructive: oklch(0.5421 0.1655 41.40);         /* #BA4300 */
 
-    --destructive: oklch(0.62 0.20 25);
+    --border: oklch(0.8892 0.0265 71.17);              /* #E6D8C8 — decorative */
+    /* Form-field outlines are not decorative: 3:1 against the ground. */
+    --input: oklch(0.6298 0.0262 73.45);               /* #938778 */
 
-    /* Cool, understated borders and inputs. */
-    --border: oklch(1 0 0 / 12%);
-    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.5021 0.1693 15.26);
 
-    --ring: oklch(0.4942 0.039 247.29 / 55%);
-
-    /* Charts follow the same monochrome + slate-blue language. */
-    --chart-1: oklch(0.4942 0.039 247.29);
-    --chart-2: oklch(0.65 0.012 230);
-    --chart-3: oklch(0.55 0.012 230);
-    --chart-4: oklch(0.40 0.010 230);
-    --chart-5: oklch(0.27 0.009 230);
+    --chart-1: oklch(0.5285 0.1687 15.44);
+    --chart-2: oklch(0.8059 0.0549 65.08);
+    --chart-3: oklch(0.4850 0.0231 41.65);
+    --chart-4: oklch(0.3928 0.1248 12.40);
+    --chart-5: oklch(0.8892 0.0265 71.17);
 
     --radius: 0.625rem;
 
-    /* Sidebar. */
-    --sidebar: oklch(0.18 0.009 230);
-    --sidebar-foreground: oklch(0.95 0.006 110);
+    --sidebar: oklch(0.9331 0.0211 72.14);
+    --sidebar-foreground: oklch(0.2513 0.0204 13.49);
+    --sidebar-primary: oklch(0.5285 0.1687 15.44);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.8841 0.0349 67.35);
+    --sidebar-accent-foreground: oklch(0.2513 0.0204 13.49);
+    --sidebar-border: oklch(0.8892 0.0265 71.17);
+    --sidebar-ring: oklch(0.5021 0.1693 15.26);
+}
 
-    --sidebar-primary: oklch(0.4942 0.039 247.29);
-    --sidebar-primary-foreground: oklch(0.98 0.005 95);
+.dark {
+    /* ── Dark: wine-black ground, cream text ─────────────────────────────── */
 
-    --sidebar-accent: oklch(0.27 0.012 230);
-    --sidebar-accent-foreground: oklch(0.95 0.006 110);
+    --sc-accent: oklch(0.6948 0.1573 12.33);          /* #ED6E82 — text-safe */
+    --sc-accent-hover: oklch(0.7321 0.1568 12.49);    /* #FA7A8D — lifts on hover */
+    --sc-accent-ink: oklch(1 0 0);
+    --sc-accent-hex: #ED6E82;
+    --sc-accent-mix: 55%;
 
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.4942 0.039 247.29 / 55%);
+    /* Here there IS headroom under muted-foreground (7.4:1), so the ramp
+       steps down — and stops at 4.6:1 on the card. */
+    --sc-fg-muted: var(--muted-foreground);
+    --sc-fg-dim: oklch(0.6762 0.0212 55.00);           /* #A2948B */
+    --sc-fg-faint: oklch(0.6299 0.0216 54.96);         /* #94867D */
+
+    --background: oklch(0.2079 0.0151 3.65);           /* #1E1517 */
+    --foreground: oklch(0.9471 0.0176 73.07);          /* #F5ECE1 */
+
+    --card: oklch(0.2479 0.0210 3.41);                 /* #2A1D20 */
+    --card-foreground: oklch(0.9471 0.0176 73.07);
+
+    --popover: oklch(0.2479 0.0210 3.41);
+    --popover-foreground: oklch(0.9471 0.0176 73.07);
+
+    /* #D2556B was the proposal; white on it is 4.0:1. Same hue, deeper. */
+    --primary: oklch(0.5822 0.1584 12.31);             /* #C64A61 — white 4.61 */
+    --primary-foreground: oklch(1 0 0);
+    --primary-hover: oklch(0.5285 0.1687 15.44);       /* #B8334A — white 5.82 */
+
+    --secondary: oklch(0.7461 0.0620 64.16);           /* #C9A584 clay */
+    --secondary-foreground: oklch(0.2079 0.0151 3.65);
+
+    --muted: oklch(0.2728 0.0169 24.29);               /* #2F2423 */
+    --muted-foreground: oklch(0.7290 0.0218 53.14);    /* #B3A49B */
+
+    --accent: oklch(0.3044 0.0212 27.75);              /* #392B29 */
+    --accent-foreground: oklch(0.9471 0.0176 73.07);
+
+    --destructive: oklch(0.6435 0.1509 44.36);         /* #D66A36 */
+
+    --border: oklch(0.3090 0.0290 4.97);               /* #3D2A2E */
+    --input: oklch(0.5294 0.0288 5.83);                /* #7B6569 — 3:1 */
+
+    --ring: oklch(0.6948 0.1573 12.33);
+
+    --chart-1: oklch(0.6948 0.1573 12.33);
+    --chart-2: oklch(0.7461 0.0620 64.16);
+    --chart-3: oklch(0.7290 0.0218 53.14);
+    --chart-4: oklch(0.5285 0.1687 15.44);
+    --chart-5: oklch(0.3090 0.0290 4.97);
+
+    --sidebar: oklch(0.2279 0.0179 6.45);
+    --sidebar-foreground: oklch(0.9471 0.0176 73.07);
+    --sidebar-primary: oklch(0.5822 0.1584 12.31);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.3044 0.0212 27.75);
+    --sidebar-accent-foreground: oklch(0.9471 0.0176 73.07);
+    --sidebar-border: oklch(0.3090 0.0290 4.97);
+    --sidebar-ring: oklch(0.6948 0.1573 12.33);
 }
 
 @layer base {
@@ -205,8 +309,8 @@
     scroll-behavior: smooth;
     }
   ::selection {
-    background: var(--sc-accent);
-    color: var(--sc-accent-ink);
+    background: var(--primary);
+    color: var(--primary-foreground);
     }
 }
 
@@ -380,8 +484,9 @@ textarea {
 /*
   Brand-coloured wordmarks: paints a gradient through the letters, so
   "Instagram" runs yellow → orange → pink → magenta → indigo across its nine
-  characters. The gradient comes from --sc-brand-gradient, set per link, so
-  this file holds the mechanism and the component holds the brands.
+  characters. Each link sets two gradients and two inks (--sc-brand-gradient-
+  light/-dark, --sc-brand-ink-light/-dark), so this file holds the mechanism
+  and the theme switch and the component holds the brands.
 
   -webkit-text-fill-color rather than color: transparent, so `color` stays a
   real readable brand colour. A browser without background-clip:text then
@@ -389,30 +494,43 @@ textarea {
   ::selection have something to draw with, and copying the text hands over
   letters rather than an invisible string.
 
-  The stops are the real hues with the dark ends lifted. Instagram's own tail
-  (#8134AF, #515BD4) measures 2.7:1 and 3.4:1 against this background — under
-  WCAG AA at any size, and this is 11px uppercase mono. The lifted versions
-  clear 4.9:1 and stay unmistakably the same gradient; the yellow and orange
-  ends were already fine.
+  The stops are the real hues moved in lightness only. Instagram's own tail
+  (#8134AF, #515BD4) measures under 3.5:1 on the dark ground — under WCAG AA
+  at any size, and this is 11px uppercase mono — so the dark set lifts it; on
+  cream the problem inverts (its yellow is 1.3:1), so the light set deepens
+  every stop. Both clear 4.6:1 on the meta bar and stay unmistakably the same
+  gradient.
 */
 .sc-brand-text {
-  background-image: var(--sc-brand-gradient);
+  color: var(--sc-brand-ink-light);
+  background-image: var(--sc-brand-gradient-light);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   transition: filter 0.2s ease;
 }
 
-/* The other links in the row go muted -> white on hover. These cannot: their
-   colour is a painted background, and `color` no longer reaches the glyphs. */
+.dark .sc-brand-text {
+  color: var(--sc-brand-ink-dark);
+  background-image: var(--sc-brand-gradient-dark);
+}
+
+/* The other links in the row go muted -> foreground on hover. These cannot:
+   their colour is a painted background, and `color` no longer reaches the
+   glyphs. So the hover moves AWAY from the ground in each theme — brighter on
+   wine-black, deeper on cream — which only ever raises the contrast. */
 .sc-brand-text:hover {
+  filter: brightness(0.86) saturate(1.08);
+}
+.dark .sc-brand-text:hover {
   filter: brightness(1.12) saturate(1.08);
 }
 
 /* Windows high-contrast mode replaces the palette wholesale and drops
    background images — without this the letters would vanish. */
 @media (forced-colors: active) {
-  .sc-brand-text {
+  .sc-brand-text,
+  .dark .sc-brand-text {
     background-image: none;
     -webkit-text-fill-color: currentColor;
     filter: none;

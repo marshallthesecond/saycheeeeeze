@@ -37,12 +37,12 @@ export default function Shelf({
       <div className="flex items-baseline justify-between px-4 sm:px-8 mb-3">
         <div className="min-w-0">
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h2>
-          {subtitle && <p className="text-sm text-white/40 mt-1">{subtitle}</p>}
+          {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
         </div>
         {showAllHref && (
           <Link
             href={showAllHref}
-            className="text-[11px] font-bold uppercase tracking-widest text-white/50 hover:text-white active:text-white/80 transition shrink-0 ml-4"
+            className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground active:text-foreground/80 transition shrink-0 ml-4"
           >
             {showAllLabel}
           </Link>

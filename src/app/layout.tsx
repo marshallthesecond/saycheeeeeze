@@ -102,10 +102,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5, // don't trap users who need to pinch-zoom
   viewportFit: "cover",
-  // Cool near-black, matching --background: oklch(0.1854 0.0052 248.11). Must
-  // track that token — a mismatch shows up as Android browser chrome in a
-  // visibly different colour from the page.
-  themeColor: "#111315",
+  // One per scheme, matching --background in globals.css (cream #F5ECE1 and
+  // wine-black #1E1517). Must track those tokens — a mismatch shows up as
+  // Android/Safari browser chrome in a visibly different colour from the page.
+  // Media queries are exact here because the site has no theme toggle: it
+  // follows the system, which is precisely what these queries read.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5ECE1" },
+    { media: "(prefers-color-scheme: dark)", color: "#1E1517" },
+  ],
 };
 
 export default function RootLayout({
@@ -121,10 +126,13 @@ export default function RootLayout({
       // root layout — Next allows a root layout under a dynamic segment — and
       // read the locale from params here.
       lang="ru"
-      className={`${plexSans.variable} ${plexMono.variable} ${instrumentSerif.variable} ${cyrillicSerif.variable} antialiased dark`}
-      // next-themes writes style="color-scheme: dark" onto <html> from a
-      // script that runs before React hydrates — which is the point, it's what
-      // stops a light flash on first paint. React then finds an attribute the
+      className={`${plexSans.variable} ${plexMono.variable} ${instrumentSerif.variable} ${cyrillicSerif.variable} antialiased`}
+      // No "dark" class here: next-themes adds .dark or .light from the
+      // system preference, in a script that runs before first paint, together
+      // with style="color-scheme: …" so native controls and scrollbars match.
+      // A hardcoded class would pin every visitor to dark and fight that
+      // script. That script is also why the attributes differ from the server
+      // render: React then finds an attribute the
       // server never rendered and logs a mismatch on every page load.
       //
       // suppressHydrationWarning is the documented fix and covers this

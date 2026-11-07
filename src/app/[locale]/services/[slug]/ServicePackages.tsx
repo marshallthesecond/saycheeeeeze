@@ -35,6 +35,7 @@ import { formatSom } from '@/src/lib/packages';
 import type { Locale } from '@/src/lib/i18n/config';
 import { CONTACT } from '@/src/lib/contact';
 import { useAudience } from './ServiceAudience';
+import { accentText } from './accent';
 
 interface Props {
   groups: ResolvedPackageGroup[];
@@ -147,7 +148,7 @@ export default function ServicePackages({
         <div
           role="tablist"
           aria-label={group.title}
-          className="relative grid rounded-full bg-white/[0.06] p-1"
+          className="relative grid rounded-full bg-foreground/[0.06] p-1"
           style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))` }}
         >
           {/* The moving pill. Its width is exactly one track — the container's
@@ -173,7 +174,7 @@ export default function ServicePackages({
               aria-controls={`${id}-panel-${i}`}
               onClick={() => setActive(i)}
               className={`relative z-10 min-h-11 rounded-full px-2 text-[13px] font-bold leading-tight transition-colors ${
-                i === active ? 'text-white' : 'text-white/55 hover:text-white/85'
+                i === active ? 'text-white' : 'text-muted-foreground hover:text-foreground/85'
               }`}
             >
               {(on && audienceGroups?.[g.key]?.title) || g.title}
@@ -188,7 +189,7 @@ export default function ServicePackages({
         aria-labelledby={showToggle ? `${id}-tab-${active}` : undefined}
       >
         {group.blurb && (
-          <p className="mt-3 px-1 text-xs leading-relaxed text-white/45">{group.blurb}</p>
+          <p className="mt-3 px-1 text-xs leading-relaxed text-muted-foreground">{group.blurb}</p>
         )}
 
         {/* aria-pressed rather than role="radio": a radiogroup promises arrow-key
@@ -207,7 +208,7 @@ export default function ServicePackages({
                 style={
                   isSelected
                     ? { borderColor: accentColor, background: `${accentColor}14` }
-                    : { borderColor: 'rgba(255,255,255,0.1)' }
+                    : { borderColor: 'var(--border)' }
                 }
               >
                 <button
@@ -215,23 +216,23 @@ export default function ServicePackages({
                   aria-pressed={isSelected}
                   aria-controls={`${id}-pkg-${i}`}
                   onClick={() => setSelected(i)}
-                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition active:bg-white/10"
+                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition active:bg-foreground/10"
                 >
                   {/* Fixed width, tabular figures. This is the column the eye
                       reads down, and it only works if it cannot move. */}
-                  <span className="w-[88px] shrink-0 whitespace-nowrap text-[19px] font-extrabold leading-[1.1] tabular-nums text-white">
+                  <span className="w-[88px] shrink-0 whitespace-nowrap text-[19px] font-extrabold leading-[1.1] tabular-nums text-foreground">
                     {amount}
                     {suffix && (
                       // Under the number, not trailing it — inline, the widest
                       // price overran the column and printed over the text.
-                      <span className="mt-px block text-[9.5px] font-semibold text-white/45">
+                      <span className="mt-px block text-[9.5px] font-semibold text-muted-foreground">
                         {suffix}
                       </span>
                     )}
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-bold text-white">
+                    <span className="block truncate text-[13px] font-bold text-foreground">
                       {pkg.duration}
                       {pkg.note ? ` · ${pkg.note}` : ''}
                     </span>
@@ -250,13 +251,13 @@ export default function ServicePackages({
                         would be the first thing cut on a narrow phone, which
                         is the one place it matters most. The long form with
                         its noun stays in the open panel below. */}
-                    <span className="mt-0.5 block truncate text-[11px] font-medium text-white/55">
+                    <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">
                       {pkg.photosShort}
                     </span>
                     {pkg.highlight && (
                       <span
                         className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider"
-                        style={{ color: accentColor }}
+                        style={{ color: accentText(accentColor) }}
                       >
                         {labels.mostPopular}
                       </span>
@@ -269,7 +270,7 @@ export default function ServicePackages({
                     style={
                       isSelected
                         ? { borderColor: accentColor, background: accentColor }
-                        : { borderColor: 'rgba(255,255,255,0.25)' }
+                        : { borderColor: 'var(--input)' }
                     }
                   >
                     {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
@@ -323,12 +324,12 @@ export default function ServicePackages({
           className="mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-3"
           style={{ borderColor: `${accentColor}3d`, background: `${accentColor}14` }}
         >
-          <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />
+          <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accentText(accentColor) }} />
           <span className="min-w-0">
-            <span className="block text-[12.5px] font-bold leading-tight text-white">
+            <span className="block text-[12.5px] font-bold leading-tight text-foreground">
               {labels.privateGalleryTitle}
             </span>
-            <span className="mt-1 block text-[11.5px] leading-snug text-white/60">
+            <span className="mt-1 block text-[11.5px] leading-snug text-muted-foreground">
               {labels.privateGalleryBody}
             </span>
           </span>
@@ -353,7 +354,7 @@ export default function ServicePackages({
             href={`https://t.me/${CONTACT.telegram}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/25 px-2 text-[13px] font-bold text-white transition hover:border-white/60 active:scale-[0.98]"
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-foreground/25 px-2 text-[13px] font-bold text-foreground transition hover:border-foreground/60 active:scale-[0.98]"
           >
             <Send className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{labels.telegramShort}</span>
@@ -366,7 +367,7 @@ export default function ServicePackages({
 
 function Detail({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
-    <li className="flex items-start gap-2 text-[11.5px] leading-snug text-white/65">
+    <li className="flex items-start gap-2 text-[11.5px] leading-snug text-foreground/75">
       <span
         aria-hidden
         className="mt-[5px] h-1 w-1 shrink-0 rounded-full"

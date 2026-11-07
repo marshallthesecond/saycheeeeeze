@@ -154,9 +154,9 @@ export default function BestPicks({
 }
 
 const PILL =
-  "inline-flex h-10 items-center justify-center rounded-full bg-white/10 px-8 " +
-  "text-[11px] font-bold uppercase tracking-[0.16em] text-white " +
-  "transition hover:bg-white/16 active:scale-[0.98]";
+  "inline-flex h-10 items-center justify-center rounded-full bg-foreground/10 px-8 " +
+  "text-[11px] font-bold uppercase tracking-[0.16em] text-foreground " +
+  "transition hover:bg-foreground/16 active:scale-[0.98]";
 
 function Columns({ cols, onOpen }: { cols: PickItem[][]; onOpen: (i: number) => void }) {
   if (cols.every((c) => c.length === 0)) return null;
@@ -214,7 +214,7 @@ function Tile({
     >
       <span
         className={
-          "relative block w-full overflow-hidden bg-white/5 " +
+          "relative block w-full overflow-hidden bg-foreground/5 " +
           (big ? "aspect-square" : mode === "fill" ? "min-h-0 flex-1" : "")
         }
         style={frameStyle}
@@ -249,11 +249,11 @@ function Tile({
 
       <span className={`block shrink-0 ${big ? "px-3 sm:px-3 pt-2 pb-4 sm:pb-5" : "px-1.5 sm:px-2 pt-1.5 pb-3 sm:pb-4"}`}>
         <span className="flex items-baseline justify-between gap-2">
-          <span className={`truncate font-semibold text-white/90 ${big ? "text-xs sm:text-[13px]" : "text-[10px] sm:text-[11px]"}`}>
+          <span className={`truncate font-semibold text-foreground/90 ${big ? "text-xs sm:text-[13px]" : "text-[10px] sm:text-[11px]"}`}>
             {item.category}
           </span>
           {item.date && (
-            <span className={`shrink-0 whitespace-nowrap font-semibold tabular-nums text-white/50 ${big ? "text-xs sm:text-[13px]" : "text-[10px] sm:text-[11px]"}`}>
+            <span className={`shrink-0 whitespace-nowrap font-semibold tabular-nums text-muted-foreground ${big ? "text-xs sm:text-[13px]" : "text-[10px] sm:text-[11px]"}`}>
               {item.date}
             </span>
           )}
@@ -266,7 +266,7 @@ function Tile({
         <span
           aria-hidden={item.title ? undefined : true}
           className={
-            `mt-0.5 block truncate italic text-white/65 ${big ? "text-sm sm:text-base" : "text-[11px] sm:text-xs"}` +
+            `mt-0.5 block truncate italic text-foreground/65 ${big ? "text-sm sm:text-base" : "text-[11px] sm:text-xs"}` +
             (item.title ? "" : " invisible")
           }
         >

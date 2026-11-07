@@ -45,8 +45,8 @@ export default function ProfilePhotos({
         aria-label={`Open photos (${index + 1} of ${count})`}
         className={
           "relative shrink-0 w-18 h-22 sm:w-28 sm:h-34 rounded-2xl overflow-hidden " +
-          "border border-white/8 bg-white/5 cursor-zoom-in " +
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 " +
+          "border border-border bg-foreground/5 cursor-zoom-in " +
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
           className
         }
       >

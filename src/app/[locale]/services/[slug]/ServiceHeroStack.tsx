@@ -23,7 +23,7 @@
 
 import { blurStyle } from '@/src/lib/ladder';
 
-import { accentRgb, shade } from './accent';
+import { accentMix } from './accent';
 import { Mortarboard } from './ServiceHero';
 
 /** A photograph, already resolved to plain strings by the page. */
@@ -85,17 +85,24 @@ export default function ServiceHeroStack({
   ground,
   frames,
 }: Props) {
-  const rgb = accentRgb(accent);
   const shown = frames.slice(0, FAN.length);
   const hasStack = shown.length > 0;
 
   // Over the photograph, not instead of it. The wash is heavy on purpose: the
   // ground has to lose enough contrast that the frames on top of it are
-  // unambiguously the subject, and a headline has to sit on it in white.
+  // unambiguously the subject, and a headline has to sit on it.
+  //
+  // The wash is the PAGE GROUND, not the accent. It used to be the accent
+  // darkened toward black — a navy cast laid over a photograph, and a dark
+  // block with white type on a cream page. Now the campus fades toward cream
+  // in light mode and toward wine-black in dark, untinted, and the accent is
+  // left to the things that are drawn: the icon tile and the watermark cap.
   const wash = [
-    `radial-gradient(120% 90% at 74% 10%, ${shade(rgb, 0.1, 0.42)} 0%, transparent 62%)`,
-    `linear-gradient(168deg, ${shade(rgb, -0.42, 0.82)} 0%, ${shade(rgb, -0.72, 0.9)} 48%, rgba(0,0,0,0.95) 100%)`,
-  ].join(', ');
+    'linear-gradient(168deg,',
+    '  color-mix(in oklab, var(--background) 62%, transparent) 0%,',
+    '  color-mix(in oklab, var(--background) 80%, transparent) 48%,',
+    '  color-mix(in oklab, var(--background) 95%, transparent) 100%)',
+  ].join(' ');
 
   return (
     <div className="relative w-full overflow-hidden h-[44vh] min-h-[300px] max-h-[400px] sm:h-[52vh] sm:max-h-[520px]">
@@ -136,8 +143,8 @@ export default function ServiceHeroStack({
         className={`pointer-events-none absolute -top-[54px] -right-[68px] h-[78%] sm:-top-14 sm:-right-16 ${
           hasStack ? 'max-h-[300px] sm:max-h-[380px]' : 'max-h-[330px] sm:max-h-[420px]'
         }`}
-        stroke={shade(rgb, 0.62, hasStack ? 0.22 : 0.4)}
-        fill={shade(rgb, 0.28, hasStack ? 0.09 : 0.17)}
+        stroke={accentMix(accent, hasStack ? 26 : 40, 'transparent')}
+        fill={accentMix(accent, hasStack ? 8 : 14, 'transparent')}
       />
 
       {hasStack && (
@@ -155,7 +162,7 @@ export default function ServiceHeroStack({
               style={{ transform: `rotate(${FAN[i].rotate}deg)`, zIndex: FAN[i].z }}
             >
               <div
-                className="sc-rise w-24 overflow-hidden rounded-xl ring-1 shadow-2xl shadow-black/60 ring-white/20 sm:w-36 lg:w-44"
+                className="sc-rise w-24 overflow-hidden rounded-xl ring-1 shadow-2xl shadow-black/25 dark:shadow-black/60 ring-white/20 sm:w-36 lg:w-44"
                 style={{ aspectRatio: '3 / 4', animationDelay: `${i * 110}ms`, ...blurStyle(frame.thumbhash) }}
               >
                 <picture>
@@ -185,7 +192,7 @@ export default function ServiceHeroStack({
         className="pointer-events-none absolute inset-x-0 bottom-0 h-52"
         style={{
           background:
-            'linear-gradient(to bottom, transparent, var(--background, #0b0d0f) 82%)',
+            'linear-gradient(to bottom, transparent, var(--background) 82%)',
         }}
       />
 
@@ -197,16 +204,16 @@ export default function ServiceHeroStack({
           >
             <Icon className="h-3.5 w-3.5 text-white" />
           </span>
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/80">
             {eyebrow}
           </span>
         </div>
         {/* max-w-[62%] on small screens keeps the headline clear of the fan;
             by `sm` the hero is wide enough that it does not need the cap. */}
-        <h1 className="max-w-[62%] text-[30px] font-extrabold leading-[0.95] tracking-tighter sm:max-w-3xl sm:text-6xl">
+        <h1 className="max-w-[62%] text-[30px] font-extrabold leading-[0.95] tracking-tighter text-foreground sm:max-w-3xl sm:text-6xl">
           {title}
         </h1>
-        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
+        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-foreground/85 sm:text-base">
           {tagline}
         </p>
       </div>

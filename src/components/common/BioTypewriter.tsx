@@ -50,7 +50,7 @@ export default function BioTypewriter({
   // A trailing space inside the span, not between elements: JSX would drop
   // whitespace between two expressions on separate lines, and the welcome's
   // full stop would run straight into the bio's first word.
-  const lead = prefix ? <span className="text-white/85">{`${prefix} `}</span> : null;
+  const lead = prefix ? <span className="text-foreground/85">{`${prefix} `}</span> : null;
 
   return (
     <p
@@ -65,7 +65,7 @@ export default function BioTypewriter({
         // variant at each breakpoint (≈313 characters, Uzbek): seven lines at
         // 13px on a phone, four at 14px from 640px up.
         `grid max-w-2xl min-h-32 sm:min-h-20 lg:min-h-16 ` +
-        `text-[13px] sm:text-sm leading-[1.6] italic text-white/60 ${className}`
+        `text-[13px] sm:text-sm leading-[1.6] italic text-muted-foreground ${className}`
       }
     >
       <span aria-hidden className="col-start-1 row-start-1 invisible">
@@ -77,7 +77,7 @@ export default function BioTypewriter({
         {lead}
         {visible}
         {!done && text !== null && (
-          <span className="ml-0.5 inline-block h-[1em] w-px translate-y-[0.15em] bg-white/70 align-baseline animate-pulse" />
+          <span className="ml-0.5 inline-block h-[1em] w-px translate-y-[0.15em] bg-foreground/70 align-baseline animate-pulse" />
         )}
       </span>
 

@@ -25,7 +25,11 @@ export default function LanguageSwitcher({ className = "" }: { className?: strin
     <div
       role="group"
       aria-label="Language"
-      className={`inline-flex items-center gap-0.5 rounded-full bg-white/8 p-0.5 ${className}`}
+      // Its own frosted ground rather than a tint of whatever is behind it:
+      // the switcher sits in StickyHeader, which is transparent over a hero
+      // photograph until you scroll, so it has to read on a photo in either
+      // theme as well as on the page.
+      className={`inline-flex items-center gap-0.5 rounded-full bg-[color-mix(in_oklab,var(--background)_90%,transparent)] backdrop-blur-md p-0.5 ${className}`}
     >
       {locales.map((loc) => (
         <button
@@ -35,8 +39,8 @@ export default function LanguageSwitcher({ className = "" }: { className?: strin
           // 36px min touch target — small enough for a header, big enough to hit.
           className={`min-w-6 min-h-6 px-1 rounded-sm text-[9px] font-bold transition active:scale-95
             ${loc === active
-              ? "bg-white text-black"
-              : "text-white/60 hover:text-white hover:bg-white/10"}`}
+              ? "bg-foreground text-background"
+              : "text-foreground/75 hover:text-foreground hover:bg-foreground/10"}`}
         >
           {localeShort[loc]}
         </button>

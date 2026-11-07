@@ -107,8 +107,8 @@ function BottomNavItem({
       // min-w/min-h 44px keeps every target within Apple's HIG tap-size guidance
       className={`flex flex-col items-center justify-center gap-1 rounded-xl min-w-16 min-h-11 px-2.5 py-1.5 transition
         ${active
-          ? 'text-white bg-white/10'
-          : 'text-white/55 hover:text-white active:bg-white/5'}`}
+          ? 'text-accent-warm bg-foreground/8'
+          : 'text-muted-foreground hover:text-foreground active:bg-foreground/5'}`}
     >
       <LinkPendingBridge />
       {icon}
@@ -156,7 +156,7 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
         // nobody can see. visibility transitions discretely — it holds
         // `visible` for the whole fade-out and only flips at the end — so
         // adding it to the transition list costs nothing visually.
-        className={`relative backdrop-blur-xl border border-white/10 rounded-2xl flex items-center gap-1 p-1.5 shadow-2xl shadow-black/50
+        className={`relative backdrop-blur-xl border border-border rounded-2xl flex items-center gap-1 p-1.5 shadow-2xl shadow-black/15 dark:shadow-black/50
           transition-[opacity,transform,visibility] duration-500 ease-out
           ${shown
             ? 'pointer-events-auto visible opacity-100 translate-y-0'

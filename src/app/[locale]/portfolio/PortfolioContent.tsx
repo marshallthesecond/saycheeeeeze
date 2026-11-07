@@ -137,7 +137,7 @@ export default function PortfolioContent({
   }, [lightbox]);
 
   return (
-    <div className="min-h-screen bg-background text-white overflow-x-clip">
+    <div className="min-h-screen bg-background text-foreground overflow-x-clip">
 
       {/* Hero wash — saturated at the top, melting into the page background */}
       <div
@@ -145,7 +145,7 @@ export default function PortfolioContent({
         className="absolute inset-x-0 top-0 h-95 pointer-events-none z-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(80, 100, 119, 0.28) 0%, rgba(80, 100, 119,0.09) 45%, rgba(14,12,9,0) 100%)",
+            "linear-gradient(to bottom, color-mix(in oklab, var(--secondary) 30%, transparent) 0%, color-mix(in oklab, var(--secondary) 9%, transparent) 45%, transparent 100%)",
         }}
       />
 
@@ -153,7 +153,6 @@ export default function PortfolioContent({
           through the middleware redirect and can land them in another language. */}
       <StickyHeader
         title={t("portfolio.title")}
-        accent="#0e0c09"
         fadeOver={200}
         backHref={`/${locale}`}
       />
@@ -163,17 +162,17 @@ export default function PortfolioContent({
         className="relative z-10 px-4 sm:px-8 pb-6"
         style={{ paddingTop: "calc(5rem + env(safe-area-inset-top))" }}
       >
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
           {t("portfolio.eyebrow")}
         </p>
         {/* Spotify goes very large and very tight on hero titles */}
         <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter leading-[0.95]">
           {t("portfolio.title")}
         </h1>
-        <p className="text-sm text-white/60 mt-3 max-w-sm leading-relaxed">
+        <p className="text-sm text-muted-foreground mt-3 max-w-sm leading-relaxed">
           {t("portfolio.subtitle")}
         </p>
-        <p className="text-xs text-white/40 mt-2 font-medium">
+        <p className="text-xs text-muted-foreground mt-2 font-medium">
           {t("portfolio.photoCount", { n: allPhotos.length })}
         </p>
       </section>
@@ -185,17 +184,17 @@ export default function PortfolioContent({
             <button
               key={mode}
               onClick={() => setPicker(mode)}
-              className="group flex flex-col gap-3 rounded-xl bg-white/6 hover:bg-white/10 active:bg-white/12 p-3.5 text-left transition active:scale-[0.98]"
+              className="group flex flex-col gap-3 rounded-xl bg-foreground/6 hover:bg-foreground/10 active:bg-foreground/12 p-3.5 text-left transition active:scale-[0.98]"
             >
               <span className="flex items-center justify-between">
-                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 group-hover:bg-white/15 transition">
-                  <Icon className="w-4 h-4 text-white" />
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/10 group-hover:bg-foreground/15 transition">
+                  <Icon className="w-4 h-4 text-foreground" />
                 </span>
-                <ChevronRight className="w-4 h-4 text-white/25 group-hover:text-white/60 transition" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground/60 group-hover:text-foreground transition" />
               </span>
               <span>
                 <span className="block text-sm font-bold leading-tight">{t(labelKey)}</span>
-                <span className="block text-[11px] text-white/40 mt-1 leading-snug">{t(hintKey)}</span>
+                <span className="block text-[11px] text-muted-foreground mt-1 leading-snug">{t(hintKey)}</span>
               </span>
             </button>
           ))}
@@ -210,10 +209,10 @@ export default function PortfolioContent({
               key={label}
               onClick={() => setFilter(label)}
               className={`shrink-0 snap-start rounded-xl px-4 py-2.5 text-center transition active:scale-95
-                ${filter === label ? "bg-white text-black" : "bg-white/6 hover:bg-white/10 text-white"}`}
+                ${filter === label ? "bg-primary text-primary-foreground" : "bg-foreground/6 hover:bg-foreground/10 text-foreground"}`}
             >
               <p className="text-lg font-bold leading-none">{count}</p>
-              <p className={`text-[10px] mt-0.5 ${filter === label ? "text-black/50" : "text-white/40"}`}>{label}</p>
+              <p className={`text-[10px] mt-0.5 ${filter === label ? "text-primary-foreground" : "text-muted-foreground"}`}>{label}</p>
             </button>
           ))}
         </div>
@@ -227,7 +226,7 @@ export default function PortfolioContent({
               key={f}
               onClick={() => setFilter(f)}
               className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-semibold transition active:scale-95
-                ${filter === f ? "bg-white text-black" : "bg-white/8 text-white/60 hover:bg-white/15 hover:text-white"}`}
+                ${filter === f ? "bg-primary text-primary-foreground" : "bg-foreground/8 text-foreground/75 hover:bg-foreground/15 hover:text-foreground"}`}
             >
               {f === "All" ? t("portfolio.all") : f}
             </button>
@@ -239,17 +238,17 @@ export default function PortfolioContent({
       <section className="relative z-10 pb-8">
         {allPhotos.length === 0 ? (
           <div className="px-6 py-20 text-center flex flex-col items-center gap-3">
-            <p className="text-base font-bold text-white/70">{t("portfolio.emptyTitle")}</p>
-            <p className="text-sm text-white/40 max-w-xs">
+            <p className="text-base font-bold text-foreground/70">{t("portfolio.emptyTitle")}</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
               {t("portfolio.emptyBody")}
             </p>
           </div>
         ) : visibleData.length === 0 ? (
           <div className="px-6 py-16 text-center flex flex-col items-center gap-3">
-            <p className="text-sm text-white/40">{t("portfolio.emptyFilter")}</p>
+            <p className="text-sm text-muted-foreground">{t("portfolio.emptyFilter")}</p>
             <button
               onClick={() => setFilter("All")}
-              className="rounded-full px-5 min-h-11 bg-white/[0.07] hover:bg-white/12 text-xs font-bold transition active:scale-95"
+              className="rounded-full px-5 min-h-11 bg-foreground/[0.07] hover:bg-foreground/12 text-xs font-bold transition active:scale-95"
             >
               {t("portfolio.showAllPhotos")}
             </button>
@@ -265,11 +264,12 @@ export default function PortfolioContent({
           <Link
             key={a.slug}
             href={`/${locale}/albums/${a.slug}`}
-            className="group shrink-0 snap-start w-40 sm:w-48 rounded-xl p-3 bg-white/4 hover:bg-white/9 active:bg-white/12 transition-colors"
+            className="group shrink-0 snap-start w-40 sm:w-48 rounded-xl p-3 bg-foreground/4 hover:bg-foreground/9 active:bg-foreground/12 transition-colors"
           >
             <div
               className="relative w-full aspect-square rounded-lg overflow-hidden mb-3"
-              style={{ boxShadow: `0 8px 24px -8px ${a.color}`, ...blurStyle(a.coverThumbhash) }}
+              // Neutral shadow, not the album's colour — see AboutContent.
+              style={{ boxShadow: "0 8px 24px -10px rgba(0,0,0,0.35)", ...blurStyle(a.coverThumbhash) }}
             >
               {hasLadder(a.coverLadder) ? (
                 <picture>
@@ -289,8 +289,8 @@ export default function PortfolioContent({
                 <Image src={a.cover} alt={`${a.title} — album cover`} fill sizes={ALBUM_COVER_SIZES} unoptimized className="object-cover" />
               )}
             </div>
-            <p className="text-sm font-bold text-white truncate">{a.title}</p>
-            <p className="text-xs text-white/50 mt-0.5 truncate">
+            <p className="text-sm font-bold text-foreground truncate">{a.title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {t("portfolio.photoCount", { n: a.photoCount })}
             </p>
           </Link>
@@ -309,14 +309,14 @@ export default function PortfolioContent({
       )}
 
       {/* CTA */}
-      <section className="relative z-10 mx-4 sm:mx-8 mb-32 bg-white/5 border border-white/[0.07] p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <section className="relative z-10 mx-4 sm:mx-8 mb-32 bg-foreground/5 border border-border p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg sm:text-xl font-bold">{t("portfolio.ctaTitle")}</h2>
-          <p className="text-xs text-white/40 mt-1 max-w-xs leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
             {t("portfolio.ctaBody")}
           </p>
         </div>
-        <Link href={`/${locale}/book`} className="shrink-0 bg-white text-black text-xs font-bold px-5 py-2.5 rounded-full hover:bg-white/80 transition">
+        <Link href={`/${locale}/book`} className="shrink-0 bg-primary text-primary-foreground text-xs font-bold px-5 py-2.5 rounded-full hover:bg-primary-hover transition">
           {t("service.bookSession")} →
         </Link>
       </section>

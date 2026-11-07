@@ -110,7 +110,7 @@ export default function GalleryRequestSheet({
       onClick={onClose}
     >
       <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-neutral-950 ring-1 ring-white/10 sm:rounded-3xl"
+        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card ring-1 ring-border sm:rounded-3xl"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -118,17 +118,17 @@ export default function GalleryRequestSheet({
         aria-label={t("request.heading")}
       >
         <div className="flex items-center justify-between px-6 pb-2 pt-6">
-          <h2 className="text-lg font-semibold text-white">{t("request.heading")}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("request.heading")}</h2>
           <button
             onClick={onClose}
             aria-label={t("common.close")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="px-6 text-sm text-white/50">{t("request.blurb")}</p>
+        <p className="px-6 text-sm text-muted-foreground">{t("request.blurb")}</p>
 
         <div className="mt-5 space-y-2 px-6">
           {OPTIONS.map((option) => {
@@ -139,14 +139,14 @@ export default function GalleryRequestSheet({
                 onClick={() => setKind(option.kind)}
                 className={`w-full rounded-2xl border p-4 text-left transition ${
                   active
-                    ? "border-white bg-white/10"
-                    : "border-white/10 hover:border-white/30"
+                    ? "border-accent-warm bg-accent-warm/10"
+                    : "border-border hover:border-foreground/30"
                 }`}
               >
-                <span className="block text-sm font-medium text-white">
+                <span className="block text-sm font-medium text-foreground">
                   {t(option.labelKey)}
                 </span>
-                <span className="mt-0.5 block text-xs text-white/50">
+                <span className="mt-0.5 block text-xs text-muted-foreground">
                   {t(option.helpKey)}
                 </span>
               </button>
@@ -157,7 +157,7 @@ export default function GalleryRequestSheet({
         {needsSelection && (
           <p
             className={`mt-4 px-6 text-xs ${
-              missingSelection ? "text-amber-300" : "text-white/50"
+              missingSelection ? "text-destructive" : "text-muted-foreground"
             }`}
           >
             {missingSelection
@@ -169,7 +169,7 @@ export default function GalleryRequestSheet({
         <div className="mt-4 px-6">
           <label
             htmlFor="request-note"
-            className="mb-2 block text-xs uppercase tracking-widest text-white/40"
+            className="mb-2 block text-xs uppercase tracking-widest text-muted-foreground"
           >
             {t("request.noteLabel")}
           </label>
@@ -179,15 +179,15 @@ export default function GalleryRequestSheet({
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder={t("request.notePlaceholder")}
-            className="w-full resize-none rounded-xl border border-white/15 bg-white/5 p-3 text-sm text-white placeholder:text-white/30 focus:border-white/40 focus:outline-none"
+            className="w-full resize-none rounded-xl border border-input bg-foreground/5 p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
           />
         </div>
 
         <div className="mt-4 px-6">
-          <p className="mb-2 text-xs uppercase tracking-widest text-white/40">
+          <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">
             {t("request.previewLabel")}
           </p>
-          <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white/5 p-3 font-mono text-[11px] leading-relaxed text-white/60">
+          <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-foreground/5 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
             {message}
           </pre>
         </div>
@@ -196,7 +196,7 @@ export default function GalleryRequestSheet({
           <button
             onClick={sendOnTelegram}
             disabled={missingSelection}
-            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/85 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
             {t("request.sendTelegram")}
@@ -204,14 +204,14 @@ export default function GalleryRequestSheet({
           <button
             onClick={sendByEmail}
             disabled={missingSelection}
-            className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-medium text-white transition hover:border-white/50 disabled:opacity-40"
+            className="flex items-center justify-center gap-2 rounded-full border border-foreground/20 px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground/50 disabled:opacity-40"
           >
             <Mail className="h-4 w-4" />
             {t("request.sendEmail")}
           </button>
           <button
             onClick={copy}
-            className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-medium text-white transition hover:border-white/50"
+            className="flex items-center justify-center gap-2 rounded-full border border-foreground/20 px-5 py-3 text-sm font-medium text-foreground transition hover:border-foreground/50"
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? t("request.copied") : t("request.copy")}

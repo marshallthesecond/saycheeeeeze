@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { accentText } from './accent';
 
 interface FAQ {
   question: string;
@@ -12,11 +13,11 @@ function FAQItem({ question, answer, accent }: FAQ & { accent?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-b border-white/10 last:border-b-0">
+    <div className="border-b border-border last:border-b-0">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-4 min-h-14 py-4 text-left text-sm font-semibold text-white hover:text-white/80 active:text-white/60 transition"
+        className="w-full flex items-center justify-between gap-4 min-h-14 py-4 text-left text-sm font-semibold text-foreground hover:text-foreground/80 active:text-muted-foreground transition"
       >
         <span>{question}</span>
         {/* One rotating chevron rather than swapping two icons — smoother,
@@ -25,7 +26,7 @@ function FAQItem({ question, answer, accent }: FAQ & { accent?: string }) {
           className="w-4 h-4 shrink-0 transition-transform duration-200"
           style={{
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            color: open && accent ? accent : 'rgba(255,255,255,0.5)',
+            color: open && accent ? accentText(accent) : 'var(--muted-foreground)',
           }}
         />
       </button>
@@ -40,7 +41,7 @@ function FAQItem({ question, answer, accent }: FAQ & { accent?: string }) {
         }}
       >
         <div className="overflow-hidden">
-          <p className="pb-4 text-sm text-white/60 leading-relaxed">{answer}</p>
+          <p className="pb-4 text-sm text-muted-foreground leading-relaxed">{answer}</p>
         </div>
       </div>
     </div>
@@ -49,7 +50,7 @@ function FAQItem({ question, answer, accent }: FAQ & { accent?: string }) {
 
 export default function FAQList({ faqs, accent }: { faqs: FAQ[]; accent?: string }) {
   return (
-    <div className="rounded-xl bg-white/3 px-4">
+    <div className="rounded-xl bg-foreground/3 px-4">
       {faqs.map((faq, i) => (
         <FAQItem key={i} question={faq.question} answer={faq.answer} accent={accent} />
       ))}

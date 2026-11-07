@@ -55,7 +55,7 @@ export default function ServiceNotice({
         // coin-flip on a phone, and a mis-tap here does nothing visible.
         aria-label={triggerLabel}
         title={triggerLabel}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/80 active:bg-white/15"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-foreground/10 hover:text-foreground/80 active:bg-foreground/15"
       >
         <HelpCircle className="h-4.5 w-4.5" />
       </button>
@@ -66,7 +66,7 @@ export default function ServiceNotice({
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-t-3xl bg-neutral-950 ring-1 ring-white/10 sm:rounded-3xl"
+            className="w-full max-w-md rounded-t-3xl bg-card ring-1 ring-border sm:rounded-3xl"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
@@ -74,12 +74,12 @@ export default function ServiceNotice({
             aria-label={title}
           >
             <div className="flex items-start justify-between gap-4 px-6 pt-6">
-              <h2 className="text-lg font-bold text-white">{title}</h2>
+              <h2 className="text-lg font-bold text-foreground">{title}</h2>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={closeLabel}
-                className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+                className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -91,7 +91,7 @@ export default function ServiceNotice({
               style={{ background: accent }}
             />
 
-            <p className="px-6 pb-7 pt-4 text-sm leading-relaxed text-white/70">{body}</p>
+            <p className="px-6 pb-7 pt-4 text-sm leading-relaxed text-foreground/70">{body}</p>
           </div>
         </div>
       )}

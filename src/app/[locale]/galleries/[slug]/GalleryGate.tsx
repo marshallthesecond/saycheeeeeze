@@ -13,7 +13,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Send, Mail, Clock } from "lucide-react";
+import { CircleAlert, Lock, Send, Mail, Clock } from "lucide-react";
 
 import { CONTACT } from "@/src/lib/gallery";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
@@ -98,12 +98,11 @@ export default function GalleryGate({
   const mailSubject = tx("gate.mailSubject", "Gallery access — {title}", { title });
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 pb-28 text-center text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 pb-28 text-center text-foreground">
       {/* The same bar the rest of the site uses, so the door doesn't read as a
           login wall bolted onto a different product. */}
       <StickyHeader
         title="saycheeeeeze"
-        accent="#0e0c09"
         fadeOver={200}
         variant="wordmark"
         backHref={`/${locale}/portfolio`}
@@ -114,21 +113,21 @@ export default function GalleryGate({
         className="pointer-events-none absolute inset-x-0 top-0 h-80"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(80,100,119,0.22) 0%, rgba(14,12,9,0) 100%)",
+            "linear-gradient(to bottom, color-mix(in oklab, var(--secondary) 28%, transparent) 0%, transparent 100%)",
         }}
       />
 
       <div className="relative z-10 flex w-full max-w-xs flex-col items-center gap-6">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-foreground/10">
           {isExpired ? (
-            <Clock className="h-7 w-7 text-white/70" />
+            <Clock className="h-7 w-7 text-foreground/70" />
           ) : (
-            <Lock className="h-7 w-7 text-white/70" />
+            <Lock className="h-7 w-7 text-foreground/70" />
           )}
         </span>
 
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-widest text-white/40">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
             {isExpired
               ? tx("gate.expiredEyebrow", "No longer available")
               : tx("gate.eyebrow", "Private gallery")}
@@ -138,7 +137,7 @@ export default function GalleryGate({
           </h1>
 
           {isExpired ? (
-            <p className="mt-3 text-sm leading-relaxed text-white/50">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {tx(
                 "gate.expiredBody",
                 "This gallery came down after its delivery window. Message me and I'll put it back up.",
@@ -147,7 +146,7 @@ export default function GalleryGate({
           ) : (
             <>
               {(dateLabel || photoCount) && (
-                <p className="mt-1 text-sm text-white/50">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {[
                     dateLabel,
                     photoCount
@@ -158,7 +157,7 @@ export default function GalleryGate({
                     .join(" · ")}
                 </p>
               )}
-              <p className="mt-3 text-sm leading-relaxed text-white/50">
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                 {tx("gate.body", "Enter the code I sent you to open it.")}
               </p>
             </>
@@ -184,7 +183,7 @@ export default function GalleryGate({
               aria-invalid={status === "error"}
               placeholder={tx("gate.placeholder", "Your code")}
               disabled={status === "locked-out"}
-              className="w-full rounded-full border border-white/15 bg-white/5 px-5 text-center font-mono tracking-[0.2em] text-white placeholder:tracking-normal placeholder:font-sans placeholder:text-white/30 focus:border-white/40 focus:outline-none disabled:opacity-50"
+              className="w-full rounded-full border border-input bg-foreground/5 px-5 text-center font-mono tracking-[0.2em] text-foreground placeholder:tracking-normal placeholder:font-sans placeholder:text-muted-foreground focus:border-ring focus:outline-none disabled:opacity-50"
               style={{ minHeight: "3rem" }}
             />
 
@@ -193,7 +192,7 @@ export default function GalleryGate({
               disabled={
                 !code.trim() || status === "checking" || status === "locked-out"
               }
-              className="flex min-h-12 w-full items-center justify-center rounded-full bg-white text-sm font-bold text-black transition active:scale-[0.98] disabled:opacity-40"
+              className="flex min-h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.98] disabled:opacity-40"
             >
               {status === "checking"
                 ? tx("gate.checking", "Checking…")
@@ -204,12 +203,14 @@ export default function GalleryGate({
                 They don't apologise and they don't hint at whether the slug
                 exists — a wrong code and a wrong URL read identically. */}
             {status === "error" && (
-              <p role="alert" className="text-xs text-amber-300">
+              <p role="alert" className="flex items-center justify-center gap-1.5 text-xs text-destructive">
+                <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
                 {tx("gate.wrong", "That code didn't work. Check it and try again.")}
               </p>
             )}
             {status === "locked-out" && (
-              <p role="alert" className="text-xs text-amber-300">
+              <p role="alert" className="flex items-center justify-center gap-1.5 text-xs text-destructive">
+                <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
                 {tx(
                   "gate.tooMany",
                   "Too many tries. Wait fifteen minutes, or message me below.",
@@ -222,7 +223,7 @@ export default function GalleryGate({
         {/* The way out for someone with no code. This is the point of the
             screen for everyone who isn't the client. */}
         <div className="flex w-full flex-col gap-2">
-          <p className="text-[11px] uppercase tracking-widest text-white/30">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
             {isExpired
               ? tx("gate.expiredHelp", "Ask me to restore it")
               : tx("gate.noCode", "No code, or it stopped working?")}
@@ -232,7 +233,7 @@ export default function GalleryGate({
             href={`https://t.me/${CONTACT.telegram}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white/[0.07] text-sm font-semibold transition hover:bg-white/12"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground/[0.07] text-sm font-semibold transition hover:bg-foreground/12"
           >
             <Send className="h-4 w-4" />
             {tx("gate.telegram", "Message me on Telegram")}
@@ -242,7 +243,7 @@ export default function GalleryGate({
             href={`mailto:${CONTACT.email}?subject=${encodeURIComponent(
               mailSubject,
             )}&body=${encodeURIComponent(askForAccess)}`}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white/[0.07] text-sm font-semibold transition hover:bg-white/12"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground/[0.07] text-sm font-semibold transition hover:bg-foreground/12"
           >
             <Mail className="h-4 w-4" />
             {tx("gate.email", "Email me")}
@@ -251,7 +252,7 @@ export default function GalleryGate({
 
         <Link
           href={`/${locale}`}
-          className="text-xs text-white/30 transition hover:text-white/60"
+          className="text-xs text-muted-foreground transition hover:text-foreground"
         >
           ← {tx("gallery.back", "Back to saycheeeeze")}
         </Link>

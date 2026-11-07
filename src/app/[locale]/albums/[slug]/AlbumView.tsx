@@ -457,26 +457,28 @@ export default function AlbumView({
       : null;
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Top bar
           The same StickyHeader every other page uses. What was here before was
           a static <header> with two icon components that accepted `className`
           and then never applied it — they rendered at a fixed 20px and neither
-          one did anything on tap. This one has the real language switcher, a
-          real back link, and tints toward the album's own accent as you scroll. */}
+          one did anything on tap. This one has the real language switcher and a
+          real back link. */}
       <StickyHeader
         title="saycheeeeeze"
-        accent={album.color}
         fadeOver={220}
         variant="wordmark"
         backHref={`/${locale}/portfolio`}
       />
 
-      {/* Section A — flat accent, fixed height matching the photo */}
-      <section
-        className="relative h-44 w-full overflow-hidden sm:h-60 lg:h-76"
-        style={{ background: album.color }}
-      >
+      {/* Section A — a flat band, fixed height matching the photo.
+          The band used to be album.color, with the cover fading into it: a
+          per-album tint laid over the edge of the photograph and behind the
+          whole header. Photographs stay neutral now, so the band is the card
+          surface — cream in light mode, wine-black in dark — and the cover
+          fades into that instead. album.color is still in the data; nothing
+          here paints with it. */}
+      <section className="relative h-44 w-full overflow-hidden bg-card sm:h-60 lg:h-76">
         <div
           className="absolute left-0 top-0 h-full w-full sm:w-[65%] lg:w-[42%]"
           style={blurStyle(album.coverThumbhash)}
@@ -518,12 +520,15 @@ export default function AlbumView({
           <div
             className="absolute inset-0"
             style={{
-              background: `linear-gradient(to right, transparent 0%, transparent 35%, ${album.color} 88%)`,
+              background: "linear-gradient(to right, transparent 0%, transparent 35%, var(--card) 88%)",
             }}
           />
 
-          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 via-black/10 to-transparent px-4 pb-4 pt-16 lg:hidden">
-            <p className="mb-1 text-xs text-white/80">
+          {/* Over the photograph, on its own black scrim: white in both
+              themes. text-white on the wrapper because the page's own text
+              colour is now the theme's, which in light mode is ink. */}
+          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/55 to-transparent px-4 pb-4 pt-20 text-white lg:hidden">
+            <p className="mb-1 text-xs text-white">
               {tx("gallery.eyebrow", "Gallery")}
             </p>
             <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">
@@ -548,7 +553,6 @@ export default function AlbumView({
             ladder={album.coverLadder}
             src={album.cover}
             thumbhash={album.coverThumbhash}
-            accent={album.color}
             alt=""
             sizes="80px"
             className="h-full w-full"
@@ -557,17 +561,17 @@ export default function AlbumView({
 
         <div className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-8 lg:flex">
           <div className="text-right">
-            <p className="mb-2 text-sm text-white/80">
+            <p className="mb-2 text-sm text-foreground/80">
               {tx("gallery.eyebrow", "Gallery")}
             </p>
             <h1 className="whitespace-nowrap text-6xl font-extrabold leading-none">
               {album.title}
             </h1>
-            <p className="mt-3 text-lg text-white/90">
+            <p className="mt-3 text-lg text-foreground/90">
               {album.location}, {album.year} · {album.photos.length}{" "}
               {tx("gallery.photos", "photos")}
             </p>
-            <p className="max-w-[50vw] text-right text-sm text-white/80">
+            <p className="max-w-[50vw] text-right text-sm text-foreground/80">
               {album.description}
             </p>
           </div>
@@ -575,7 +579,6 @@ export default function AlbumView({
             ladder={album.coverLadder}
             src={album.cover}
             thumbhash={album.coverThumbhash}
-            accent={album.color}
             alt=""
             sizes="220px"
             className="h-55 w-55 shrink-0 rounded-2xl shadow-xl"
@@ -585,18 +588,13 @@ export default function AlbumView({
 
       {/* Photographer's note — client galleries only */}
       {note && (
-        <p className="bg-white/5 px-6 py-3 text-center text-sm leading-relaxed text-white/70 sm:px-10">
+        <p className="bg-foreground/5 px-6 py-3 text-center text-sm leading-relaxed text-foreground/70 sm:px-10">
           {note}
         </p>
       )}
 
-      {/* Section B — actions, fading to black */}
-      <section
-        className="relative w-full py-8 sm:py-10"
-        style={{
-          background: `linear-gradient(to bottom, ${album.color} 0%, rgba(0,0,0,1) 100%)`,
-        }}
-      >
+      {/* Section B — actions, the band settling into the page */}
+      <section className="relative w-full bg-linear-to-b from-card to-background py-8 sm:py-10">
         <div className="mt-2 flex items-center justify-end gap-5 px-6 sm:px-10">
           <ActionIcon
             icon={<Share2 className="h-4 w-4" />}
@@ -627,7 +625,7 @@ export default function AlbumView({
 
       {/* Selection hint */}
       {selectionMode && selected.size === 0 && (
-        <p className="px-6 pb-2 pt-4 text-center text-xs text-white/40">
+        <p className="px-6 pb-2 pt-4 text-center text-xs text-muted-foreground">
           {tx("gallery.selectHint", "Tap photos to select them. Long-press works too.")}
         </p>
       )}
@@ -649,13 +647,13 @@ export default function AlbumView({
                   onClick={() => chooseFilter(value)}
                   className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
                     active
-                      ? "bg-white text-black"
-                      : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-foreground/10 text-foreground/75 hover:bg-foreground/15 hover:text-foreground"
                   }`}
                 >
                   {tx(FILTER_KEYS[value], FILTER_FALLBACK[value])}
                   <span
-                    className={`tabular-nums ${active ? "text-black/50" : "text-white/40"}`}
+                    className={`tabular-nums ${active ? "text-primary-foreground" : "text-muted-foreground"}`}
                   >
                     {count}
                   </span>
@@ -664,7 +662,7 @@ export default function AlbumView({
             })}
           </div>
           {markHint && (
-            <p className="mt-2 text-xs leading-relaxed text-white/40">{markHint}</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{markHint}</p>
           )}
         </div>
       )}
@@ -689,7 +687,7 @@ export default function AlbumView({
       {/* A filter that matches nothing has to say so, or it reads as a gallery
           that lost its photographs. */}
       {onMark && filteredPhotos.length === 0 && (
-        <p className="px-6 py-16 text-center text-sm text-white/40">
+        <p className="px-6 py-16 text-center text-sm text-muted-foreground">
           {tx("gallery.filterEmpty", "Nothing marked this way yet.")}
         </p>
       )}
@@ -699,7 +697,7 @@ export default function AlbumView({
         <div className="flex justify-center py-10">
           <button
             onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-            className="rounded-full border border-white/20 px-8 py-3 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/50"
+            className="rounded-full border border-foreground/20 px-8 py-3 text-xs font-semibold uppercase tracking-widest text-foreground transition hover:border-foreground/50"
           >
             {tx("gallery.loadMore", "Load more")}
           </button>
@@ -707,29 +705,29 @@ export default function AlbumView({
       )}
 
       {/* Footer */}
-      <footer className="border-t border-white/10 px-6 py-10 pb-28 text-center">
+      <footer className="border-t border-border px-6 py-10 pb-28 text-center">
         <button
           onClick={() => setRequestOpen(true)}
-          className="mx-auto mb-8 flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-xs font-medium text-white/70 transition hover:border-white/40 hover:text-white"
+          className="mx-auto mb-8 flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-2.5 text-xs font-medium text-foreground/70 transition hover:border-foreground/40 hover:text-foreground"
         >
           <MessageCircleQuestion className="h-4 w-4" />
           {tx("gallery.requestCta", "Ask me to change or remove something")}
         </button>
 
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-muted-foreground">
           {tx("gallery.tagPrompt", "Don't forget to tag me on Insta:")}{" "}
           <a
             href="https://www.instagram.com/saycheeeeeze"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-white hover:underline"
+            className="font-medium text-foreground hover:underline"
           >
             @saycheeeeeze
           </a>
         </p>
         <Link
           href={`/${locale}`}
-          className="mt-4 inline-block text-xs text-white/30 transition hover:text-white/60"
+          className="mt-4 inline-block text-xs text-muted-foreground transition hover:text-foreground"
         >
           ← {tx("gallery.back", "Back to saycheeeeze")}
         </Link>
@@ -738,9 +736,9 @@ export default function AlbumView({
       {/* Selection bar */}
       {selected.size > 0 && (
         <div
-          className={`fixed left-1/2 z-60 flex -translate-x-1/2 items-center gap-1 rounded-full bg-neutral-900/95 px-2 py-2 shadow-2xl ring-1 ring-white/15 backdrop-blur-md ${BAR_OFFSET}`}
+          className={`fixed left-1/2 z-60 flex -translate-x-1/2 items-center gap-1 rounded-full bg-card/95 px-2 py-2 shadow-2xl shadow-black/20 ring-1 ring-border backdrop-blur-md ${BAR_OFFSET}`}
         >
-          <span className="px-3 text-xs font-medium tabular-nums text-white/70">
+          <span className="px-3 text-xs font-medium tabular-nums text-foreground/70">
             {selected.size}
           </span>
           <BarButton onClick={shareSelected} icon={<Share2 className="h-4 w-4" />}>
@@ -763,7 +761,7 @@ export default function AlbumView({
           </BarButton>
           <button
             onClick={selected.size === visiblePhotos.length ? clearSelection : selectAllVisible}
-            className="hidden rounded-full px-3 py-2 text-xs font-medium text-white/60 transition hover:text-white sm:block"
+            className="hidden rounded-full px-3 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground sm:block"
           >
             {selected.size === visiblePhotos.length
               ? tx("gallery.none", "None")
@@ -772,7 +770,7 @@ export default function AlbumView({
           <button
             onClick={clearSelection}
             aria-label={tx("gallery.clear", "Clear selection")}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:bg-foreground/10 hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -782,7 +780,7 @@ export default function AlbumView({
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed left-1/2 z-70 -translate-x-1/2 rounded-full bg-white px-4 py-2.5 text-xs font-medium text-black shadow-xl ${
+          className={`fixed left-1/2 z-70 -translate-x-1/2 rounded-full bg-foreground px-4 py-2.5 text-xs font-medium text-background shadow-xl ${
             selected.size > 0
               ? "bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] sm:bottom-24"
               : BAR_OFFSET
@@ -889,13 +887,13 @@ function ActionIcon({
       <span
         className={`flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition ${
           active
-            ? "bg-black text-white ring-2 ring-white"
-            : "bg-white text-black group-hover:bg-white/80"
+            ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
+            : "bg-foreground text-background group-hover:bg-foreground/80"
         }`}
       >
         {icon}
       </span>
-      <span className="whitespace-nowrap text-[10px] text-white/70 transition group-hover:text-white">
+      <span className="whitespace-nowrap text-[10px] text-foreground/70 transition group-hover:text-foreground">
         {label}
       </span>
     </button>
@@ -918,7 +916,7 @@ function BarButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-40"
+      className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-foreground transition hover:bg-foreground/10 disabled:opacity-40"
     >
       {icon}
       <span className="hidden xs:inline sm:inline">{children}</span>

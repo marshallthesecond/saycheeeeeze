@@ -13,10 +13,13 @@
 // so the offsets keep as much of it as the composition allows rather than
 // maximising the cap.
 //
-// Every gradient stop is mixed from `accent`, so a second service adopting
-// this hero gets a coherent palette from its own colour with no new CSS.
+// Every gradient stop is mixed from `accent` and the page ground, so a second
+// service adopting this hero gets a coherent palette from its own colour with
+// no new CSS — and the same hero is a pale wash on cream in light mode and a
+// deep one on wine-black in dark. It used to be the accent darkened toward
+// black, which is a dark block with white type on a cream page.
 
-import { accentRgb, shade } from './accent';
+import { accentMix } from './accent';
 
 interface Props {
   title: string;
@@ -27,14 +30,12 @@ interface Props {
 }
 
 export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: Props) {
-  const rgb = accentRgb(accent);
-
   // Two layers: a glow anchored where the cap sits, over a diagonal wash.
-  // Ends transparent rather than at black, so the page background shows
-  // through and there is no seam to line up.
+  // Ends transparent, so the page background shows through and there is no
+  // seam to line up.
   const background = [
-    `radial-gradient(125% 95% at 76% 10%, ${shade(rgb, 0.06, 0.55)} 0%, transparent 62%)`,
-    `linear-gradient(168deg, ${shade(rgb, -0.55)} 0%, ${shade(rgb, -0.78)} 46%, transparent 100%)`,
+    `radial-gradient(125% 95% at 76% 10%, ${accentMix(accent, 28, 'transparent')} 0%, transparent 62%)`,
+    `linear-gradient(168deg, ${accentMix(accent, 22)} 0%, ${accentMix(accent, 10)} 46%, transparent 100%)`,
   ].join(', ');
 
   return (
@@ -44,8 +45,8 @@ export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: P
     >
       <Mortarboard
         className="pointer-events-none absolute -right-[68px] -top-[54px] h-[78%] max-h-[330px] sm:-right-16 sm:-top-14 sm:max-h-[420px]"
-        stroke={shade(rgb, 0.62, 0.4)}
-        fill={shade(rgb, 0.28, 0.17)}
+        stroke={accentMix(accent, 40, 'transparent')}
+        fill={accentMix(accent, 14, 'transparent')}
       />
 
       {/* Fades the graphic out before the text begins, so the headline sits on
@@ -53,7 +54,7 @@ export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: P
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-36"
-        style={{ background: 'linear-gradient(to bottom, transparent, var(--background, #0b0d0f) 88%)' }}
+        style={{ background: 'linear-gradient(to bottom, transparent, var(--background) 88%)' }}
       />
 
       <div className="absolute inset-x-0 bottom-0 px-4 pb-5 sm:px-8 sm:pb-7">
@@ -64,14 +65,14 @@ export default function ServiceHero({ title, tagline, eyebrow, accent, Icon }: P
           >
             <Icon className="h-3.5 w-3.5 text-white" />
           </span>
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/80">
             {eyebrow}
           </span>
         </div>
-        <h1 className="max-w-3xl text-[30px] font-extrabold leading-[0.95] tracking-tighter sm:text-6xl">
+        <h1 className="max-w-3xl text-[30px] font-extrabold leading-[0.95] tracking-tighter text-foreground sm:text-6xl">
           {title}
         </h1>
-        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
+        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-foreground/85 sm:text-base">
           {tagline}
         </p>
       </div>
@@ -110,9 +111,12 @@ export function Mortarboard({
       {/* The board is filled as well as stroked: at this size a pure outline
           reads as a wireframe, and the soft fill is what makes it sit in the
           gradient instead of floating over it. */}
-      <path d="M100 28 L192 70 L100 112 L8 70 Z" fill={fill} />
+      {/* Colours go through `style`, not the presentation attributes: they
+          are color-mix() over theme variables, and CSS is the one place every
+          browser is certain to resolve those. */}
+      <path d="M100 28 L192 70 L100 112 L8 70 Z" style={{ fill }} />
       <g
-        stroke={stroke}
+        style={{ stroke }}
         strokeWidth={1.8}
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -121,7 +125,7 @@ export function Mortarboard({
         <path d="M100 28 L192 70 L100 112 L8 70 Z" />
         <path d="M100 70 L176 74 Q184 76 184 86 L184 126" />
       </g>
-      <path d="M177 126 h14 l-2 15 a5 5 0 0 1 -10 0 Z" fill={stroke} />
+      <path d="M177 126 h14 l-2 15 a5 5 0 0 1 -10 0 Z" style={{ fill: stroke }} />
     </svg>
   );
 }

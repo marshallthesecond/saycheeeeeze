@@ -778,24 +778,26 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   }
 
   return (
-    <div className="min-h-screen bg-background text-white overflow-x-clip">
+    <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-80 pointer-events-none z-0"
         style={{
+          // Clay, not red: the one large wash on the page. It was the old
+          // slate accent at 26%; the new accent is for the button at the end.
           background:
-            "linear-gradient(to bottom, rgba(80,100,119,0.26) 0%, rgba(80,100,119,0.08) 45%, rgba(17,19,21,0) 100%)",
+            "linear-gradient(to bottom, color-mix(in oklab, var(--secondary) 30%, transparent) 0%, color-mix(in oklab, var(--secondary) 9%, transparent) 45%, transparent 100%)",
         }}
       />
 
-      <StickyHeader title={t("book.title")} accent="#111315" fadeOver={200} backHref={`/${locale}`} />
+      <StickyHeader title={t("book.title")} fadeOver={200} backHref={`/${locale}`} />
 
       <div
         className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 pb-48"
         style={{ paddingTop: "calc(5rem + env(safe-area-inset-top))" }}
       >
         <div className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
             {t("book.eyebrow")}
           </p>
           {/* Same treatment as every other page title — portfolio, the service
@@ -810,7 +812,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tighter leading-[0.95]">
             {t("book.title")}
           </h1>
-          <p className="text-sm text-white/55 mt-3">{t("book.subtitle")}</p>
+          <p className="text-sm text-muted-foreground mt-3">{t("book.subtitle")}</p>
         </div>
 
         {/* Deliberately NOT CONTACT.telegram. That handle is the public
@@ -820,7 +822,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           href={"https://t.me/marshallthethird"}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full mb-8 rounded-full min-h-12 bg-white/[0.07] hover:bg-white/12 active:bg-white/16 text-sm font-semibold text-white/75 hover:text-white transition active:scale-[0.99]"
+          className="flex items-center justify-center gap-2 w-full mb-8 rounded-full min-h-12 bg-foreground/[0.07] hover:bg-foreground/12 active:bg-foreground/16 text-sm font-semibold text-foreground/75 hover:text-foreground transition active:scale-[0.99]"
         >
           <MessageCircle className="w-4 h-4" />
           {t("book.telegramFallback")}
@@ -893,10 +895,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     locale={locale}
                   />
                   <div>
-                    <p className="text-[11px] text-white/40 mb-3 font-medium">
+                    <p className="text-[11px] text-muted-foreground mb-3 font-medium">
                       {t("book.startTime")}
                       {selected && (
-                        <span className="text-white/25"> · {selected.durationLabel}</span>
+                        <span className="text-muted-foreground"> · {selected.durationLabel}</span>
                       )}
                     </p>
                     <EventSlotPicker
@@ -925,10 +927,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   />
 
                   <div>
-                    <p className="text-[11px] text-white/40 mb-3 font-medium">
+                    <p className="text-[11px] text-muted-foreground mb-3 font-medium">
                       {t("book.startTime")}
                       {selected && (
-                        <span className="text-white/25"> · {selected.durationLabel}</span>
+                        <span className="text-muted-foreground"> · {selected.durationLabel}</span>
                       )}
                     </p>
                     <StartTimePicker
@@ -958,9 +960,9 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
             {isEvent ? (
               // One venue, already set. A picker here would be a question with
               // one answer that the client cannot change.
-              <div className="rounded-xl bg-white/6 px-4 py-4">
+              <div className="rounded-xl bg-foreground/6 px-4 py-4">
                 <p className="text-sm font-semibold">{t(`book.loc.${MINI_EVENT.locationId}.label`)}</p>
-                <p className="text-xs text-white/40 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {t(`book.loc.${MINI_EVENT.locationId}.sub`)}
                 </p>
               </div>
@@ -1003,7 +1005,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   onChange={(e) => set("name", e.target.value)}
                   placeholder={t("book.namePlaceholder")}
                   autoComplete="name"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-white/20 outline-none"
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 />
               </Field>
 
@@ -1019,7 +1021,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   onChange={(e) => set("telegram", normaliseTelegram(e.target.value))}
                   placeholder="@username"
                   autoComplete="off"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-white/20 outline-none"
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 />
               </Field>
 
@@ -1037,7 +1039,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   placeholder="+998 __ ___ __ __"
                   inputMode="tel"
                   autoComplete="tel"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-white/20 outline-none tracking-wide"
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none tracking-wide"
                 />
               </Field>
 
@@ -1047,7 +1049,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   onChange={(e) => set("notes", e.target.value.slice(0, 600))}
                   placeholder={t("book.notesPlaceholder")}
                   rows={3}
-                  className="w-full bg-transparent text-sm text-white placeholder:text-white/20 outline-none resize-none"
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none"
                 />
               </Field>
 
@@ -1055,10 +1057,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 <span
                   className={`mt-0.5 w-5 h-5 rounded-md border shrink-0 flex items-center justify-center transition
                     ${state.consent
-                      ? "bg-accent-warm border-accent-warm"
-                      : "border-white/25 group-hover:border-white/40"}`}
+                      ? "bg-primary border-primary"
+                      : "border-input group-hover:border-foreground/60"}`}
                 >
-                  {state.consent && <Check className="w-3 h-3 text-accent-ink" />}
+                  {state.consent && <Check className="w-3 h-3 text-primary-foreground" />}
                 </span>
                 <input
                   type="checkbox"
@@ -1066,7 +1068,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   onChange={(e) => set("consent", e.target.checked)}
                   className="sr-only"
                 />
-                <span className="text-xs text-white/50 leading-relaxed">{t("book.consent")}</span>
+                <span className="text-xs text-muted-foreground leading-relaxed">{t("book.consent")}</span>
               </label>
 
               {/* Summary sits at the decision point, not above the form.
@@ -1075,8 +1077,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                   read before clicking, and a confirmation screen that shows
                   only a price asks them to take the rest on trust. */}
               {selected && quote && (
-                <div className="mt-2 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
-                  <p className="text-[10px] text-white/35 font-semibold uppercase tracking-widest">
+                <div className="mt-2 bg-foreground/5 border border-border rounded-2xl p-4 flex flex-col gap-3">
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
                     {t("book.summary")}
                   </p>
                   <SummaryRow label={t("book.session")}  value={selected.name} />
@@ -1104,8 +1106,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                       {[selected.photos, selected.delivery, ...selected.perks]
                         .filter((line): line is string => !!line)
                         .map((line) => (
-                          <li key={line} className="flex items-start gap-2 text-[11px] text-white/45">
-                            <Check className="mt-0.5 h-3 w-3 shrink-0 text-white/25" />
+                          <li key={line} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+                            <Check className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
                             {line}
                           </li>
                         ))}
@@ -1149,8 +1151,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                     </>
                   )}
 
-                  <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-                    <span className="text-xs text-white/40">{t("book.total")}</span>
+                  <div className="pt-3 border-t border-border flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">{t("book.total")}</span>
                     <span className="text-lg font-bold">{formatSom(quote.totalUzs, locale)}</span>
                   </div>
                 </div>
@@ -1161,8 +1163,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
                 disabled={!canSubmit || submitting}
                 className={`mt-2 w-full rounded-full min-h-13 py-4 text-sm font-bold transition active:scale-[0.98]
                   ${canSubmit && !submitting
-                    ? "bg-accent-warm hover:bg-(--sc-accent-hover) text-accent-ink"
-                    : "bg-white/6 text-white/25 cursor-not-allowed"}`}
+                    ? "bg-primary hover:bg-primary-hover text-primary-foreground"
+                    // Disabled reads as disabled: no fill colour and a faint
+                    // label (WCAG exempts inactive controls from contrast).
+                    : "bg-foreground/6 text-foreground/35 cursor-not-allowed"}`}
               >
                 {submitting ? t("book.sending") : t("book.confirm")}
               </button>
@@ -1260,7 +1264,7 @@ function Step({
       // the step's own title underneath it.
       style={{ scrollMarginTop: "calc(4.75rem + env(safe-area-inset-top))" }}
       className={`rounded-2xl border transition-[border-color,background-color,opacity] duration-200
-        ${open ? "border-white/15 bg-white/3" : "border-white/8 bg-transparent"}
+        ${open ? "border-foreground/15 bg-foreground/3" : "border-border bg-transparent"}
         ${disabled ? "opacity-40" : ""}`}
     >
       <button
@@ -1271,7 +1275,7 @@ function Step({
       >
         <span
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition
-            ${done ? "bg-accent-warm text-accent-ink" : "bg-white/10 text-white/50"}`}
+            ${done ? "bg-primary text-primary-foreground" : "bg-foreground/10 text-foreground/80"}`}
         >
           {done ? <Check className="w-3.5 h-3.5" /> : n}
         </span>
@@ -1283,7 +1287,7 @@ function Step({
               pixels — a second, competing jump inside the one the body was
               already making. */}
           <span
-            className="block text-xs text-white/45 truncate transition-[max-height,opacity,margin-top] overflow-hidden"
+            className="block text-xs text-muted-foreground truncate transition-[max-height,opacity,margin-top] overflow-hidden"
             style={{
               maxHeight: !open && summary ? "1.25rem" : "0rem",
               marginTop: !open && summary ? "0.125rem" : "0rem",
@@ -1297,7 +1301,7 @@ function Step({
         </span>
         <ChevronDown
           aria-hidden
-          className="w-4 h-4 text-white/30 shrink-0 transition-transform"
+          className="w-4 h-4 text-muted-foreground shrink-0 transition-transform"
           style={{
             transform: open ? "rotate(180deg)" : "rotate(0deg)",
             opacity: disabled ? 0 : 1,
@@ -1389,11 +1393,11 @@ const ServicePicker = memo(function ServicePicker({ options, selectedId, onSelec
             aria-pressed={active}
             className={`text-left rounded-2xl px-4 py-4 border transition active:scale-[0.99]
               ${active
-                ? "border-accent-warm bg-accent-warm/10"
-                : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
+                ? "border-accent-warm bg-accent-warm/8"
+                : "border-border bg-foreground/4 hover:bg-foreground/[0.07]"}`}
           >
             <p className="font-semibold text-base">{pickLocale(o.title, locale)}</p>
-            <p className="text-xs text-white/45 mt-0.5">{pickLocale(o.blurb, locale)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{pickLocale(o.blurb, locale)}</p>
           </button>
         );
       })}
@@ -1411,8 +1415,8 @@ const FixedDate = memo(function FixedDate(
   { iso, label, locale }: { iso: string; label: string; locale: string },
 ) {
   return (
-    <div className="rounded-2xl border border-accent-warm/40 bg-accent-warm/10 px-4 py-4">
-      <p className="text-[10px] uppercase tracking-widest text-white/45 font-semibold">{label}</p>
+    <div className="rounded-2xl border border-accent-warm/40 bg-accent-warm/8 px-4 py-4">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</p>
       <p className="text-base font-bold mt-1">{formatISO(iso, locale)}</p>
     </div>
   );
@@ -1449,9 +1453,9 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
 
   if (!prices) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+      <div className="rounded-2xl border border-border bg-foreground/4 p-4">
         <p className="text-xs font-semibold flex items-center gap-2">
-          <Users className="w-3.5 h-3.5 text-white/40" />
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
           {t("book.peopleLabel")}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
@@ -1462,14 +1466,14 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
               aria-pressed={peopleCount === count}
               className={`h-10 min-w-11 px-3 rounded-lg text-xs font-medium transition active:scale-95
                 ${peopleCount === count
-                  ? "bg-accent-warm text-accent-ink font-bold"
-                  : "bg-white/[0.07] text-white/60 hover:bg-white/[0.14] hover:text-white"}`}
+                  ? "bg-primary text-primary-foreground font-bold"
+                  : "bg-foreground/[0.07] text-muted-foreground hover:bg-foreground/[0.14] hover:text-foreground"}`}
             >
               {count}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-white/35 mt-3 leading-relaxed">
+        <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
           {t("book.peopleFlatPrice")}
         </p>
       </div>
@@ -1477,9 +1481,9 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+    <div className="rounded-2xl border border-border bg-foreground/4 p-4">
       <p className="text-xs font-semibold flex items-center gap-2">
-        <Users className="w-3.5 h-3.5 text-white/40" />
+        <Users className="w-3.5 h-3.5 text-muted-foreground" />
         {t("book.peopleLabel")}
       </p>
       <div
@@ -1499,18 +1503,18 @@ const PeoplePicker = memo(function PeoplePicker({ item, peopleCount, onPeople }:
               aria-pressed={on}
               className={`rounded-xl border px-2 py-3 text-center transition active:scale-[0.97]
                 ${on
-                  ? "border-accent-warm bg-accent-warm/12"
-                  : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"}`}
+                  ? "border-accent-warm bg-accent-warm/8"
+                  : "border-border bg-foreground/[0.04] hover:bg-foreground/[0.08]"}`}
             >
-              <span className={`block text-lg font-bold leading-none ${on ? "text-accent-warm" : "text-white/70"}`}>
+              <span className={`block text-lg font-bold leading-none ${on ? "text-accent-warm" : "text-foreground/70"}`}>
                 {count}
               </span>
-              <span className="mt-1.5 block text-[11px] font-semibold tabular-nums text-white">
+              <span className="mt-1.5 block text-[11px] font-semibold tabular-nums text-foreground">
                 {formatSom(total, locale)}
               </span>
               {/* Divided, not stored — see MINI_PRICES in mini-sessions.ts. */}
               {count > 1 && (
-                <span className="mt-0.5 block text-[10px] tabular-nums text-white/40">
+                <span className="mt-0.5 block text-[10px] tabular-nums text-muted-foreground">
                   {t("book.peopleEach").replace("{price}", formatSom(Math.round(total / count), locale))}
                 </span>
               )}
@@ -1543,7 +1547,7 @@ const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
   // cheapest of three and printing it bare reads as the price.
   const isFrom = !!item.pricePerPeople && chosen === undefined;
   return (
-    <div className="rounded-2xl border border-accent-warm bg-accent-warm/10 p-4">
+    <div className="rounded-2xl border border-accent-warm bg-accent-warm/8 p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="font-semibold text-base">{packageDuration(item, locale)}</p>
         <p className="text-sm font-bold shrink-0 tabular-nums">
@@ -1552,7 +1556,7 @@ const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
             : formatSom(shown, locale)}
         </p>
       </div>
-      <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
+      <ul className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
         {[
           formatPhotoCount(item.photos, locale),
           formatDelivery(item.delivery, locale),
@@ -1560,7 +1564,7 @@ const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
         ]
           .filter(Boolean)
           .map((line) => (
-            <li key={line} className="flex items-start gap-2 text-xs text-white/60">
+            <li key={line} className="flex items-start gap-2 text-xs text-muted-foreground">
               <Check className="w-3 h-3 text-accent-warm mt-0.5 shrink-0" />
               {line}
             </li>
@@ -1600,7 +1604,7 @@ const CatalogPicker = memo(function CatalogPicker(
       {[...groups.entries()].map(([key, groupItems]) => (
         <div key={key} className="flex flex-col gap-2">
           {groups.size > 1 && groupItems[0].groupTitle && (
-            <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-white/40">
+            <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               {pickLocale(groupItems[0].groupTitle, locale)}
             </p>
           )}
@@ -1613,8 +1617,8 @@ const CatalogPicker = memo(function CatalogPicker(
                 aria-pressed={active}
                 className={`text-left rounded-2xl p-4 border transition active:scale-[0.99]
                   ${active
-                    ? "border-accent-warm bg-accent-warm/10"
-                    : "border-white/10 bg-white/4 hover:bg-white/[0.07]"}`}
+                    ? "border-accent-warm bg-accent-warm/8"
+                    : "border-border bg-foreground/4 hover:bg-foreground/[0.07]"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -1634,7 +1638,7 @@ const CatalogPicker = memo(function CatalogPicker(
                 </div>
 
                 {active && (
-                  <ul className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
+                  <ul className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
                     {[
                       formatPhotoCount(item.photos, locale),
                       formatDelivery(item.delivery, locale),
@@ -1642,7 +1646,7 @@ const CatalogPicker = memo(function CatalogPicker(
                     ]
                       .filter(Boolean)
                       .map((line) => (
-                        <li key={line} className="flex items-start gap-2 text-xs text-white/60">
+                        <li key={line} className="flex items-start gap-2 text-xs text-muted-foreground">
                           <Check className="w-3 h-3 text-accent-warm mt-0.5 shrink-0" />
                           {line}
                         </li>
@@ -1724,21 +1728,21 @@ const LocationPicker = memo(function LocationPicker({
         disabled={blocked}
         className={`flex items-center justify-between rounded-xl px-4 py-4 min-h-14 text-left transition active:scale-[0.99] border
           ${active
-            ? "border-accent-warm bg-accent-warm/10"
+            ? "border-accent-warm bg-accent-warm/8"
             : blocked
-              ? "border-transparent bg-white/3 opacity-40 cursor-not-allowed"
-              : "border-transparent bg-white/6 hover:bg-white/10"}`}
+              ? "border-transparent bg-foreground/3 opacity-40 cursor-not-allowed"
+              : "border-transparent bg-foreground/6 hover:bg-foreground/10"}`}
       >
         <span className="min-w-0">
           <span className="block text-sm font-semibold">{t(`book.loc.${id}.label`)}</span>
-          <span className="block text-xs text-white/40 mt-0.5">{t(`book.loc.${id}.sub`)}</span>
+          <span className="block text-xs text-muted-foreground mt-0.5">{t(`book.loc.${id}.sub`)}</span>
           {/* The fee is stated next to the thing that causes it, with the
               hourly rate spelled out — a surcharge a client only meets on the
               total line is a surcharge they will argue about. */}
           {fee > 0 && (
             <span className="mt-1 block text-[11px] font-medium text-accent-warm">
               + {formatSom(locationSurchargeUzs(id, durationMinutes), locale)}
-              <span className="text-white/35">
+              <span className="text-muted-foreground">
                 {" · "}
                 {t("book.locationFee").replace("{price}", formatSom(fee, locale))}
               </span>
@@ -1760,9 +1764,9 @@ const LocationPicker = memo(function LocationPicker({
             client only discovers after tapping. */}
         <span
           className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition
-            ${active ? "border-accent-warm bg-accent-warm" : "border-white/20"}`}
+            ${active ? "border-primary bg-primary" : "border-input"}`}
         >
-          {active && <Check className="w-3 h-3 text-accent-ink" />}
+          {active && <Check className="w-3 h-3 text-primary-foreground" />}
         </span>
       </button>
     );
@@ -1775,7 +1779,7 @@ const LocationPicker = memo(function LocationPicker({
       {rest.length > 0 && !showAll && (
         <button
           onClick={() => setShowAll(true)}
-          className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 min-h-12 text-xs font-semibold text-white/50 hover:text-white/80 bg-white/4 hover:bg-white/[0.07] transition"
+          className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 min-h-12 text-xs font-semibold text-muted-foreground hover:text-foreground/80 bg-foreground/4 hover:bg-foreground/[0.07] transition"
         >
           <MapPin className="w-3.5 h-3.5" />
           {t("book.showOtherLocations")}
@@ -1786,12 +1790,12 @@ const LocationPicker = memo(function LocationPicker({
 
       {/* Said BEFORE a third is added, not after the total moves. The whole
           point of stating it here is that nobody is surprised by it. */}
-      <p className="px-1 text-[11px] leading-relaxed text-white/35">
+      <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
         {t("book.locationsIncluded")
           .replace("{n}", String(INCLUDED_LOCATIONS))
           .replace("{fee}", formatSom(EXTRA_LOCATION_FEE_UZS, locale))}
         {atLimit && (
-          <span className="block mt-1 text-white/50">
+          <span className="block mt-1 text-muted-foreground">
             {t("book.locationsMax").replace("{max}", String(MAX_LOCATIONS))}
           </span>
         )}
@@ -1799,18 +1803,18 @@ const LocationPicker = memo(function LocationPicker({
 
       <div
         className={`rounded-xl px-4 py-3 transition border
-          ${custom.trim() ? "border-accent-warm bg-accent-warm/10" : "border-transparent bg-white/6"}`}
+          ${custom.trim() ? "border-accent-warm bg-accent-warm/8" : "border-transparent bg-foreground/6"}`}
       >
-        <p className="text-[10px] uppercase tracking-widest text-white/35 font-semibold mb-2">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">
           {t("book.otherLocation")}
         </p>
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-white/30 shrink-0" />
+          <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
           <input
             value={custom}
             onChange={(e) => onCustom(e.target.value)}
             placeholder={t("book.locationPlaceholder")}
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 outline-none"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
         </div>
       </div>
@@ -1886,7 +1890,9 @@ const ErrorBanner = memo(function ErrorBanner({ message, onDismiss }: {
     >
       <div className="overflow-hidden">
         <div
-          className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-[#e0a89f]/35 bg-[#2a1d1b]/95 backdrop-blur-xl px-4 py-3.5 shadow-2xl shadow-black/60"
+          // Error: the burnt-orange destructive hue (26° from the brand red,
+          // so it never reads as "brand"), an icon, and the message in ink.
+          className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-destructive/50 bg-card/95 backdrop-blur-xl px-4 py-3.5 shadow-2xl shadow-black/20 dark:shadow-black/60"
           style={{
             opacity: message ? 1 : 0,
             transform: message ? "translateY(0)" : "translateY(0.5rem)",
@@ -1895,14 +1901,14 @@ const ErrorBanner = memo(function ErrorBanner({ message, onDismiss }: {
         >
           {/* CircleAlert, not the AlertCircle alias — both exist in lucide 1.x,
               but the alias is deprecated and aliases go in major versions. */}
-          <CircleAlert className="w-4 h-4 shrink-0 mt-0.5 text-[#e0a89f]" />
+          <CircleAlert className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
           {/* The message is held even while collapsing, so the text does not
               vanish a frame before the box it is in. */}
-          <p className="min-w-0 flex-1 text-xs leading-relaxed text-[#f0cfc8]">{held}</p>
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-foreground">{held}</p>
           <button
             onClick={onDismiss}
             aria-label={t("book.dismiss")}
-            className="shrink-0 -m-1.5 p-1.5 rounded-lg text-[#e0a89f]/60 hover:text-[#e0a89f] hover:bg-white/5 transition"
+            className="shrink-0 -m-1.5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1929,26 +1935,26 @@ const StatusBar = memo(function StatusBar(
   // separately-positioned fixed elements is how an error banner and a progress
   // bar end up overlapping on a short screen.
   return (
-    <div className="pointer-events-auto bg-card/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
-      <div className="h-0.5 w-full bg-white/10">
+    <div className="pointer-events-auto bg-card/90 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/20 dark:shadow-black/60 overflow-hidden">
+      <div className="h-0.5 w-full bg-foreground/10">
         <div
-          className="h-full bg-accent-warm transition-[width] duration-300"
+          className="h-full bg-primary transition-[width] duration-300"
           style={{ width: `${(doneCount / total) * 100}%` }}
         />
       </div>
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             {t("book.stepOf")
               .replace("{n}", String(Math.min(doneCount + 1, total)))
               .replace("{total}", String(total))}
           </p>
-          <p className="text-sm font-bold text-white truncate">{priceLabel}</p>
+          <p className="text-sm font-bold text-foreground truncate">{priceLabel}</p>
         </div>
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="shrink-0 rounded-full px-6 min-h-11 text-xs font-bold bg-accent-warm hover:bg-(--sc-accent-hover) text-accent-ink transition active:scale-95"
+          className="shrink-0 rounded-full px-6 min-h-11 text-xs font-bold bg-primary hover:bg-primary-hover text-primary-foreground transition active:scale-95"
         >
           {canSubmit ? t("book.review") : `${total - doneCount} ${t("book.left")}`}
         </button>
@@ -1985,26 +1991,26 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
   ].filter(Boolean).join("\n");
 
   return (
-    <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center px-6 py-16 text-center">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-6 py-16 text-center">
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
-        style={{ background: "linear-gradient(to bottom, rgba(80,100,119,0.25) 0, transparent 50%)" }}
+        style={{ background: "linear-gradient(to bottom, color-mix(in oklab, var(--secondary) 30%, transparent) 0, transparent 50%)" }}
       />
       <div className="relative z-10 flex flex-col items-center gap-5 max-w-sm w-full">
-        <div className="w-16 h-16 rounded-full bg-accent-warm flex items-center justify-center">
-          <Check className="w-8 h-8 text-accent-ink" />
+        <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
+          <Check className="w-8 h-8 text-primary-foreground" />
         </div>
 
         <div>
           {/* The other half of the same change — leaving this one serif would
               have made the confirmation screen the odd page instead. */}
           <h2 className="text-3xl font-extrabold tracking-tight">{t("book.doneTitle")}</h2>
-          <p className="text-white/50 text-sm mt-2">{t("book.doneBody")}</p>
+          <p className="text-muted-foreground text-sm mt-2">{t("book.doneBody")}</p>
         </div>
 
-        <div className="bg-white/6 border border-white/10 rounded-xl px-4 py-3 w-full">
-          <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">
+        <div className="bg-foreground/6 border border-border rounded-xl px-4 py-3 w-full">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             {t("book.reference")}
           </p>
           <p className="text-xl font-bold tracking-wider mt-0.5">{reference}</p>
@@ -2019,7 +2025,7 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
             href={botLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full rounded-full min-h-13 py-3.5 flex flex-col items-center justify-center gap-0.5 bg-accent-warm hover:bg-(--sc-accent-hover) text-accent-ink transition active:scale-[0.98]"
+            className="w-full rounded-full min-h-13 py-3.5 flex flex-col items-center justify-center gap-0.5 bg-primary hover:bg-primary-hover text-primary-foreground transition active:scale-[0.98]"
           >
             <span className="flex items-center gap-2 text-sm font-bold">
               <Send className="w-4 h-4" />
@@ -2037,12 +2043,12 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
               setTimeout(() => setCopied(false), 2000);
             } catch { /* details are on screen anyway */ }
           }}
-          className="w-full rounded-full min-h-12 bg-white/10 hover:bg-white/15 text-sm font-semibold transition active:scale-[0.98]"
+          className="w-full rounded-full min-h-12 bg-foreground/10 hover:bg-foreground/15 text-sm font-semibold transition active:scale-[0.98]"
         >
           {copied ? t("common.copied") : t("book.copyDetails")}
         </button>
 
-        <button onClick={onReset} className="text-white/40 hover:text-white text-sm transition min-h-11">
+        <button onClick={onReset} className="text-muted-foreground hover:text-foreground text-sm transition min-h-11">
           {t("book.bookAnother")}
         </button>
       </div>
@@ -2063,17 +2069,19 @@ function Field({ icon, label, hint, invalid, valid, children }: {
   return (
     <div>
       <div
-        className={`bg-white/6 rounded-xl px-4 py-3 flex items-start gap-3 transition border
-          ${invalid ? "border-[#e0a89f]/60" : "border-transparent focus-within:border-white/25"}`}
+        className={`bg-foreground/6 rounded-xl px-4 py-3 flex items-start gap-3 transition border
+          ${invalid ? "border-destructive" : "border-border focus-within:border-ring"}`}
       >
-        <span className="text-white/30 shrink-0 mt-3">{icon}</span>
+        <span className="text-muted-foreground shrink-0 mt-3">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-white/30 mb-0.5">{label}</p>
+          <p className="text-[10px] text-muted-foreground mb-0.5">{label}</p>
           {children}
         </div>
         {valid && <Check className="w-4 h-4 text-accent-warm shrink-0 mt-3" />}
+        {/* An invalid field says so with a shape as well as a colour. */}
+        {invalid && <CircleAlert aria-hidden className="w-4 h-4 text-destructive shrink-0 mt-3" />}
       </div>
-      {hint && <p className="text-[10px] text-white/30 mt-1.5 px-1">{hint}</p>}
+      {hint && <p className="text-[10px] text-muted-foreground mt-1.5 px-1">{hint}</p>}
     </div>
   );
 }
@@ -2081,8 +2089,8 @@ function Field({ icon, label, hint, invalid, valid, children }: {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-xs text-white/35 shrink-0">{label}</span>
-      <span className="text-xs text-white font-medium text-right truncate">{value || "—"}</span>
+      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs text-foreground font-medium text-right truncate">{value || "—"}</span>
     </div>
   );
 }
@@ -2093,12 +2101,12 @@ function BookingSkeleton() {
       className="min-h-screen bg-background px-4 sm:px-6 max-w-2xl mx-auto"
       style={{ paddingTop: "calc(5rem + env(safe-area-inset-top))" }}
     >
-      <div className="h-3 w-32 rounded bg-white/10 animate-pulse" />
-      <div className="h-12 w-64 rounded bg-white/10 animate-pulse mt-4" />
-      <div className="h-4 w-full max-w-sm rounded bg-white/[0.07] animate-pulse mt-4" />
+      <div className="h-3 w-32 rounded bg-foreground/10 animate-pulse" />
+      <div className="h-12 w-64 rounded bg-foreground/10 animate-pulse mt-4" />
+      <div className="h-4 w-full max-w-sm rounded bg-foreground/[0.07] animate-pulse mt-4" />
       <div className="flex flex-col gap-3 mt-8">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-16 w-full rounded-2xl bg-white/5 animate-pulse" />
+          <div key={i} className="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse" />
         ))}
       </div>
     </div>

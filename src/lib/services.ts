@@ -434,6 +434,10 @@ export interface ServiceData {
   notice?: ServiceNotice;
   proof?: ServiceProofQuote[];
   faqs: ServiceFAQ[];
+  /** A FILL colour (icon tile, toggle, Book button, selected radio). Brand
+   *  pomegranate #B8334A everywhere except graduation. For text, pass it
+   *  through accentText() in services/[slug]/accent.ts — a raw accent as text
+   *  fails AA on the dark ground. */
   accentColor: string;
 }
 
@@ -608,7 +612,7 @@ export const servicesData: ServiceData[] = [
         uz: 'Referenslarni yuboring — yorug‘lik sxemasi va rang palitrasini takrorlayman.',
       } },
     ],
-    accentColor: '#1500FF',
+    accentColor: '#B8334A',
   },
   {
     slug: 'portraits',
@@ -771,7 +775,7 @@ export const servicesData: ServiceData[] = [
         uz: 'Ha — 2–3 soatlik suratga olishlarda bu odatiy hol: yarmi studiyada, yarmi sayrda.',
       } },
     ],
-    accentColor: '#2a6045',
+    accentColor: '#B8334A',
   },
   {
     slug: 'graduation',
@@ -1164,6 +1168,11 @@ export const servicesData: ServiceData[] = [
     // is a commercial page by someone the university has nothing to do with;
     // adopting their brand hex as well edges it toward looking official. Same
     // family, clearly its own — and no crest, no logo, no lettermark anywhere.
+    //
+    // The one service that does NOT take the pomegranate accent: the navy is
+    // what ties the page to the campus without borrowing the crest, and that
+    // job outranks brand consistency here. Text uses go through accentText(),
+    // so it still passes AA in both themes.
     accentColor: '#1B4F9C',
   },
   {
@@ -1260,7 +1269,7 @@ export const servicesData: ServiceData[] = [
         uz: 'Yaxshi yig‘ilgan kitob imkoniyatni sezilarli oshiradi. Mintaqadagi agentliklar nimaga qarashini aytaman.',
       } },
     ],
-    accentColor: '#1500FF',
+    accentColor: '#B8334A',
   },
 ];
 

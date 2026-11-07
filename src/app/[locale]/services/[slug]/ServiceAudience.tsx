@@ -87,7 +87,7 @@ export function AudienceOnly({ children }: { children: ReactNode }) {
  *
  * The island stays ignorant of the ladder, the database and the locale — same
  * rule as every other client component here. Absent means "no ladder row for
- * that path", and the band renders as accent alone rather than reaching for the
+ * that path", and the band renders as its dark scrim alone rather than reaching for the
  * original file.
  */
 export interface AudienceBackdrop {
@@ -101,21 +101,29 @@ export interface AudienceBackdrop {
 const BACKDROP_SIZES = '(max-width: 704px) 100vw, 672px';
 
 /** Lifted out of the JSX so the two layers below are visibly the same gradient
- *  with different weights, rather than two long strings to diff by eye. */
+ *  with different weights, rather than two long strings to diff by eye.
+ *
+ *  Both are a neutral near-black scrim, in both themes: this band is a
+ *  photograph with white type on it, and photographs stay untinted. The ON
+ *  gradient used to run into the accent at the right-hand end — navy laid over
+ *  the campus. Now ON simply lets more of the photograph through; the accent
+ *  is on the border and the switch, which are the controls. */
+const SCRIM = '12, 8, 9';
+
 function offGradient(): string {
   return `linear-gradient(96deg,
-    rgba(6,10,16,0.95) 0%,
-    rgba(6,10,16,0.88) 44%,
-    rgba(6,10,16,0.62) 74%,
-    rgba(6,10,16,0.46) 100%)`;
+    rgba(${SCRIM},0.95) 0%,
+    rgba(${SCRIM},0.88) 44%,
+    rgba(${SCRIM},0.62) 74%,
+    rgba(${SCRIM},0.46) 100%)`;
 }
 
-function onGradient(accent: string): string {
+function onGradient(): string {
   return `linear-gradient(96deg,
-    rgba(6,10,16,0.94) 0%,
-    rgba(6,10,16,0.80) 38%,
-    ${accent}8c 72%,
-    ${accent}52 100%)`;
+    rgba(${SCRIM},0.94) 0%,
+    rgba(${SCRIM},0.84) 38%,
+    rgba(${SCRIM},0.58) 72%,
+    rgba(${SCRIM},0.30) 100%)`;
 }
 
 /**
@@ -128,8 +136,8 @@ function onGradient(accent: string): string {
  * The campus behind it does two jobs at once, which is why it is worth the
  * bytes: it identifies the audience faster than the sentence does, and it gives
  * the switch a visible ON state — the photograph lifts out of the dark and the
- * accent washes across it — so nothing has to be written underneath explaining
- * that a tap worked.
+ * border and switch take the accent — so nothing has to be written underneath
+ * explaining that a tap worked.
  */
 export function AudienceToggle({
   prompt,
@@ -149,8 +157,8 @@ export function AudienceToggle({
       aria-pressed={on}
       className="relative flex min-h-19 w-full items-center gap-4 overflow-hidden rounded-2xl border px-4 py-4 text-left transition active:scale-[0.995] sm:min-h-21 sm:px-5"
       style={{
-        borderColor: on ? accent : 'rgba(255,255,255,0.12)',
-        background: 'rgba(255,255,255,0.03)',
+        borderColor: on ? accent : 'var(--border)',
+        background: `rgb(${SCRIM})`,
       }}
     >
       {backdrop && (
@@ -191,7 +199,7 @@ export function AudienceToggle({
       <span
         aria-hidden
         className="absolute inset-0 transition-opacity duration-500 motion-reduce:transition-none"
-        style={{ background: onGradient(accent), opacity: on ? 1 : 0 }}
+        style={{ background: onGradient(), opacity: on ? 1 : 0 }}
       />
 
       {/* The text sits on the 0.94-opaque end of both gradients, never on bare

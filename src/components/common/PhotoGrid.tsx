@@ -188,7 +188,7 @@ export default function PhotoGrid({
             return (
               <div
                 key={photo.src}
-                className={`relative overflow-hidden bg-white/5 ${
+                className={`relative overflow-hidden bg-foreground/5 ${
                   onPhotoClick || selectable ? "cursor-pointer group" : ""
                 }`}
                 // The ThumbHash sits UNDER the image rather than being swapped
@@ -326,7 +326,7 @@ export default function PhotoGrid({
                       }}
                       className={`absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border transition ${
                         isSelected
-                          ? "border-white bg-white text-black"
+                          ? "border-primary bg-primary text-primary-foreground"
                           : "border-white/60 bg-black/30 text-transparent backdrop-blur-sm hover:border-white"
                       } ${
                         selectionMode || isSelected
