@@ -108,7 +108,7 @@ export default function BestPicks({
             // intrinsic height, a square photograph plus its caption — so the
             // short and tall cells beside it divide that height into thirds
             // and their bottoms land exactly on the feature's.
-            <div className="grid grid-cols-4 grid-rows-3 gap-x-[2px]">
+            <div className="grid grid-cols-4 grid-rows-3 gap-x-0.5">
               <Tile
                 item={items[0]}
                 mode="feature"
@@ -124,7 +124,7 @@ export default function BestPicks({
           ) : (
             // Under five photographs there is no block to build: the feature
             // takes the left half and the rest fall into the masonry below.
-            <div className="grid grid-cols-4 gap-x-[2px]">
+            <div className="grid grid-cols-4 gap-x-0.5">
               <Tile item={items[0]} mode="feature" sizes={FEATURE_SIZES} onOpen={onOpen} className="col-span-2" />
             </div>
           )}
@@ -161,7 +161,7 @@ const PILL =
 function Columns({ cols, onOpen }: { cols: PickItem[][]; onOpen: (i: number) => void }) {
   if (cols.every((c) => c.length === 0)) return null;
   return (
-    <div className="flex items-start gap-x-[2px]">
+    <div className="flex items-start gap-x-0.5">
       {cols.map((col, n) => (
         <div key={n} className="flex min-w-0 flex-1 flex-col">
           {col.map((item) => (

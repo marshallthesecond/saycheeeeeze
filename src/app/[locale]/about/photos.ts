@@ -54,9 +54,10 @@ export const BEST_PICKS: BestPick[] = [
   { path: "WIUT-Fashion-Show/3M0A3551.png", cat: "Fashion", title: "WIUT Fashion Show", date: "2026" },
   { path: "WIUT/5I9A3029.png", cat: "WIUT" },
   { path: "Portraits/9O6A2264.png", cat: "Portrait" },
-  { path: "Portraits/dude.jpg", cat: "Portrait" },
+  { path: "Portraits/Gulasal at WIUT/2W6A7098.png", cat: "Portrait" },
   { path: "Portraits/3M0A4694.png", cat: "Portrait" },
   { path: "Portraits/Mekhrangiz/4P5A1850.png", cat: "Portrait", title: "Mekhrangiz", date: "2026" },
+  { path: "WIUT-Fashion-Show/3M0A2504.png", cat: "Fashion"}
 ];
 
 export type WorksCategory =
