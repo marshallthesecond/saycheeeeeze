@@ -1,30 +1,22 @@
 // Server shell so this route can export metadata — the interactive content
 // lives in AboutContent.tsx, which is a client component.
+//
+// Its own page since 2026-11-10. Until then the site root rendered this same
+// component and /about canonicalised to the root to avoid duplicate content;
+// now the root is the Home page, so /about keeps its own canonical and is back
+// in the sitemap.
 
 import type { Metadata } from "next";
 import { isLocale, type Locale } from "@/src/lib/i18n/config";
-import { alternatesFor, pageMetadata } from "@/src/lib/seo";
+import { pageMetadata } from "@/src/lib/seo";
+import { getAllAlbums, getPhotosByPaths, getPortfolioPhotos } from "@/src/lib/albums";
+import { BOOKING_LOCATIONS } from "@/src/lib/locations";
+import { nextFreeDays } from "@/src/lib/next-free-days";
+import { sessionSummaries } from "@/src/lib/session-summaries";
+import { ABOUT_PER_VIEW, workPreview } from "@/src/lib/work-preview";
 import AboutContent from "./AboutContent";
-import { getAllAlbums, getPhotosByPaths } from "@/src/lib/albums";
-import { ABOUT_PHOTO_PATHS } from "./photos";
+import { ABOUT_PHOTO_PATHS, SESSION_PHOTOS } from "./photos";
 
-/**
- * CANONICALISED TO THE HOME PAGE, on purpose.
- *
- * `[locale]/page.tsx` renders this very component — the landing animation is
- * not launched yet — so /ru and /ru/about are byte-for-byte the same page on
- * two URLs. Left alone, that is textbook duplicate content: the ranking signal
- * splits between them and a search engine picks one on its own, which may not
- * be the one linked from everywhere else.
- *
- * Pointing /about at / consolidates both onto the URL the navigation, the
- * sitemap and every inbound link already use. /about is also removed from the
- * sitemap, because a sitemap should only ever list canonical URLs.
- *
- * WHEN THE LANDING PAGE SHIPS and / stops being this component, delete the
- * `canonical` override below and put /about back in the sitemap — at that
- * point they are two different pages and both deserve to be indexed.
- */
 export async function generateMetadata({
   params,
 }: {
@@ -32,26 +24,47 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
-  const meta = pageMetadata("about", locale as Locale, "/about");
-  return {
-    ...meta,
-    alternates: {
-      // Each language still points at its own /about for hreflang — they are
-      // genuine translations of each other — but the canonical names the home
-      // page, which renders exactly this content.
-      ...meta.alternates,
-      canonical: alternatesFor(locale as Locale, "").canonical,
-    },
-  };
+  return pageMetadata("about", locale as Locale, "/about");
 }
 
-export default async function AboutPage() {
+/** Five minutes, for the next free days — see [locale]/page.tsx. */
+export const revalidate = 300;
+
+export default async function AboutPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: raw } = await params;
+  const locale: Locale = isLocale(raw) ? (raw as Locale) : "ru";
+
   // Resolved server-side so the client gets real dimensions, ThumbHashes and
   // derivative URLs in the first render payload.
-  const [albums, photoIndex] = await Promise.all([
+  const [albums, portfolio, photoIndex, freeDays] = await Promise.all([
     getAllAlbums(),
+    getPortfolioPhotos(),
     getPhotosByPaths(ABOUT_PHOTO_PATHS),
+    nextFreeDays(3),
   ]);
 
-  return <AboutContent albums={albums} photoIndex={photoIndex} />;
+  const sessions = sessionSummaries(locale, (slug) => {
+    const path = SESSION_PHOTOS[slug];
+    return path ? photoIndex[path] : undefined;
+  });
+
+  // The places a client can pick in the booking form today. Restricted ones
+  // (an event venue, a retired park) are bookable only through their own
+  // package, so they are not advertised here.
+  const places = BOOKING_LOCATIONS.filter((l) => !l.restricted).map((l) => l.id);
+
+  return (
+    <AboutContent
+      photoIndex={photoIndex}
+      work={workPreview(portfolio, ABOUT_PER_VIEW)}
+      albumsCount={albums.length}
+      sessions={sessions}
+      freeDays={freeDays}
+      places={places}
+    />
+  );
 }

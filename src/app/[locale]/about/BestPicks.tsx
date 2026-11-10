@@ -45,12 +45,18 @@ export interface PickItem {
 }
 
 interface Props {
+  /** Empty string: no visible heading (the Home page's tab bar names it). */
   heading: string;
   items: PickItem[];
   loadMoreLabel: string;
   fullPortfolioLabel: string;
   portfolioHref: string;
   onOpen: (index: number) => void;
+  /** `sizes` overrides for a grid narrower than the viewport — the Home
+   *  page's middle column. The defaults assume the full page width. */
+  featureSizes?: string;
+  tileSizes?: string;
+  className?: string;
 }
 
 /** Above 1600px the grid stops growing; the sizes below follow that cap. */
@@ -64,6 +70,9 @@ export default function BestPicks({
   fullPortfolioLabel,
   portfolioHref,
   onOpen,
+  featureSizes = FEATURE_SIZES,
+  tileSizes = TILE_SIZES,
+  className = "relative z-10 mt-8 sm:mt-10",
 }: Props) {
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
@@ -88,16 +97,18 @@ export default function BestPicks({
   const stagger = Boolean(a && b && c && d);
 
   return (
-    <section className="relative z-10 mt-8 sm:mt-10">
-      <h2 className="px-4 sm:px-8 mb-3 text-2xl sm:text-3xl font-extrabold tracking-tight">
-        {heading}
-      </h2>
+    <section className={className}>
+      {heading && (
+        <h2 className="px-4 sm:px-8 mb-3 text-2xl sm:text-3xl font-extrabold tracking-tight">
+          {heading}
+        </h2>
+      )}
 
       <div className="mx-auto max-w-[1600px]">
         {/* Phone — feature full width, then two columns of masonry. */}
         <div className="sm:hidden">
-          <Tile item={items[0]} mode="feature" sizes={FEATURE_SIZES} onOpen={onOpen} />
-          <Columns cols={phoneCols} onOpen={onOpen} />
+          <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} />
+          <Columns cols={phoneCols} onOpen={onOpen} sizes={tileSizes} />
         </div>
 
         {/* 640px and up — the sketch. */}
@@ -112,23 +123,23 @@ export default function BestPicks({
               <Tile
                 item={items[0]}
                 mode="feature"
-                sizes={FEATURE_SIZES}
+                sizes={featureSizes}
                 onOpen={onOpen}
                 className="col-start-1 col-span-2 row-start-1 row-span-3"
               />
-              <Tile item={a!} mode="fill" sizes={TILE_SIZES} onOpen={onOpen} className="col-start-3 row-start-1 row-span-1" />
-              <Tile item={b!} mode="fill" sizes={TILE_SIZES} onOpen={onOpen} className="col-start-3 row-start-2 row-span-2" />
-              <Tile item={c!} mode="fill" sizes={TILE_SIZES} onOpen={onOpen} className="col-start-4 row-start-1 row-span-2" />
-              <Tile item={d!} mode="fill" sizes={TILE_SIZES} onOpen={onOpen} className="col-start-4 row-start-3 row-span-1" />
+              <Tile item={a!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-3 row-start-1 row-span-1" />
+              <Tile item={b!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-3 row-start-2 row-span-2" />
+              <Tile item={c!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-4 row-start-1 row-span-2" />
+              <Tile item={d!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-4 row-start-3 row-span-1" />
             </div>
           ) : (
             // Under five photographs there is no block to build: the feature
             // takes the left half and the rest fall into the masonry below.
             <div className="grid grid-cols-4 gap-x-0.5">
-              <Tile item={items[0]} mode="feature" sizes={FEATURE_SIZES} onOpen={onOpen} className="col-span-2" />
+              <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} className="col-span-2" />
             </div>
           )}
-          <Columns cols={desktopCols} onOpen={onOpen} />
+          <Columns cols={desktopCols} onOpen={onOpen} sizes={tileSizes} />
         </div>
       </div>
 
@@ -158,14 +169,14 @@ const PILL =
   "text-[11px] font-bold uppercase tracking-[0.16em] text-foreground " +
   "transition hover:bg-foreground/16 active:scale-[0.98]";
 
-function Columns({ cols, onOpen }: { cols: PickItem[][]; onOpen: (i: number) => void }) {
+function Columns({ cols, onOpen, sizes = TILE_SIZES }: { cols: PickItem[][]; onOpen: (i: number) => void; sizes?: string }) {
   if (cols.every((c) => c.length === 0)) return null;
   return (
     <div className="flex items-start gap-x-0.5">
       {cols.map((col, n) => (
         <div key={n} className="flex min-w-0 flex-1 flex-col">
           {col.map((item) => (
-            <Tile key={item.index} item={item} mode="natural" sizes={TILE_SIZES} onOpen={onOpen} />
+            <Tile key={item.index} item={item} mode="natural" sizes={sizes} onOpen={onOpen} />
           ))}
         </div>
       ))}

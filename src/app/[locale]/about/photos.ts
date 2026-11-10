@@ -1,4 +1,4 @@
-// The photographs the About page picks out by hand, as storage paths rather
+// The photographs the Home and About pages pick out by hand, as storage paths rather
 // than URLs — a path can be looked up in the `photos` table and get its
 // dimensions, ThumbHash and derivative ladder; a bunnyUrl(...) cannot.
 //
@@ -69,68 +69,32 @@ export type WorksCategory =
   | "WIUT"
   | "Nature";
 
-/** The filterable works grid. */
-export const MY_WORKS: { path: string; cat: WorksCategory }[] = [
-  
-  { path: "Portraits/Radmir/3M0A0675.png", cat: "Portrait" },
-  { path: "WIUT/5I9A3020.png", cat: "WIUT" },
-  { path: "Portraits/Sara/3M0A1047.png", cat: "Portrait" },
-  { path: "WIUT/5I9A3029.png", cat: "WIUT" },
-  { path: "Portraits/Radmir/3M0A0759.png", cat: "Portrait" },
-  { path: "Portraits/Sara/3M0A1432.png", cat: "Portrait" },
-  { path: "Nature/damnbby.jpg", cat: "Nature" },
-  { path: "Portraits/9O6A2264.png", cat: "Portrait" },
-  { path: "Nature/youcanseeit.jpg", cat: "Nature" },
-  { path: "Portraits/Diora/076A0384.png", cat: "Portrait" },
-  { path: "WIUT/400A6607.png", cat: "WIUT" },
-  { path: "Random/capp.jpg", cat: "Nature" },
-  { path: "WIUT-Fashion-Show/3M0A2669.png", cat: "Fashion" },
-  { path: "WIUT-Fashion-Show/3M0A3551.png", cat: "Fashion" },
-];
+/**
+ * A photograph for each session type in the "Sessions" lists on Home and
+ * About, keyed by service slug. A slug with no entry shows no thumbnail.
+ *
+ * (Until 2026-11-10 these were the "Open to" cards, with a title and a line
+ * each. The lists now take their titles and prices from services.ts, so only
+ * the photograph is chosen here. The "My works" grid that used to follow went
+ * at the same time: Home's "All work" tab shows the real portfolio instead.)
+ */
+export const SESSION_PHOTOS: Record<string, string> = {
+  portraits: "Portraits/Radmir/3M0A0675.png",
+  graduation: "WIUT/5Y2A4401.png",
+  models: "WIUT-Fashion-Show/3M0A1946.png",
+  "brand-product": "Random/espressomachine.jpg",
+};
 
-/** The service cards. All storage paths, so nothing here has to distinguish
- *  local files from Bunny ones. */
-export const OPEN_TO: {
-  title: string;
-  sub: string;
-  slug: string;
-  path: string;
-}[] = [
-  {
-    title: "Portraits",
-    sub: "Solo, group, or a photowalk through Tashkent — your call",
-    path: "Portraits/Radmir/3M0A0675.png",
-    slug: "portraits",
-  },
-  {
-    title: "Graduation",
-    sub: "Cap, gown, and one unforgettable frame",
-    path: "WIUT/5Y2A4401.png",
-    slug: "graduation",
-  },
-  {
-    title: "Model Photography",
-    sub: "Portfolio-ready shots that open agency doors",
-    path: "WIUT-Fashion-Show/3M0A1946.png",
-    slug: "models",
-  },
-  {
-    title: "Brands & Products",
-    sub: "Make your product impossible to scroll past",
-    path: "Random/espressomachine.jpg",
-    slug: "brand-product",
-  },
-];
+/** The cover of the About page's profile card: a photograph of you at work.
+ *  It was the background of the old "I put you in a frame" banner. */
+export const ABOUT_COVER = "Random/itsmelol.jpg";
 
-/** The full-bleed CTA banner behind the "book a session" copy. */
-export const CTA_BANNER = "Random/itsmelol.jpg";
+/** What the Home page resolves: best picks and session thumbnails. */
+export const HOME_PHOTO_PATHS: string[] = Array.from(
+  new Set([...BEST_PICKS.map((p) => p.path), ...Object.values(SESSION_PHOTOS)]),
+);
 
-/** Every storage path this page needs, deduplicated — what the server resolves. */
+/** What the About page resolves: the cover and session thumbnails. */
 export const ABOUT_PHOTO_PATHS: string[] = Array.from(
-  new Set([
-    ...BEST_PICKS.map((p) => p.path),
-    ...MY_WORKS.map((w) => w.path),
-    ...OPEN_TO.map((o) => o.path),
-    CTA_BANNER,
-  ]),
+  new Set([ABOUT_COVER, ...Object.values(SESSION_PHOTOS)]),
 );

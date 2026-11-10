@@ -9,7 +9,22 @@ type ProfilePhotosProps = {
   alt?: string;
   interval?: number;
   className?: string;
+  /**
+   * The frame's size and shape. Replaces the default small rounded tile, so a
+   * page can show the same cycling portrait as a 64px circle, a 4:5 card or
+   * anything between without a second component.
+   */
+  frameClassName?: string;
+  /** `sizes` for the images inside the frame. Match it to frameClassName. */
+  sizes?: string;
+  /** The thin progress bars across the top. On by default. */
+  progress?: boolean;
+  /** Drawn over the photo, inside the frame — e.g. a viewfinder overlay. */
+  children?: React.ReactNode;
 };
+
+const DEFAULT_FRAME = "w-18 h-22 sm:w-28 sm:h-34 rounded-2xl";
+const DEFAULT_SIZES = "(min-width: 640px) 112px, 72px";
 
 const FRAME_W = "w-[min(76vw,19rem)] sm:w-[19rem] lg:w-[21rem]";
 
@@ -18,6 +33,10 @@ export default function ProfilePhotos({
   alt = "Marshall — photographer in Tashkent",
   interval = 4000,
   className = "",
+  frameClassName = DEFAULT_FRAME,
+  sizes = DEFAULT_SIZES,
+  progress = true,
+  children,
 }: ProfilePhotosProps) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -44,7 +63,7 @@ export default function ProfilePhotos({
         onClick={() => setOpen(true)}
         aria-label={`Open photos (${index + 1} of ${count})`}
         className={
-          "relative shrink-0 w-18 h-22 sm:w-28 sm:h-34 rounded-2xl overflow-hidden " +
+          `relative shrink-0 ${frameClassName} overflow-hidden ` +
           "border border-border bg-foreground/5 cursor-zoom-in " +
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
           className
@@ -56,7 +75,7 @@ export default function ProfilePhotos({
             src={src}
             alt={i === index ? alt : ""}
             fill
-            sizes="(min-width: 640px) 112px, 72px"
+            sizes={sizes}
             priority={i === 0}
             className={`object-cover transition-opacity duration-700 ease-out ${
               i === index ? "opacity-100" : "opacity-0"
@@ -64,7 +83,9 @@ export default function ProfilePhotos({
           />
         ))}
 
-        {count > 1 && (
+        {children}
+
+        {progress && count > 1 && (
           <span className="pointer-events-none absolute inset-x-1.5 top-1.5 flex gap-1">
             {images.map((src, i) => (
               <span

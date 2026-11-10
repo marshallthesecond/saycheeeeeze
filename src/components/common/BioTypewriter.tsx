@@ -21,13 +21,32 @@ import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { useSessionBio } from "@/src/lib/bio/useSessionBio";
 import { useTypewriter } from "@/src/lib/bio/useTypewriter";
 
+/**
+ * caption  the film-caption style below (the old About hero).
+ * compact  10.5px, upright — the Home profile panel, a 214px column where a
+ *          caption-sized bio runs to a dozen lines.
+ * body     14px, upright — the About profile card.
+ *
+ * The min-height is the caption's pre-mount guess; the other two drop it,
+ * because the measure layer sets the real height as soon as a variant is
+ * known and their containers do not need the reservation.
+ */
+const SIZES = {
+  caption:
+    "max-w-2xl min-h-32 sm:min-h-20 lg:min-h-16 text-[13px] sm:text-sm leading-[1.6] italic text-muted-foreground",
+  compact: "text-[10.5px] leading-normal text-foreground/85",
+  body: "text-sm leading-relaxed text-foreground/85",
+} as const;
+
 export default function BioTypewriter({
   className = "",
   prefix,
+  size = "caption",
 }: {
   className?: string;
   /** Shown before the bio, already complete, slightly brighter. */
   prefix?: string;
+  size?: keyof typeof SIZES;
 }) {
   const { t, locale } = useT();
   const { text, animate, markTyped } = useSessionBio(locale);
@@ -50,7 +69,9 @@ export default function BioTypewriter({
   // A trailing space inside the span, not between elements: JSX would drop
   // whitespace between two expressions on separate lines, and the welcome's
   // full stop would run straight into the bio's first word.
-  const lead = prefix ? <span className="text-foreground/85">{`${prefix} `}</span> : null;
+  const lead = prefix ? (
+    <span className={size === "caption" ? "text-foreground/85" : "text-foreground"}>{`${prefix} `}</span>
+  ) : null;
 
   return (
     <p
@@ -64,8 +85,7 @@ export default function BioTypewriter({
         // measure layer sets the exact height. Sized for the longest welcome +
         // variant at each breakpoint (≈313 characters, Uzbek): seven lines at
         // 13px on a phone, four at 14px from 640px up.
-        `grid max-w-2xl min-h-32 sm:min-h-20 lg:min-h-16 ` +
-        `text-[13px] sm:text-sm leading-[1.6] italic text-muted-foreground ${className}`
+        `grid ${SIZES[size]} ${className}`
       }
     >
       <span aria-hidden className="col-start-1 row-start-1 invisible">

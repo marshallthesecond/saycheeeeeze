@@ -438,5 +438,70 @@
     "remember": "Bu tanlovni eslab qol",
     "meteredNote": "Bu {size}, va siz mobil internetdasiz shekilli. Yuklanadi, lekin sekin — va trafikdan ketadi.",
     "largeNote": "Bu {size}. Wi-Fi'da qilgan ma'qul, va tugaguncha bu oynani yopmang."
+  },
+  "profile": {
+    "name": "Shamshod",
+    "portraitAlt": "Shamshod, Toshkentdagi fotograf",
+    "tags": {
+      "portraits": "Portretlar",
+      "graduation": "Bitiruv",
+      "fashion": "Moda"
+    },
+    "basedIn": "Shahar",
+    "basedInValue": "Toshkent",
+    "since": "Boshlagan",
+    "shoots": "Janrlar",
+    "shootsValue": "Portretlar, bitiruv, moda",
+    "archive": "Arxiv",
+    "archiveValue": "{albums} ta albom · {photos} ta foto",
+    "nextFreeDay": "Bo‘sh kun",
+    "nextFreeDays": "Bo‘sh kunlar",
+    "bookOn": "{day} kuniga yozilish",
+    "links": "Boshqa joylarda",
+    "sessionNames": {
+      "portraits": "Portretlar",
+      "graduation": "Bitiruv",
+      "models": "Model testlari",
+      "brand-product": "Brend va mahsulot"
+    }
+  },
+  "home": {
+    "allWork": "Barcha ishlar",
+    "workTab": "Ishlar",
+    "galleriesTab": "Galereyalar",
+    "sessionsTab": "Suratga olish",
+    "sections": "Bo‘limlar",
+    "filterWork": "Ishlarni saralash",
+    "allAlbums": "Barcha albomlar ({n})",
+    "privateTitle": "Yopiq galereyangiz",
+    "privateBody": "Mendan kod oldingizmi? Suratlaringizni shu yerda oching.",
+    "enterPasskey": "Kodni kiritish",
+    "sessions": "Suratga olish turlari",
+    "fromPrice": "{price} dan",
+    "seeAll": "Portfolioda barcha {n} ta"
+  },
+  "aboutPage": {
+    "greeting": "Salom, men Shamshodman",
+    "metaLine": "Fotograf · Toshkent · 2022-yildan",
+    "seeMyWork": "Ishlarim",
+    "onThisPage": "Bu sahifada",
+    "storyTitle": "Mening hikoyam",
+    "story": "",
+    "howTitle": "Suratga olish qanday o‘tadi",
+    "howShort": "Qanday o‘tadi",
+    "how1Title": "Yozilish",
+    "how1": "Bo‘sh kun, boshlanish vaqti va uchtagacha joyni tanlang.",
+    "how2Title": "Tasdiqlash",
+    "how2": "So‘rovingizni tasdiqlayman. Xohlasangiz, uni Telegramda kuzatib boring.",
+    "how3Title": "Suratga olish",
+    "how3": "Birinchi joyda uchrashamiz va suratga olamiz.",
+    "how4Title": "Galereyangiz",
+    "how4": "Kod bilan ochiladigan yopiq galereya: «Qoldirish», «Chop etish» yoki «O‘chirish» deb belgilang va uch o‘lchamda yuklab oling.",
+    "placesTitle": "Qayerda suratga olaman",
+    "placesShort": "Qayerda",
+    "placesBody": "Band qilish formasidagi joylar. Toshkentda boshqa joy kerakmi? Yozilayotganda ko‘rsating.",
+    "albumsStat": "ta albom",
+    "photosStat": "ta foto",
+    "openPortfolio": "Butun portfolioni ochish"
   }
 }

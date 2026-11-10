@@ -16,6 +16,9 @@ import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 const ALBUM_COVER_SIZES = "(max-width: 640px) 40vw, 192px";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
+// One shuffle for the portfolio and the Home/About previews, so a photograph
+// sits in the same place in the day's order on every page.
+import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 
 // How many photos sit above the Albums shelf. Heights are natural so this
@@ -39,37 +42,6 @@ const CLIENT_GALLERY_ENTRIES = [
     Icon: KeyRound,
   },
 ];
-
-// Days since the epoch, in Tashkent: the same integer on the server and in
-// every visitor's browser, whatever timezone they're in.
-function daySeed(): number {
-  const iso = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tashkent",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const [y, m, d] = iso.split("-").map(Number);
-  return Math.floor(Date.UTC(y, m - 1, d) / 86_400_000);
-}
-
-// mulberry32 — a tiny deterministic PRNG. Same seed in, same sequence out.
-function shuffleWithSeed<T>(items: readonly T[], seed: number): T[] {
-  let s = seed >>> 0;
-  const random = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
 
 export default function PortfolioContent({ 
   photos: allPhotos,

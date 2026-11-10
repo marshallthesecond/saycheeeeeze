@@ -1,8 +1,15 @@
-// TODO(marshall): THESE ARE PLACEHOLDERS. Replace with real quotes or set the
-// array to [] before going live — the quotes block drops itself when empty.
-// Invented testimonials are dishonest and easy to spot.
+// Client quotes for the About page's "Kind words" card.
 //
-// Order matters: the homepage shows the first two.
+// EMPTY ON PURPOSE (2026-11-10). The three quotes that were here were
+// placeholders written for the design — invented clients presented as real
+// reviews. They were live on the old About page; the rebuilt page renders the
+// card only when this list has entries, so it stays hidden until it holds
+// real quotes from real clients who agreed to be quoted.
+//
+// Add one like this:
+//   { quote: "…their words…", name: "Kamila", context: "Portrait, 2026" },
+//
+// Order matters: the first ones show first.
 
 export interface Testimonial {
   /** The quote itself — shorter and more specific is better than long praise. */
@@ -13,23 +20,4 @@ export interface Testimonial {
   context: string;
 }
 
-export const testimonials: Testimonial[] = [
-  {
-    quote:
-      "I hate being photographed and said so upfront. He worked around it instead of telling me to relax.",
-    name: "Kamila",
-    context: "Portrait, 2025",
-  },
-  {
-    quote:
-      "Forty-five minutes, and we still made it to dinner. Half my year group has asked me who shot them.",
-    name: "Nilufar",
-    context: "Graduation, 2026",
-  },
-  {
-    quote:
-      "Sent the edits two days early and every single one was usable. Our whole spring catalogue came from that afternoon.",
-    name: "Timur",
-    context: "Brand & product, 2026",
-  },
-];
+export const testimonials: Testimonial[] = [];
