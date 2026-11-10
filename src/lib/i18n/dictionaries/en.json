@@ -438,5 +438,70 @@
     "remember": "Remember this choice",
     "meteredNote": "That's {size}, and you appear to be on mobile data. It will still work — just slowly, and it counts against your plan.",
     "largeNote": "That's {size}. Worth doing on Wi-Fi, and keep this tab open until it finishes."
+  },
+  "profile": {
+    "name": "Shamshod",
+    "portraitAlt": "Shamshod, photographer in Tashkent",
+    "tags": {
+      "portraits": "Portraits",
+      "graduation": "Graduation",
+      "fashion": "Fashion"
+    },
+    "basedIn": "Based in",
+    "basedInValue": "Tashkent",
+    "since": "Since",
+    "shoots": "Shoots",
+    "shootsValue": "Portraits, graduation, fashion",
+    "archive": "Archive",
+    "archiveValue": "{albums} albums · {photos} photos",
+    "nextFreeDay": "Next free day",
+    "nextFreeDays": "Next free days",
+    "bookOn": "Book a session on {day}",
+    "links": "Elsewhere",
+    "sessionNames": {
+      "portraits": "Portraits",
+      "graduation": "Graduation",
+      "models": "Model tests",
+      "brand-product": "Brand & product"
+    }
+  },
+  "home": {
+    "allWork": "All work",
+    "workTab": "Work",
+    "galleriesTab": "Galleries",
+    "sessionsTab": "Sessions",
+    "sections": "Sections",
+    "filterWork": "Filter the work",
+    "allAlbums": "All {n} albums",
+    "privateTitle": "Your private gallery",
+    "privateBody": "Got a passkey from me? Open your photos here.",
+    "enterPasskey": "Enter passkey",
+    "sessions": "Sessions",
+    "fromPrice": "from {price}",
+    "seeAll": "See all {n} in the portfolio"
+  },
+  "aboutPage": {
+    "greeting": "Hi, I'm Shamshod",
+    "metaLine": "Photographer · Tashkent · since 2022",
+    "seeMyWork": "See my work",
+    "onThisPage": "On this page",
+    "storyTitle": "My story",
+    "story": "",
+    "howTitle": "How a session works",
+    "howShort": "How it works",
+    "how1Title": "Book",
+    "how1": "Pick a free day, a start time and up to three locations.",
+    "how2Title": "Confirm",
+    "how2": "I confirm your request. Follow it in Telegram if you like.",
+    "how3Title": "Shoot",
+    "how3": "We meet at the first location and take the photos.",
+    "how4Title": "Your gallery",
+    "how4": "A private gallery with a passkey: mark Keep, Publish or Delete, and download in three sizes.",
+    "placesTitle": "Where I shoot",
+    "placesShort": "Where I shoot",
+    "placesBody": "The places the booking form offers. Somewhere else in Tashkent? Name it when you book.",
+    "albumsStat": "albums",
+    "photosStat": "photos",
+    "openPortfolio": "Open the full portfolio"
   }
 }

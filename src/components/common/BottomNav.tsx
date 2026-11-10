@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
-import { Briefcase, Camera, User } from 'lucide-react';
+import { Briefcase, Camera, House, User } from 'lucide-react';
 import NavPerimeterGlow from "@/src/components/common/NavPerimeterGlow";
 import { useNavLoading } from "@/src/lib/nav-loading";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
@@ -165,9 +165,14 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
         {/* Absolutely positioned overlay — adds no layout, no size, no spacing. */}
         <NavPerimeterGlow active={busy && shown} />
 
-        {/* No Home tab: the site root renders the About page, so Portfolio is
-            the first destination. Restore one here if the landing page is
-            ever wired up as the root. */}
+        {/* Home is the site root since 2026-11-10 — the three-column profile
+            page — and About is its own page again, so both get a tab. */}
+        <BottomNavItem
+          icon={<House className="w-5 h-5" />}
+          label={t("nav.home")}
+          href={`/${locale}`}
+          active={isHome}
+        />
         <BottomNavItem
           icon={<Briefcase className="w-5 h-5" />}
           label={t("nav.portfolio")}
