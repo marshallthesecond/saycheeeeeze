@@ -1,9 +1,8 @@
 "use client";
 
-// The Home page's profile panel — the "Viewfinder" (Marshall's pick, 2026-11-10).
+// The Home page's profile panel (Marshall's pick, 2026-11-10).
 //
-// From 1280px (xl) it is the left column: a 4:5 portrait framed as a camera
-// viewfinder, the name, the headline, what he shoots, then the vertical
+// From 1280px (xl) it is the left column: the portrait, the name, the headline, what he shoots, then the vertical
 // "SHAMSHOD" running beside the bio and the details list, the links on one
 // line, the next free day and the Book button.
 //
@@ -13,6 +12,9 @@
 // the typed variant alone, without the "Welcome to my page" line — the page
 // itself is the welcome, and those three lines are what kept Book below the
 // fold on a 1440×900 screen.
+//
+// The portrait is plain: the viewfinder corner marks and focus square that
+// framed it were removed on 2026-11-10 at Marshall's request.
 //
 // Below 1280px the same markup reflows into a compact header: a round portrait
 // beside the name, the bio and details full width, no vertical name. One set
@@ -26,23 +28,6 @@ import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 import BioTypewriter from "@/src/components/common/BioTypewriter";
 import SocialLinks from "@/src/components/common/SocialLinks";
 import FreeDays from "./FreeDays";
-
-/** Corner marks and the focus square. Decorative: aria-hidden throughout. */
-function Viewfinder() {
-  const corner = "absolute size-5.5 border-white/95";
-  return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 hidden xl:block">
-      <span className={`${corner} top-3.5 left-3.5 border-t-2 border-l-2`} />
-      <span className={`${corner} top-3.5 right-3.5 border-t-2 border-r-2`} />
-      <span className={`${corner} bottom-3.5 left-3.5 border-b-2 border-l-2`} />
-      <span className={`${corner} bottom-3.5 right-3.5 border-b-2 border-r-2`} />
-      {/* The focus point sits on the upper third, where a face is in a 4:5 portrait. */}
-      <span className="absolute left-1/2 top-[30%] size-11 -translate-x-1/2 rounded-[2px] border-[1.5px] border-[#ED6E82]" />
-      {/* A soft vignette so the white marks read on a bright frame too. */}
-      <span className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.28))]" />
-    </span>
-  );
-}
 
 export default function ProfilePanel({
   freeDays,
@@ -73,9 +58,7 @@ export default function ProfilePanel({
           progress={false}
           frameClassName="size-16 rounded-full xl:size-auto xl:w-full xl:h-[clamp(200px,calc(100dvh-580px),312px)] xl:rounded-[10px] xl:border-0"
           sizes="(min-width: 1280px) 268px, 64px"
-        >
-          <Viewfinder />
-        </ProfilePhotos>
+        />
 
         <div className="flex min-w-0 flex-col gap-1.5 xl:gap-2">
           <p className="text-xl font-extrabold leading-none tracking-[-0.03em] xl:text-[32px]">
