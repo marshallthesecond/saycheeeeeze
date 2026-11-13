@@ -1,17 +1,16 @@
-// The slice of the portfolio that the Home and About pages show.
+// The slice of the portfolio that the About page's portfolio panel shows.
+// (Home showed one too, under "All work", until 2026-11-13.)
 //
 // The full portfolio is 500+ photographs, and its page ships every one of them.
 // A page that only previews the work should not: this keeps the first N per
 // category, in the same day-shuffled order the portfolio page uses, and drops
 // every field a grid tile does not read (download sizes, file names, ids).
-// The real totals travel separately, so a tab can say "All work · 524" while
+// The real totals travel separately, so the panel can say "524 photos" while
 // only the first screenful is in the payload.
 
 import type { PortfolioPhoto } from "@/src/lib/albums";
 import type { LadderSources } from "@/src/lib/ladder";
 
-/** How many photographs Home's "All work" shows before handing over to /portfolio. */
-export const HOME_PER_VIEW = 48;
 /** How many the About page's portfolio panel shows. */
 export const ABOUT_PER_VIEW = 12;
 

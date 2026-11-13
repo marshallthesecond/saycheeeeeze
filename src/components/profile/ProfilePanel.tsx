@@ -4,7 +4,8 @@
 //
 // From 1280px (xl) it is the left column: the portrait, the name, the headline, what he shoots, then the vertical
 // "SHAMSHOD" running beside the bio and the details list, the links on one
-// line, the next free day and the Book button.
+// line and the Book button. (The "next free day" line above Book was removed
+// on 2026-11-13 at Marshall's request.)
 //
 // The portrait is 312px tall where the screen allows and gives way first on a
 // short laptop screen (down to 200px at 780px tall), so the Book button at the bottom of the
@@ -27,14 +28,11 @@ import { PROFILE } from "@/src/lib/profile";
 import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 import BioTypewriter from "@/src/components/common/BioTypewriter";
 import SocialLinks from "@/src/components/common/SocialLinks";
-import FreeDays from "./FreeDays";
 
 export default function ProfilePanel({
-  freeDays,
   albumsCount,
   photosCount,
 }: {
-  freeDays: string[];
   albumsCount: number;
   photosCount: number;
 }) {
@@ -104,7 +102,6 @@ export default function ProfilePanel({
       <SocialLinks links={PROFILE.socials} maxPx={11} label={t("profile.links")} />
 
       <div className="flex flex-col gap-2.5 xl:mt-auto">
-        <FreeDays days={freeDays} variant="line" />
         <div className="flex gap-2">
           <Link
             href={`/${locale}/book`}

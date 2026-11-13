@@ -10,9 +10,7 @@ import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { businessSchema, pageMetadata } from "@/src/lib/seo";
 import { getAllAlbums, getPhotosByPaths, getPortfolioPhotos } from "@/src/lib/albums";
 import { getGalleryIndex } from "@/src/lib/client-galleries";
-import { nextFreeDays } from "@/src/lib/next-free-days";
 import { sessionSummaries } from "@/src/lib/session-summaries";
-import { HOME_PER_VIEW, workPreview } from "@/src/lib/work-preview";
 import { HOME_PHOTO_PATHS, SESSION_PHOTOS } from "./about/photos";
 import HomeContent from "./HomeContent";
 
@@ -31,8 +29,9 @@ export async function generateMetadata({
 
 /**
  * Five minutes. The photographs are cached for an hour underneath (and
- * /api/sync refreshes them at once); what goes stale fastest here is the "next
- * free day", which should not still show a day that was booked this morning.
+ * /api/sync refreshes them at once). It was set for the "next free day" line,
+ * removed on 2026-11-13; five minutes still keeps new albums and gallery
+ * listings prompt at the cost of one render per locale every five minutes.
  */
 export const revalidate = 300;
 
@@ -45,12 +44,11 @@ export default async function HomePage({
   const locale: Locale = isLocale(raw) ? (raw as Locale) : "ru";
   const schema = businessSchema(locale);
 
-  const [albums, photoIndex, portfolio, galleries, freeDays] = await Promise.all([
+  const [albums, photoIndex, portfolio, galleries] = await Promise.all([
     getAllAlbums(),
     getPhotosByPaths(HOME_PHOTO_PATHS),
     getPortfolioPhotos(),
     getGalleryIndex(),
-    nextFreeDays(3),
   ]);
 
   const sessions = sessionSummaries(locale, (slug) => {
@@ -70,10 +68,9 @@ export default async function HomePage({
       <HomeContent
         albums={albums}
         photoIndex={photoIndex}
-        work={workPreview(portfolio, HOME_PER_VIEW)}
+        photosCount={portfolio.length}
         galleries={galleries}
         sessions={sessions}
-        freeDays={freeDays}
       />
     </>
   );

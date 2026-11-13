@@ -10,8 +10,6 @@ import type { Metadata } from "next";
 import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { pageMetadata } from "@/src/lib/seo";
 import { getAllAlbums, getPhotosByPaths, getPortfolioPhotos } from "@/src/lib/albums";
-import { BOOKING_LOCATIONS } from "@/src/lib/locations";
-import { nextFreeDays } from "@/src/lib/next-free-days";
 import { sessionSummaries } from "@/src/lib/session-summaries";
 import { ABOUT_PER_VIEW, workPreview } from "@/src/lib/work-preview";
 import AboutContent from "./AboutContent";
@@ -27,7 +25,7 @@ export async function generateMetadata({
   return pageMetadata("about", locale as Locale, "/about");
 }
 
-/** Five minutes, for the next free days — see [locale]/page.tsx. */
+/** Five minutes, like the Home page — see [locale]/page.tsx. */
 export const revalidate = 300;
 
 export default async function AboutPage({
@@ -40,11 +38,10 @@ export default async function AboutPage({
 
   // Resolved server-side so the client gets real dimensions, ThumbHashes and
   // derivative URLs in the first render payload.
-  const [albums, portfolio, photoIndex, freeDays] = await Promise.all([
+  const [albums, portfolio, photoIndex] = await Promise.all([
     getAllAlbums(),
     getPortfolioPhotos(),
     getPhotosByPaths(ABOUT_PHOTO_PATHS),
-    nextFreeDays(3),
   ]);
 
   const sessions = sessionSummaries(locale, (slug) => {
@@ -52,19 +49,12 @@ export default async function AboutPage({
     return path ? photoIndex[path] : undefined;
   });
 
-  // The places a client can pick in the booking form today. Restricted ones
-  // (an event venue, a retired park) are bookable only through their own
-  // package, so they are not advertised here.
-  const places = BOOKING_LOCATIONS.filter((l) => !l.restricted).map((l) => l.id);
-
   return (
     <AboutContent
       photoIndex={photoIndex}
       work={workPreview(portfolio, ABOUT_PER_VIEW)}
       albumsCount={albums.length}
       sessions={sessions}
-      freeDays={freeDays}
-      places={places}
     />
   );
 }

@@ -466,7 +466,6 @@
     }
   },
   "home": {
-    "allWork": "All work",
     "workTab": "Work",
     "galleriesTab": "Galleries",
     "sessionsTab": "Sessions",
@@ -477,29 +476,14 @@
     "privateBody": "Got a passkey from me? Open your photos here.",
     "enterPasskey": "Enter passkey",
     "sessions": "Sessions",
-    "fromPrice": "from {price}",
-    "seeAll": "See all {n} in the portfolio"
+    "fromPrice": "from {price}"
   },
   "aboutPage": {
     "greeting": "Hi, I'm Shamshod",
     "metaLine": "Photographer · Tashkent · since 2022",
     "seeMyWork": "See my work",
-    "onThisPage": "On this page",
     "storyTitle": "My story",
     "story": "",
-    "howTitle": "How a session works",
-    "howShort": "How it works",
-    "how1Title": "Book",
-    "how1": "Pick a free day, a start time and up to three locations.",
-    "how2Title": "Confirm",
-    "how2": "I confirm your request. Follow it in Telegram if you like.",
-    "how3Title": "Shoot",
-    "how3": "We meet at the first location and take the photos.",
-    "how4Title": "Your gallery",
-    "how4": "A private gallery with a passkey: mark Keep, Publish or Delete, and download in three sizes.",
-    "placesTitle": "Where I shoot",
-    "placesShort": "Where I shoot",
-    "placesBody": "The places the booking form offers. Somewhere else in Tashkent? Name it when you book.",
     "albumsStat": "albums",
     "photosStat": "photos",
     "openPortfolio": "Open the full portfolio"
