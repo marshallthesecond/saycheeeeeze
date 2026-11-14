@@ -6,8 +6,9 @@ import type { Metadata } from "next";
 import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { pageMetadata } from "@/src/lib/seo";
 import PortfolioContent from "./PortfolioContent";
-import { getAllAlbums, getPortfolioPhotos } from "@/src/lib/albums";
+import { getAllAlbums, getPhotosByPaths, getPortfolioPhotos } from "@/src/lib/albums";
 import { getGalleryIndex } from "@/src/lib/client-galleries";
+import { buildJournal, JOURNAL_PATHS } from "./journal";
 
 export async function generateMetadata({
   params,
@@ -20,12 +21,18 @@ export async function generateMetadata({
 }
 
 export default async function PortfolioPage() {
-  const [photos, albums, galleries] = await Promise.all([
+  const [photos, albums, galleries, journalPhotos] = await Promise.all([
     getPortfolioPhotos(),
     getAllAlbums(),
     getGalleryIndex(),
+    getPhotosByPaths(JOURNAL_PATHS),
   ]);
   return (
-    <PortfolioContent photos={photos} albums={albums} galleries={galleries} />
+    <PortfolioContent
+      photos={photos}
+      albums={albums}
+      galleries={galleries}
+      journal={buildJournal(journalPhotos, albums)}
+    />
   );
 }

@@ -493,5 +493,23 @@
     "albumsStat": "albums",
     "photosStat": "photos",
     "openPortfolio": "Open the full portfolio"
+  },
+  "journal": {
+    "issue": "No. {n}",
+    "runningHead": "Journal",
+    "eyebrow": "Field notes",
+    "title": "Where the light lands",
+    "dek": "On waiting for the right hour, on people who forget the camera, and on the frame that comes after the pose.",
+    "p1": "Most of my favourite photographs happen in the last hour before sunset, when Tashkent turns the colour of apricots and every pale wall becomes a reflector. I plan around that hour the way other people plan around traffic.",
+    "p2": "I never ask anyone to act natural. I ask them to walk, to tell me about their week, to laugh at a joke that isn't funny. The pose is where we start; the photograph usually arrives a few seconds later, when they think we have finished.",
+    "p3": "Then comes the quiet part: choosing. Out of a few hundred frames, the ones that stay are rarely the sharpest. They are the ones where someone looks like themselves.",
+    "quote": "The pose is where we start. The photograph is what happens after.",
+    "plate": "Plate",
+    "factAlbum": "Album",
+    "factFrames": "Frames",
+    "factYear": "Year",
+    "factCity": "City",
+    "city": "Tashkent",
+    "openAlbum": "Open the album"
   }
 }

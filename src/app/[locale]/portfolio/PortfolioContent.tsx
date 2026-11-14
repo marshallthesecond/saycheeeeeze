@@ -17,6 +17,8 @@ import { useT } from "@/src/lib/i18n/LanguageProvider";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
 import GalleryDoors, { type Door } from "@/src/components/common/GalleryDoors";
 import ChipRow from "@/src/components/common/ChipRow";
+import JournalSpread from "@/src/components/portfolio/JournalSpread";
+import type { JournalData } from "./journal";
 // One shuffle for the portfolio and the Home/About previews, so a photograph
 // sits in the same place in the day's order on every page.
 import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
@@ -31,10 +33,13 @@ export default function PortfolioContent({
   photos: allPhotos,
   albums, 
   galleries,
+  journal = null,
 }: { 
   photos: PortfolioPhoto[];
   albums: AlbumData[];
   galleries: GalleryListing[];
+  /** The journal spread, or null to leave it out. See ./journal.ts. */
+  journal?: JournalData | null;
 }) {
   const { t, locale } = useT();
   // Shuffled so the portfolio doesn't always lead with the same photos. The
@@ -80,7 +85,14 @@ export default function PortfolioContent({
   // it. Lightbox indices stay global — the lower grid adds the upper grid's
   // length back on, so `photos[index]` is always the photo that was clicked.
   const photosAboveAlbums = photos.slice(0, PHOTOS_BEFORE_ALBUMS);
-  const photosBelowAlbums = photos.slice(PHOTOS_BEFORE_ALBUMS);
+  // The journal spread breaks the grid a second time, further down — on the
+  // unfiltered view only, where it reads as part of the whole portfolio
+  // rather than as a stray page inside one category.
+  const showJournal =
+    journal !== null && filter === "All" && photos.length > PHOTOS_BEFORE_ALBUMS + journal.after;
+  const journalAt = showJournal && journal ? PHOTOS_BEFORE_ALBUMS + journal.after : photos.length;
+  const photosBelowAlbums = photos.slice(PHOTOS_BEFORE_ALBUMS, journalAt);
+  const photosBelowJournal = photos.slice(journalAt);
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
   const prevPhoto = useCallback(() => setLightbox((i) => i !== null ? (i - 1 + visibleData.length) % visibleData.length : null), [visibleData.length]);
@@ -219,12 +231,26 @@ export default function PortfolioContent({
         ))}
       </Shelf>
 
-      {/* Photo grid, the rest */}
+      {/* Photo grid, the middle */}
       {photosBelowAlbums.length > 0 && (
-        <section className="relative z-10 pb-10">
+        <section className={`relative z-10 ${showJournal ? "pb-12" : "pb-10"}`}>
           <PhotoGrid
             photos={photosBelowAlbums}
             onPhotoClick={(i) => setLightbox(i + photosAboveAlbums.length)}
+            gap={2}
+          />
+        </section>
+      )}
+
+      {/* The journal — a magazine spread among the photographs */}
+      {showJournal && journal && <JournalSpread journal={journal} />}
+
+      {/* Photo grid, the rest */}
+      {photosBelowJournal.length > 0 && (
+        <section className="relative z-10 pb-10">
+          <PhotoGrid
+            photos={photosBelowJournal}
+            onPhotoClick={(i) => setLightbox(i + journalAt)}
             gap={2}
           />
         </section>
