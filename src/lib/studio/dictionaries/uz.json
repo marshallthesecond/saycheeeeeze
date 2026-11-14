@@ -1,0 +1,45 @@
+{
+  "brand": "Studiya",
+  "nav": {
+    "galleries": "Galereyalar",
+    "viewSite": "Saytni ochish",
+    "signOut": "Chiqish",
+    "language": "Til"
+  },
+  "login": {
+    "title": "Studiyaga kirish",
+    "blurb": "saycheeeeeze akkaunti bor fotograflar uchun.",
+    "email": "Elektron pochta",
+    "password": "Parol",
+    "submit": "Kirish",
+    "submitting": "Kirilmoqda…",
+    "back": "Saytga qaytish",
+    "errors": {
+      "missing": "Pochta va parolni kiriting.",
+      "invalid": "Bu pochta va parol hech bir akkauntga mos kelmadi.",
+      "noAccess": "Bu kirish hali studiyaga ulanmagan.",
+      "rate": "Urinishlar juda ko'p. Bir daqiqa kutib, qayta urinib ko'ring.",
+      "unavailable": "Hozir kirib bo'lmayapti. Birozdan keyin urinib ko'ring."
+    }
+  },
+  "galleries": {
+    "title": "Galereyalar",
+    "all": "Hammasi",
+    "albums": "Albomlar",
+    "client": "Mijoz galereyalari",
+    "kindAlbum": "Albom",
+    "kindClient": "Mijoz galereyasi",
+    "private": "Yopiq",
+    "hidden": "Chop etilmagan",
+    "photosOne": "{n} ta surat",
+    "photosMany": "{n} ta surat",
+    "noPhotos": "Hali surat yo'q",
+    "view": "Saytda ochish",
+    "empty": "Bu yerda hali galereya yo'q."
+  },
+  "error": {
+    "title": "Nimadir xato ketdi",
+    "blurb": "Sahifani yuklab bo'lmadi. Hech narsa o'zgarmadi.",
+    "retry": "Qayta urinish"
+  }
+}

@@ -27,18 +27,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_members: {
+        Row: {
+          account_id: string
+          created_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_members_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts: {
+        Row: {
+          created_at: string
+          default_locale: string
+          display_name: string
+          id: string
+          plan: string
+          status: string
+          storage_prefix: string
+          storage_quota_bytes: number | null
+          storage_used_bytes: number
+          storage_zone: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          default_locale?: string
+          display_name: string
+          id?: string
+          plan?: string
+          status?: string
+          storage_prefix?: string
+          storage_quota_bytes?: number | null
+          storage_used_bytes?: number
+          storage_zone?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          default_locale?: string
+          display_name?: string
+          id?: string
+          plan?: string
+          status?: string
+          storage_prefix?: string
+          storage_quota_bytes?: number | null
+          storage_used_bytes?: number
+          storage_zone?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       blackout_dates: {
         Row: {
+          account_id: string
           created_at: string
           day: string
           reason: string | null
         }
         Insert: {
+          account_id?: string
           created_at?: string
           day: string
           reason?: string | null
         }
         Update: {
+          account_id?: string
           created_at?: string
           day?: string
           reason?: string | null
@@ -47,18 +124,21 @@ export type Database = {
       }
       booking_attempts: {
         Row: {
+          account_id: string
           attempted_at: string
           id: number
           ip_hash: string
           succeeded: boolean
         }
         Insert: {
+          account_id?: string
           attempted_at?: string
           id?: number
           ip_hash: string
           succeeded?: boolean
         }
         Update: {
+          account_id?: string
           attempted_at?: string
           id?: number
           ip_hash?: string
@@ -68,6 +148,7 @@ export type Database = {
       }
       bookings: {
         Row: {
+          account_id: string
           addons: Json
           base_price_uzs: number
           client_name: string
@@ -103,6 +184,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string
           addons?: Json
           base_price_uzs: number
           client_name: string
@@ -138,6 +220,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string
           addons?: Json
           base_price_uzs?: number
           client_name?: string
@@ -185,6 +268,7 @@ export type Database = {
       galleries: {
         Row: {
           accent_color: string
+          account_id: string
           bunny_folder: string | null
           client_note: string | null
           cover_path: string | null
@@ -211,6 +295,7 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          account_id?: string
           bunny_folder?: string | null
           client_note?: string | null
           cover_path?: string | null
@@ -237,6 +322,7 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          account_id?: string
           bunny_folder?: string | null
           client_note?: string | null
           cover_path?: string | null
@@ -334,6 +420,7 @@ export type Database = {
       packages: {
         Row: {
           accent_color: string
+          account_id: string
           cover_path: string | null
           created_at: string
           delivery_hours: number
@@ -357,6 +444,7 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          account_id?: string
           cover_path?: string | null
           created_at?: string
           delivery_hours?: number
@@ -380,6 +468,7 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          account_id?: string
           cover_path?: string | null
           created_at?: string
           delivery_hours?: number
@@ -405,6 +494,7 @@ export type Database = {
       }
       photos: {
         Row: {
+          account_id: string
           alt: string | null
           aspect_ratio: number | null
           attempts: number
@@ -430,6 +520,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          account_id?: string
           alt?: string | null
           aspect_ratio?: never
           attempts?: number
@@ -455,6 +546,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          account_id?: string
           alt?: string | null
           aspect_ratio?: never
           attempts?: number
@@ -489,12 +581,25 @@ export type Database = {
           },
         ]
       }
+      reserved_usernames: {
+        Row: {
+          username: string
+        }
+        Insert: {
+          username: string
+        }
+        Update: {
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       expire_stale_holds: { Args: never; Returns: number }
+      my_account_ids: { Args: never; Returns: string[] }
       reset_stale_photo_claims: {
         Args: { older_than?: unknown }
         Returns: number

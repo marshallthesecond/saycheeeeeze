@@ -1,0 +1,45 @@
+{
+  "brand": "Studio",
+  "nav": {
+    "galleries": "Galleries",
+    "viewSite": "View site",
+    "signOut": "Sign out",
+    "language": "Language"
+  },
+  "login": {
+    "title": "Sign in to your studio",
+    "blurb": "For photographers with a saycheeeeeze account.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "back": "Back to the site",
+    "errors": {
+      "missing": "Enter your email and password.",
+      "invalid": "That email and password don't match an account.",
+      "noAccess": "This login isn't connected to a studio yet.",
+      "rate": "Too many attempts. Wait a minute and try again.",
+      "unavailable": "Sign-in isn't available right now. Try again in a moment."
+    }
+  },
+  "galleries": {
+    "title": "Galleries",
+    "all": "All",
+    "albums": "Albums",
+    "client": "Client galleries",
+    "kindAlbum": "Album",
+    "kindClient": "Client gallery",
+    "private": "Private",
+    "hidden": "Not published",
+    "photosOne": "{n} photo",
+    "photosMany": "{n} photos",
+    "noPhotos": "No photos yet",
+    "view": "View on site",
+    "empty": "No galleries here yet."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "blurb": "The page could not be loaded. Nothing was changed.",
+    "retry": "Try again"
+  }
+}

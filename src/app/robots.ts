@@ -10,9 +10,9 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Client galleries are passkey-gated; keep them out of the index.
-      disallow: ["/api/", "/*/galleries/"],
+      // /studio is the photographers' side and has nothing for a crawler.
+      disallow: ["/api/", "/*/galleries/", "/studio"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
-

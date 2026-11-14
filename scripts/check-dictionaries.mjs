@@ -2,6 +2,8 @@
 //
 //   node scripts/check-dictionaries.mjs
 //   node scripts/check-dictionaries.mjs --quiet    # exit code only
+//   node scripts/check-dictionaries.mjs --dir src/lib/studio/dictionaries
+//                                                  # the Studio's own three
 //
 // Runs in about 30 ms and needs nothing installed. Put it in front of a push.
 //
@@ -32,7 +34,10 @@ import { readFileSync } from "node:fs";
 import process from "node:process";
 
 const LOCALES = ["en", "ru", "uz"];
-const DIR = "src/lib/i18n/dictionaries";
+// The site's dictionaries unless --dir names another folder holding the same
+// three files. The Studio keeps its texts apart (src/lib/studio/i18n.ts).
+const dirFlag = process.argv.indexOf("--dir");
+const DIR = (dirFlag !== -1 && process.argv[dirFlag + 1]) || "src/lib/i18n/dictionaries";
 const quiet = process.argv.includes("--quiet");
 
 /** Every leaf path. Arrays compare by length, since they are ordered lists. */
