@@ -444,6 +444,46 @@
 }
 
 /*
+  The journal spread on /portfolio (2026-11-14). Black and white on purpose,
+  and the same in the light and the dark theme: a printed page lying on the
+  site, not part of its cream-and-red palette. White text page, black photo
+  page; on a phone the photos sit in a black band between the headline and
+  the text.
+*/
+.jr {
+  --jr-paper: #f3f3f1;
+  --jr-ink: #151515;
+  --jr-ink-2: #5a5a58;
+  --jr-rule: #d4d4d1;
+  --jr-black: #111111;
+  --jr-on-black: #f1f1ef;
+  --jr-on-black-2: #a3a3a0;
+  display: grid;
+  grid-template-areas: "head" "photos" "body";
+  background: var(--jr-paper);
+  color: var(--jr-ink);
+  font-family: var(--font-journal-text), "Jost", ui-sans-serif, system-ui, sans-serif;
+}
+.jr-display {
+  font-family: var(--font-journal-display), "Cormorant Garamond", Georgia, serif;
+}
+.jr-head { grid-area: head; }
+.jr-body { grid-area: body; }
+.jr-photos {
+  grid-area: photos;
+  background: var(--jr-black);
+  color: var(--jr-on-black);
+}
+@media (min-width: 1024px) {
+  .jr {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "head photos" "body photos";
+  }
+}
+
+
+/*
   Stage container: 24px side padding on small screens, 32px on large, and no
   max-width cap, so content fills the screen with one consistent margin.
 */

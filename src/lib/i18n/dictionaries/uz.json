@@ -495,21 +495,22 @@
     "openPortfolio": "Butun portfolioni ochish"
   },
   "journal": {
-    "issue": "№ {n}",
-    "runningHead": "Jurnal",
+    "masthead": "saycheeeeeze jurnali",
+    "issue": "{n}-son",
     "eyebrow": "Suratga olishdan qaydlar",
     "title": "Yorug'lik tushgan joyda",
-    "dek": "To'g'ri soatni kutish, kamerani unutib qo'yadigan odamlar va pozadan keyin keladigan kadr haqida.",
+    "dek": "Toshkentdagi bir yillik portret suratga olishlardan bir nechta qaydlar.",
     "p1": "Eng sevimli suratlarim ko'pincha quyosh botishidan oldingi so'nggi soatda tug'iladi: Toshkent o'rik rangiga kiradi, har bir och rangli devor esa reflektorga aylanadi. Boshqalar kunini tirbandlikka qarab rejalashtirgandek, men suratga olishni shu soatga qarab rejalashtiraman.",
-    "p2": "Men hech kimdan «tabiiy turing» deb so'ramayman. Biroz yurishni, haftasi qanday o'tganini aytib berishni, kulgili bo'lmagan hazilga kulishni so'rayman. Poza — bu boshlanish; surat esa odatda bir necha soniyadan keyin, odam ish tugadi deb o'ylaganda paydo bo'ladi.",
-    "p3": "Keyin tinch qism keladi — tanlash. Bir necha yuz kadr ichidan eng tiniqlari emas, balki odam o'ziga o'xshab chiqqanlari qoladi.",
-    "quote": "Poza — bu boshlanish. Surat esa undan keyin sodir bo'ladi.",
-    "plate": "Kadr",
+    "p2": "Men hech kimdan «tabiiy turing» deb so'ramayman. Biroz yurishni, haftasi qanday o'tganini aytib berishni, kulgili bo'lmagan hazilga kulishni so'rayman. Surat odatda pozadan bir necha soniya keyin, odam ish tugadi deb o'ylaganda chiqadi.",
+    "p3": "Keyin o'tirib, bir necha yuz kadrni ko'rib chiqaman. Eng tiniqlari kamdan-kam qoladi, ko'pincha odam o'ziga o'xshab chiqqanlari qoladi.",
+    "quote": "Eng yaxshi kadrlar odatda men «bo'ldi, tamom» deganimdan keyin chiqadi.",
     "factAlbum": "Albom",
     "factFrames": "Kadrlar",
     "factYear": "Yil",
     "factCity": "Shahar",
     "city": "Toshkent",
-    "openAlbum": "Albomni ochish"
+    "openAlbum": "Albomni ochish",
+    "creditsWide": "Suratlar, chapdan soat mili bo'yicha: {names}.",
+    "creditsNarrow": "Suratlar, yuqoridan pastga: {names}."
   }
 }

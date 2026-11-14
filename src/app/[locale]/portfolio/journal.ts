@@ -1,11 +1,12 @@
-// The journal spread on /portfolio (2026-11-14): a magazine-style page that
+// The journal spread on /portfolio (2026-11-14): a magazine-style spread that
 // sits among the photographs, a little further down than the Albums shelf.
 //
-// Left page: a running head, a headline, a short essay in two columns with a
-// drop cap, a pull quote and a small index of facts about the lead album.
-// Right page: one large photograph and two smaller ones, each a numbered
-// plate. The words live in the dictionaries under `journal.*`; this file picks
-// the photographs and works out which album each one belongs to.
+// Text page: masthead, headline, a short essay, a pull quote and a few facts
+// about the lead album. Picture page: one large photograph and two smaller
+// ones, credited underneath. The words live in the dictionaries under
+// `journal.*`, the look in JournalSpread.tsx and the `.jr` rules in
+// globals.css; this file picks the photographs and works out which album each
+// one belongs to.
 //
 // To change the photographs, change the paths below. They are storage paths,
 // never URLs, so each arrives with its ladder, dimensions and ThumbHash. A path
@@ -15,7 +16,7 @@
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 
 export const JOURNAL = {
-  /** Shown as "No. 01" in the running head. */
+  /** Shown as "Issue 1" in the masthead. */
   issue: 1,
   /** The large photograph. Its album supplies the facts and the link. */
   hero: "Portraits/Mekhrangiz/4P5A1850.png",
