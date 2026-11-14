@@ -3,7 +3,8 @@
     "home": "Bosh sahifa",
     "portfolio": "Portfolio",
     "book": "Band qilish",
-    "about": "Men haqimda"
+    "about": "Men haqimda",
+    "toTop": "Yuqoriga"
   },
   "common": {
     "showAll": "Barchasini ko'rish",
@@ -73,7 +74,9 @@
     "privateGalleryHint": "O'zingiznikini kod bilan oching",
     "photoCount": "{n} ta foto",
     "ctaTitle": "Yoqdimi?",
-    "ctaBody": "Keling, birga biror narsa suratga olamiz."
+    "ctaBody": "Keling, birga biror narsa suratga olamiz.",
+    "galleries": "Galereyalar",
+    "galleriesHint": "Suratga olish albomlari"
   },
   "book": {
     "eyebrow": "Keling, biror narsa yarataylik",
@@ -394,7 +397,10 @@
     "codeRequired": "Kod kerak",
     "photos": "{n} ta foto",
     "askCode": "Kod so'rash",
-    "askGallery": "Galereyangiz haqida so'rash"
+    "askGallery": "Galereyangiz haqida so'rash",
+    "albumsHeading": "Galereyalar",
+    "albumsBlurb": "Suratga olishlarim albomlari, hamma uchun ochiq.",
+    "albumsEmpty": "Hozircha albom yo'q."
   },
   "request": {
     "heading": "Galereya haqida so'rash",

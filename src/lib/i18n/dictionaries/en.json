@@ -3,7 +3,8 @@
     "home": "Home",
     "portfolio": "Portfolio",
     "book": "Book",
-    "about": "About"
+    "about": "About",
+    "toTop": "Back to top"
   },
   "common": {
     "showAll": "Show all",
@@ -73,7 +74,9 @@
     "privateGalleryHint": "Open yours with an access code",
     "photoCount": "{n} photos",
     "ctaTitle": "Like what you see?",
-    "ctaBody": "Let's shoot something together."
+    "ctaBody": "Let's shoot something together.",
+    "galleries": "Galleries",
+    "galleriesHint": "Albums of my shoots"
   },
   "book": {
     "eyebrow": "Let's make something",
@@ -394,7 +397,10 @@
     "codeRequired": "Code required",
     "photos": "{n} photos",
     "askCode": "Ask me for a code",
-    "askGallery": "Ask about your gallery"
+    "askGallery": "Ask about your gallery",
+    "albumsHeading": "Galleries",
+    "albumsBlurb": "Albums from my sessions, open to everyone.",
+    "albumsEmpty": "No albums yet."
   },
   "request": {
     "heading": "Ask about this gallery",

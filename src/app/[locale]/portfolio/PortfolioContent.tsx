@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Images, KeyRound, ChevronRight } from "lucide-react";
 import PhotoGrid, { type Photo } from "@/src/components/common/PhotoGrid";
 import Lightbox from "@/src/components/common/Lightbox";
 import type { AlbumData } from "@/src/lib/albums";
@@ -16,6 +15,8 @@ import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 const ALBUM_COVER_SIZES = "(max-width: 640px) 40vw, 192px";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
+import GalleryDoors, { type Door } from "@/src/components/common/GalleryDoors";
+import ChipRow from "@/src/components/common/ChipRow";
 // One shuffle for the portfolio and the Home/About previews, so a photograph
 // sits in the same place in the day's order on every page.
 import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
@@ -25,23 +26,6 @@ import type { GalleryListing } from "@/src/lib/client-galleries";
 // can't be an exact half-screen; 6 lands close to 50vh on a phone and on a
 // laptop alike. Raise it to push the albums further down.
 const PHOTOS_BEFORE_ALBUMS = 6;
-
-// Two doors into the same picker; `mode` decides which galleries it lists.
-// Labels are dictionary keys, not text.
-const CLIENT_GALLERY_ENTRIES = [
-  {
-    mode: "public" as const,
-    labelKey: "portfolio.clientGalleries",
-    hintKey: "portfolio.clientGalleriesHint",
-    Icon: Images,
-  },
-  {
-    mode: "private" as const,
-    labelKey: "portfolio.privateGallery",
-    hintKey: "portfolio.privateGalleryHint",
-    Icon: KeyRound,
-  },
-];
 
 export default function PortfolioContent({ 
   photos: allPhotos,
@@ -60,7 +44,7 @@ export default function PortfolioContent({
   const shuffled = useMemo(() => shuffleWithSeed(allPhotos, daySeed()), [allPhotos]);
   const [filter, setFilter]     = useState<string>("All");
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const [picker, setPicker] = useState<"public" | "private" | null>(null);
+  const [picker, setPicker] = useState<Door | null>(null);
 
   // Pills derived from the top-level folders that exist in Bunny Storage, so
   // there's no hardcoded category list to keep in sync.
@@ -75,6 +59,16 @@ export default function PortfolioContent({
       count: allPhotos.filter((p) => p.category === cat).length,
     })),
     [filters, allPhotos]
+  );
+
+  // One row: each category with its count (2026-11-14). The count tiles and
+  // the plain filter pills used to repeat each other, one above the other.
+  const chips = useMemo(
+    () => [
+      { value: "All", label: t("portfolio.all"), count: allPhotos.length },
+      ...catStats.map(({ label, count }) => ({ value: label, label, count })),
+    ],
+    [catStats, allPhotos.length, t]
   );
 
   const visibleData = filter === "All" ? shuffled : shuffled.filter((p) => p.category === filter);
@@ -129,81 +123,37 @@ export default function PortfolioContent({
         backHref={`/${locale}`}
       />
 
-      {/* Hero */}
+      {/* Hero: the words on the left; from 1280px the three gallery doors fill
+          the space on their right, just above the photographs. Below that
+          they follow the words. */}
       <section
-        className="relative z-10 px-4 sm:px-8 pb-6"
+        className="relative z-10 flex flex-col gap-5 px-4 pb-5 sm:px-8 xl:flex-row xl:items-end xl:justify-between xl:gap-10"
         style={{ paddingTop: "calc(5rem + env(safe-area-inset-top))" }}
       >
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-          {t("portfolio.eyebrow")}
-        </p>
-        {/* Spotify goes very large and very tight on hero titles */}
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter leading-[0.95]">
-          {t("portfolio.title")}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-3 max-w-sm leading-relaxed">
-          {t("portfolio.subtitle")}
-        </p>
-        <p className="text-xs text-muted-foreground mt-2 font-medium">
-          {t("portfolio.photoCount", { n: allPhotos.length })}
-        </p>
-      </section>
-
-      {/* Client galleries — two entry points into the delivery pages */}
-      <section className="relative z-10 px-4 sm:px-8 pb-5">
-        <div className="grid grid-cols-2 gap-2.5 sm:max-w-lg">
-          {CLIENT_GALLERY_ENTRIES.map(({ mode, labelKey, hintKey, Icon }) => (
-            <button
-              key={mode}
-              onClick={() => setPicker(mode)}
-              className="group flex flex-col gap-3 rounded-xl bg-foreground/6 hover:bg-foreground/10 active:bg-foreground/12 p-3.5 text-left transition active:scale-[0.98]"
-            >
-              <span className="flex items-center justify-between">
-                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/10 group-hover:bg-foreground/15 transition">
-                  <Icon className="w-4 h-4 text-foreground" />
-                </span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/60 group-hover:text-foreground transition" />
-              </span>
-              <span>
-                <span className="block text-sm font-bold leading-tight">{t(labelKey)}</span>
-                <span className="block text-[11px] text-muted-foreground mt-1 leading-snug">{t(hintKey)}</span>
-              </span>
-            </button>
-          ))}
+        <div className="xl:max-w-md xl:shrink-0">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            {t("portfolio.eyebrow")}
+          </p>
+          {/* Spotify goes very large and very tight on hero titles */}
+          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter leading-[0.95]">
+            {t("portfolio.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-3 max-w-sm leading-relaxed">
+            {t("portfolio.subtitle")}
+          </p>
         </div>
+
+        <GalleryDoors
+          albums={albums}
+          galleries={galleries}
+          onOpen={setPicker}
+          className="xl:w-full xl:max-w-3xl"
+        />
       </section>
 
-      {/* Category stats */}
-      <section className="relative z-10 px-4 sm:px-8 pb-5">
-        <div className="flex gap-2.5 overflow-x-auto [&::-webkit-scrollbar]:hidden pb-1 snap-x scroll-px-4">
-          {catStats.map(({ label, count }) => (
-            <button
-              key={label}
-              onClick={() => setFilter(label)}
-              className={`shrink-0 snap-start rounded-xl px-4 py-2.5 text-center transition active:scale-95
-                ${filter === label ? "bg-primary text-primary-foreground" : "bg-foreground/6 hover:bg-foreground/10 text-foreground"}`}
-            >
-              <p className="text-lg font-bold leading-none">{count}</p>
-              <p className={`text-[10px] mt-0.5 ${filter === label ? "text-primary-foreground" : "text-muted-foreground"}`}>{label}</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Filter pills */}
+      {/* Categories, each with its count, on one line that scrolls sideways. */}
       <section className="relative z-10 px-4 sm:px-8 pb-4">
-        <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible pb-1">
-          {filters.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-xs font-semibold transition active:scale-95
-                ${filter === f ? "bg-primary text-primary-foreground" : "bg-foreground/8 text-foreground/75 hover:bg-foreground/15 hover:text-foreground"}`}
-            >
-              {f === "All" ? t("portfolio.all") : f}
-            </button>
-          ))}
-        </div>
+        <ChipRow chips={chips} value={filter} onChange={setFilter} label={t("home.filterWork")} size="lg" />
       </section>
 
       {/* Photo grid, upper half — full bleed, Pixieset style */}
@@ -307,8 +257,9 @@ export default function PortfolioContent({
       <GalleryPickerSheet
         open={picker !== null}
         onClose={() => setPicker(null)}
-        mode={picker ?? "public"}
+        mode={picker ?? "albums"}
         galleries={galleries}
+        albums={albums}
         locale={locale}
       />
 

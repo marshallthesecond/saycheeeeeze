@@ -393,6 +393,57 @@
 }
 
 /*
+  Liquid glass — the bottom nav and the back-to-top button beside it
+  (2026-11-14). Same size as before; what changed is how it separates from what
+  is behind it:
+
+  - heavier blur with saturation, so photos behind it turn into soft colour
+    instead of detail that competes with the icons
+  - a bright 1px line along the top edge, like light catching a glass edge
+  - a sheen fading down from the top (::before)
+  - a deeper shadow, and in dark mode a faint brand-red glow
+
+  The sheen sits at z-index -1: backdrop-filter makes the element its own
+  stacking context, so -1 lands above the element's background and below its
+  icons and labels instead of washing over them.
+*/
+:root {
+  --glass-bg: color-mix(in oklab, var(--background) 74%, transparent);
+  --glass-ring: oklch(0 0 0 / 0.09);
+  --glass-edge: oklch(1 0 0 / 0.75);
+  --glass-sheen: oklch(1 0 0 / 0.5);
+  --glass-shadow: 0 14px 34px -12px oklch(0 0 0 / 0.38), 0 3px 8px -3px oklch(0 0 0 / 0.14);
+}
+.dark {
+  --glass-bg: color-mix(in oklab, var(--background) 64%, transparent);
+  --glass-ring: oklch(1 0 0 / 0.11);
+  --glass-edge: oklch(1 0 0 / 0.24);
+  --glass-sheen: oklch(1 0 0 / 0.09);
+  --glass-shadow: 0 16px 38px -12px oklch(0 0 0 / 0.8),
+    0 0 26px -8px color-mix(in oklab, var(--sc-accent) 38%, transparent);
+}
+.sc-glass {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--glass-ring);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    inset 0 -1px 0 0 oklch(0 0 0 / 0.05),
+    var(--glass-shadow);
+}
+.sc-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--glass-sheen), transparent 60%);
+}
+
+/*
   Stage container: 24px side padding on small screens, 32px on large, and no
   max-width cap, so content fills the screen with one consistent margin.
 */

@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
-import { Briefcase, Camera, House, User } from 'lucide-react';
+import { ArrowUp, Briefcase, Camera, House, User } from 'lucide-react';
 import NavPerimeterGlow from "@/src/components/common/NavPerimeterGlow";
 import { useNavLoading } from "@/src/lib/nav-loading";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
@@ -71,6 +71,26 @@ function isPastHero(): boolean {
   return window.scrollY > (revealPx || window.innerHeight * REVEAL_AT);
 }
 
+// The back-to-top button (2026-11-14) appears once the reader is a full screen
+// down, and never before 600px, so a short page never shows it.
+function subscribeToDepth(onChange: () => void): () => void {
+  window.addEventListener('scroll', onChange, { passive: true });
+  window.addEventListener('resize', onChange, { passive: true });
+  return () => {
+    window.removeEventListener('scroll', onChange);
+    window.removeEventListener('resize', onChange);
+  };
+}
+
+function isFarDown(): boolean {
+  return window.scrollY > Math.max(600, window.innerHeight);
+}
+
+function scrollToTop() {
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+}
+
 /**
  * Reports the enclosing <Link>'s pending state to the shared nav-loading state.
  *
@@ -105,7 +125,9 @@ function BottomNavItem({
       href={href}
       aria-current={active ? 'page' : undefined}
       // min-w/min-h 44px keeps every target within Apple's HIG tap-size guidance
-      className={`flex flex-col items-center justify-center gap-1 rounded-xl min-w-16 min-h-11 px-2.5 py-1.5 transition
+      // Narrow phones (under 380px) get slightly tighter tabs, so the pill and
+      // the back-to-top button fit side by side even in Uzbek.
+      className={`flex flex-col items-center justify-center gap-1 rounded-xl min-w-16 min-h-11 px-2.5 py-1.5 max-[379px]:min-w-14 max-[379px]:px-1.5 transition
         ${active
           ? 'text-accent-warm bg-foreground/8'
           : 'text-muted-foreground hover:text-foreground active:bg-foreground/5'}`}
@@ -138,6 +160,8 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
   // there from the start.
   const pastHero = useSyncExternalStore(subscribeToScroll, isPastHero, () => false);
   const shown = !isHome || pastHero;
+  const farDown = useSyncExternalStore(subscribeToDepth, isFarDown, () => false);
+  const showTop = shown && farDown;
 
   return (
     <nav
@@ -145,52 +169,80 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
       // Sits above the iOS home indicator instead of underneath it.
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
     >
-      <div
-        aria-hidden={!shown}
-        // Reads from the palette rather than a hardcoded #1b1814, which was a
-        // warm brown against a cool near-black page.
-        style={{ background: "color-mix(in oklab, var(--background) 85%, transparent)" }}
-        // `invisible` alongside the fade, not instead of it: opacity 0 plus
-        // pointer-events: none still leaves four links in the tab order, so a
-        // keyboard reader landing on the homepage tabbed straight into a nav
-        // nobody can see. visibility transitions discretely — it holds
-        // `visible` for the whole fade-out and only flips at the end — so
-        // adding it to the transition list costs nothing visually.
-        className={`relative backdrop-blur-xl border border-border rounded-2xl flex items-center gap-1 p-1.5 shadow-2xl shadow-black/15 dark:shadow-black/50
-          transition-[opacity,transform,visibility] duration-500 ease-out
-          ${shown
-            ? 'pointer-events-auto visible opacity-100 translate-y-0'
-            : 'pointer-events-none invisible opacity-0 translate-y-4'}`}
-      >
-        {/* Absolutely positioned overlay — adds no layout, no size, no spacing. */}
-        <NavPerimeterGlow active={busy && shown} />
+      {/* The pill and the back-to-top button sit side by side with a small
+          gap. The button's slot grows from nothing, so the pair stays centred
+          and the pill glides aside to make room rather than jumping. */}
+      <div className="flex items-stretch">
+        <div
+          aria-hidden={!shown}
+          // `invisible` alongside the fade, not instead of it: opacity 0 plus
+          // pointer-events: none still leaves four links in the tab order, so a
+          // keyboard reader landing on the homepage tabbed straight into a nav
+          // nobody can see. visibility transitions discretely — it holds
+          // `visible` for the whole fade-out and only flips at the end — so
+          // adding it to the transition list costs nothing visually.
+          //
+          // sc-glass (globals.css) is the look: frosted glass with a lit top
+          // edge, a sheen and a deeper shadow, so the pill separates from busy
+          // photos without getting any bigger.
+          className={`sc-glass rounded-2xl flex items-center gap-1 p-1.5 max-[379px]:gap-0.5 max-[379px]:p-1
+            transition-[opacity,transform,visibility] duration-500 ease-out
+            ${shown
+              ? 'pointer-events-auto visible opacity-100 translate-y-0'
+              : 'pointer-events-none invisible opacity-0 translate-y-4'}`}
+        >
+          {/* Absolutely positioned overlay — adds no layout, no size, no spacing. */}
+          <NavPerimeterGlow active={busy && shown} />
 
-        {/* Home is the site root since 2026-11-10 — the three-column profile
-            page — and About is its own page again, so both get a tab. */}
-        <BottomNavItem
-          icon={<House className="w-5 h-5" />}
-          label={t("nav.home")}
-          href={`/${locale}`}
-          active={isHome}
-        />
-        <BottomNavItem
-          icon={<Briefcase className="w-5 h-5" />}
-          label={t("nav.portfolio")}
-          href={`/${locale}/portfolio`}
-          active={isPortfolio}
-        />
-        <BottomNavItem
-          icon={<Camera className="w-5 h-5" />}
-          label={t("nav.book")}
-          href={`/${locale}/book`}
-          active={isBook}
-        />
-        <BottomNavItem
-          icon={<User className="w-5 h-5" />}
-          label={t("nav.about")}
-          href={`/${locale}/about`}
-          active={isAbout}
-        />
+          {/* Home is the site root since 2026-11-10 — the three-column profile
+              page — and About is its own page again, so both get a tab. */}
+          <BottomNavItem
+            icon={<House className="w-5 h-5" />}
+            label={t("nav.home")}
+            href={`/${locale}`}
+            active={isHome}
+          />
+          <BottomNavItem
+            icon={<Briefcase className="w-5 h-5" />}
+            label={t("nav.portfolio")}
+            href={`/${locale}/portfolio`}
+            active={isPortfolio}
+          />
+          <BottomNavItem
+            icon={<Camera className="w-5 h-5" />}
+            label={t("nav.book")}
+            href={`/${locale}/book`}
+            active={isBook}
+          />
+          <BottomNavItem
+            icon={<User className="w-5 h-5" />}
+            label={t("nav.about")}
+            href={`/${locale}/about`}
+            active={isAbout}
+          />
+        </div>
+
+        {/* Back to top. Same height as the pill (the row stretches it), its own
+            piece of glass, 8px away. */}
+        <div
+          aria-hidden={!showTop}
+          // Left out on screens under 340px, where the pill alone fills the width.
+          className={`flex max-[339px]:hidden transition-[width,margin-left,opacity,transform,visibility] duration-300 ease-out
+            ${showTop
+              ? 'w-15 max-[379px]:w-11 ml-2 opacity-100 scale-100 visible pointer-events-auto'
+              : 'w-0 ml-0 opacity-0 scale-75 invisible pointer-events-none'}`}
+        >
+          <button
+            type="button"
+            onClick={scrollToTop}
+            aria-label={t("nav.toTop")}
+            title={t("nav.toTop")}
+            tabIndex={showTop ? 0 : -1}
+            className="sc-glass flex w-15 max-[379px]:w-11 shrink-0 items-center justify-center rounded-2xl text-foreground/80 transition hover:text-foreground active:scale-95"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </nav>
   );

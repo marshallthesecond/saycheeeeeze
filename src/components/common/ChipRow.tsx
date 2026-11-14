@@ -12,6 +12,8 @@ import { useEffect, useRef, useState } from "react";
 export interface Chip {
   value: string;
   label: string;
+  /** Shown after the label in a quieter weight: how many items the chip holds. */
+  count?: number;
 }
 
 export default function ChipRow({
@@ -27,8 +29,8 @@ export default function ChipRow({
   onChange: (value: string) => void;
   /** Accessible name for the group. */
   label: string;
-  /** sm — side panels; md — the main column. */
-  size?: "sm" | "md";
+  /** sm — side panels; md — the main column; lg — a page's own filter row. */
+  size?: "sm" | "md" | "lg";
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -61,9 +63,11 @@ export default function ChipRow({
     : undefined;
 
   const chipSize =
-    size === "md"
-      ? "h-8 px-3.5 text-xs"
-      : "h-6.5 px-2.5 text-[10.5px]";
+    size === "lg"
+      ? "h-9 px-4 text-[13px] gap-1.5"
+      : size === "md"
+        ? "h-8 px-3.5 text-xs gap-1.5"
+        : "h-6.5 px-2.5 text-[10.5px] gap-1";
 
   return (
     <div
@@ -82,13 +86,16 @@ export default function ChipRow({
             aria-pressed={on}
             onClick={() => onChange(c.value)}
             className={
-              `shrink-0 whitespace-nowrap rounded-full border font-semibold transition active:scale-95 ${chipSize} ` +
+              `inline-flex shrink-0 items-center whitespace-nowrap rounded-full border font-semibold transition active:scale-95 ${chipSize} ` +
               (on
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-transparent text-foreground/80 hover:bg-foreground/8 hover:text-foreground")
             }
           >
             {c.label}
+            {c.count !== undefined && (
+              <span className={`font-medium tabular-nums ${on ? "" : "text-muted-foreground"}`}>{c.count}</span>
+            )}
           </button>
         );
       })}
