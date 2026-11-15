@@ -19,6 +19,22 @@ const TRANSLIT: Record<string, string> = {
 
 export const SLUG_MAX = 60;
 
+/**
+ * Cyrillic to Latin with the same table, keeping capitals, the way reseed.ts
+ * does it: "Фото Ўзбек" -> "Foto Ozbek". Anything else is left as it is.
+ */
+export function latinize(text: string): string {
+  return [...text]
+    .map((ch) => {
+      const lower = ch.toLowerCase();
+      const mapped = TRANSLIT[lower];
+      if (mapped === undefined) return ch;
+      if (ch === lower || mapped === "") return mapped;
+      return mapped.charAt(0).toUpperCase() + mapped.slice(1);
+    })
+    .join("");
+}
+
 /** "Sara, выпускной 2026" -> "sara-vypusknoy-2026". May return "". */
 export function slugify(text: string): string {
   const latin = [...text.toLowerCase()].map((ch) => TRANSLIT[ch] ?? ch).join("");

@@ -420,6 +420,60 @@ export type Database = {
         }
         Relationships: []
       }
+      jobs: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          heartbeat_at: string | null
+          id: number
+          kind: string
+          max_attempts: number
+          payload: Json
+          run_after: string
+          status: string
+          updated_at: string
+          worker: string | null
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: never
+          kind: string
+          max_attempts?: number
+          payload?: Json
+          run_after?: string
+          status?: string
+          updated_at?: string
+          worker?: string | null
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: never
+          kind?: string
+          max_attempts?: number
+          payload?: Json
+          run_after?: string
+          status?: string
+          updated_at?: string
+          worker?: string | null
+        }
+        Relationships: []
+      }
       packages: {
         Row: {
           accent_color: string
@@ -519,6 +573,7 @@ export type Database = {
           storage_path: string
           taken_at: string | null
           thumbhash: string | null
+          upload_id: string | null
           variants: Json
           width: number | null
         }
@@ -545,6 +600,7 @@ export type Database = {
           storage_path: string
           taken_at?: string | null
           thumbhash?: string | null
+          upload_id?: string | null
           variants?: Json
           width?: number | null
         }
@@ -571,6 +627,7 @@ export type Database = {
           storage_path?: string
           taken_at?: string | null
           thumbhash?: string | null
+          upload_id?: string | null
           variants?: Json
           width?: number | null
         }
@@ -580,6 +637,13 @@ export type Database = {
             columns: ["gallery_id"]
             isOneToOne: false
             referencedRelation: "galleries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "uploads"
             referencedColumns: ["id"]
           },
         ]
@@ -596,6 +660,185 @@ export type Database = {
         }
         Relationships: []
       }
+      upload_batches: {
+        Row: {
+          account_id: string
+          cancelled_count: number
+          created_at: string
+          created_by: string | null
+          failed_count: number
+          file_count: number
+          finished_at: string | null
+          gallery_id: string
+          id: string
+          ready_count: number
+          skipped_count: number
+          status: string
+          total_bytes: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          cancelled_count?: number
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          file_count: number
+          finished_at?: string | null
+          gallery_id: string
+          id?: string
+          ready_count?: number
+          skipped_count?: number
+          status?: string
+          total_bytes: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          cancelled_count?: number
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          file_count?: number
+          finished_at?: string | null
+          gallery_id?: string
+          id?: string
+          ready_count?: number
+          skipped_count?: number
+          status?: string
+          total_bytes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_batches_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uploads: {
+        Row: {
+          account_id: string
+          attempts: number
+          batch_id: string
+          bytes_received: number
+          content_type: string
+          created_at: string
+          error: string | null
+          error_detail: string | null
+          finished_at: string | null
+          gallery_id: string
+          id: string
+          original_name: string
+          photo_id: string
+          received_at: string | null
+          sha256: string | null
+          size_bytes: number
+          sort_order: number
+          status: string
+          storage_path: string
+          ticket_expires_at: string | null
+          ticket_hash: string | null
+          updated_at: string
+          worker: string | null
+        }
+        Insert: {
+          account_id: string
+          attempts?: number
+          batch_id: string
+          bytes_received?: number
+          content_type: string
+          created_at?: string
+          error?: string | null
+          error_detail?: string | null
+          finished_at?: string | null
+          gallery_id: string
+          id?: string
+          original_name: string
+          photo_id?: string
+          received_at?: string | null
+          sha256?: string | null
+          size_bytes: number
+          sort_order?: number
+          status?: string
+          storage_path: string
+          ticket_expires_at?: string | null
+          ticket_hash?: string | null
+          updated_at?: string
+          worker?: string | null
+        }
+        Update: {
+          account_id?: string
+          attempts?: number
+          batch_id?: string
+          bytes_received?: number
+          content_type?: string
+          created_at?: string
+          error?: string | null
+          error_detail?: string | null
+          finished_at?: string | null
+          gallery_id?: string
+          id?: string
+          original_name?: string
+          photo_id?: string
+          received_at?: string | null
+          sha256?: string | null
+          size_bytes?: number
+          sort_order?: number
+          status?: string
+          storage_path?: string
+          ticket_expires_at?: string | null
+          ticket_hash?: string | null
+          updated_at?: string
+          worker?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploads_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "upload_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uploads_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workers: {
+        Row: {
+          accepting_uploads: boolean
+          last_seen_at: string
+          name: string
+          started_at: string
+          upload_url: string | null
+          version: string
+        }
+        Insert: {
+          accepting_uploads?: boolean
+          last_seen_at?: string
+          name: string
+          started_at?: string
+          upload_url?: string | null
+          version?: string
+        }
+        Update: {
+          accepting_uploads?: boolean
+          last_seen_at?: string
+          name?: string
+          started_at?: string
+          upload_url?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -605,6 +848,10 @@ export type Database = {
       my_account_ids: { Args: never; Returns: string[] }
       reset_stale_photo_claims: {
         Args: { older_than?: unknown }
+        Returns: number
+      }
+      studio_cancel_uploads: {
+        Args: { p_batch_id: string; p_upload_ids?: string[] }
         Returns: number
       }
       studio_create_gallery: {
@@ -630,9 +877,21 @@ export type Database = {
         }
         Returns: string
       }
+      studio_create_upload_batch: {
+        Args: { p_files: Json; p_gallery_id: string }
+        Returns: Json
+      }
       studio_delete_gallery: {
         Args: { p_gallery_id: string }
         Returns: undefined
+      }
+      studio_renew_upload_tickets: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
+      studio_retry_upload: {
+        Args: { p_upload_id: string }
+        Returns: Json
       }
       studio_set_cover: {
         Args: { p_gallery_id: string; p_photo_id?: string }
@@ -640,6 +899,42 @@ export type Database = {
       }
       unlock_gallery: {
         Args: { p_code: string; p_ip: string; p_slug: string }
+        Returns: string
+      }
+      upload_door: {
+        Args: never
+        Returns: { name: string; upload_url: string }[]
+      }
+      worker_claim_job: {
+        Args: { p_kinds: string[]; p_name: string }
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][]
+      }
+      worker_complete_upload: {
+        Args: { p_name: string; p_photo: Json; p_stored_bytes: number; p_upload_id: string }
+        Returns: string
+      }
+      worker_finish_job: {
+        Args: { p_error?: string; p_job_id: number; p_name: string; p_ok: boolean; p_retry_in?: number }
+        Returns: string
+      }
+      worker_heartbeat: {
+        Args: { p_accepting: boolean; p_name: string; p_upload_url: string; p_version: string }
+        Returns: undefined
+      }
+      worker_job_heartbeat: {
+        Args: { p_job_id: number; p_name: string }
+        Returns: boolean
+      }
+      worker_set_photo_order: {
+        Args: { p_gallery_id: string; p_photo_ids: string[] }
+        Returns: number
+      }
+      worker_start: {
+        Args: { p_name: string }
+        Returns: number
+      }
+      worker_upload_received: {
+        Args: { p_name: string; p_sha256: string; p_upload_id: string }
         Returns: string
       }
     }

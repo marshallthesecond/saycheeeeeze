@@ -1,0 +1,1116 @@
+// The Studio's worker: receives the files you upload in the Studio, builds
+// their ladder, puts everything in Bunny and makes the photos appear.
+//
+//   pnpm worker                                          # = the line below
+//   node --env-file=.env.local scripts/studio-worker.mjs
+//   node --env-file=.env.local scripts/studio-worker.mjs --check   # prove access, then stop
+//
+// Leave it running while you upload. Ctrl-C stops it: files already sent wait
+// on this computer and are finished the next time it starts. Ctrl-C twice
+// stops it at once.
+//
+// WHAT IT DOES
+//
+//   1. Says "I am here" to the database every 20 seconds. The Studio only
+//      offers uploading while it does.
+//   2. Listens on http://127.0.0.1:7811 (this computer only). The browser
+//      sends each file there in pieces, each piece with the file's ticket
+//      from the Studio. A piece that fails is sent again; a file that stops
+//      halfway continues from where it stopped.
+//   3. With the whole file here, asks the database whether the gallery
+//      already has it (same photograph = skipped) and queues it.
+//   4. Builds the same 14 files as build-ladder.mjs (scripts/lib/ladder-core.mjs),
+//      uploads them, then the original, each checked by Bunny against its
+//      SHA-256, and only then inserts the photos row, already 'ready'.
+//   5. When the last file of a drop is done, puts the gallery in file-name
+//      order and refreshes the site's cache for it.
+//
+// Files waiting here live in WORKER_SPOOL_DIR (default: a .saycheeeeeze-worker
+// folder in your home folder), never in the project, and are deleted once
+// their photo is in the gallery.
+//
+// ENVIRONMENT (all already in .env.local except the optional ones)
+//
+//   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   the database
+//   BUNNY_STORAGE_ZONE, BUNNY_STORAGE_API_KEY             storage
+//   BUNNY_STORAGE_HOST          optional, default storage.bunnycdn.com
+//   REVALIDATE_SECRET           to refresh the site's cache after a drop
+//   NEXT_PUBLIC_SITE_URL        which site to refresh (default https://saycheeeeeze.studio)
+//   LADDER_REV                  same meaning as in build-ladder.mjs (default 1)
+//   WORKER_NAME                 optional, default this computer's name
+//   WORKER_PORT                 optional, default 7811
+//   WORKER_PUBLIC_URL           optional, where browsers reach it (default http://127.0.0.1:<port>)
+//   WORKER_SPOOL_DIR            optional, where files wait
+//   WORKER_JOBS                 optional, photos built at once, default 2 (1 to 4)
+//   WORKER_ALLOWED_ORIGINS      optional, extra sites allowed to send files, comma-separated
+
+import { createHash, timingSafeEqual } from "node:crypto";
+import { mkdir, open, readFile, readdir, rename, rm, stat, truncate, writeFile } from "node:fs/promises";
+import http from "node:http";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+
+import { createClient } from "@supabase/supabase-js";
+
+import { encodeLadder, ladderRev, permanent, prefixFor } from "./lib/ladder-core.mjs";
+
+const VERSION = "1";
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+const env = process.env;
+const SUPABASE_URL = env.NEXT_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL;
+const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SECRET_KEY;
+const STORAGE_ZONE = env.BUNNY_STORAGE_ZONE;
+const STORAGE_KEY = env.BUNNY_STORAGE_API_KEY;
+const STORAGE_HOST = (env.BUNNY_STORAGE_HOST ?? "storage.bunnycdn.com")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/$/, "");
+const SITE_URL = (env.WORKER_SITE_URL ?? env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio").replace(/\/+$/, "");
+const REVALIDATE_SECRET = env.REVALIDATE_SECRET;
+const LADDER_REV = ladderRev();
+
+const PORT = Number(env.WORKER_PORT ?? 7811);
+// This computer only. A tunnel for other devices is step 7.
+const HOST = env.WORKER_HOST ?? "127.0.0.1";
+const PUBLIC_URL = (env.WORKER_PUBLIC_URL ?? `http://127.0.0.1:${PORT}`).replace(/\/+$/, "");
+const NAME = workerName(env.WORKER_NAME ?? os.hostname());
+const SPOOL = path.resolve(env.WORKER_SPOOL_DIR ?? path.join(os.homedir(), ".saycheeeeeze-worker", "spool"));
+const JOBS = Math.min(4, Math.max(1, Math.floor(Number(env.WORKER_JOBS ?? 2)) || 2));
+
+// The same reasoning as build-ladder.mjs: Bunny is in Falkenstein, this is a
+// domestic uplink, and more parallel uploads only take sockets from each other.
+const UPLOAD_CONCURRENCY = Math.max(1, Number(env.UPLOAD_CONCURRENCY ?? 2));
+const UPLOAD_TIMEOUT_MS = Number(env.UPLOAD_TIMEOUT_MS ?? 120_000);
+// An original is up to 100 MB; give it time on a slow uplink.
+const ORIGINAL_TIMEOUT_MS = Number(env.ORIGINAL_TIMEOUT_MS ?? 15 * 60_000);
+const MAX_ATTEMPTS = 3;
+
+// One piece of a file per request. The browser sends 8 MB; anything over 16
+// is refused before it is read.
+const MAX_PIECE = 16 * 1024 * 1024;
+
+const HEARTBEAT_MS = 20_000;
+const IDLE_POLL_MS = 10_000;
+const JOB_HEARTBEAT_MS = 30_000;
+const CLEAN_EVERY_MS = 30 * 60_000;
+// Each failed try of a job waits longer before the next one.
+const RETRY_IN_SECONDS = [60, 300, 900];
+
+const KINDS = ["process_upload", "finish_batch"];
+
+// Sites allowed to send files here. The ticket is what really decides; this
+// keeps other web pages from even asking.
+const ALLOWED_ORIGINS = new Set(
+  [
+    "https://saycheeeeeze.studio",
+    "https://www.saycheeeeeze.studio",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    originOf(SITE_URL),
+    ...(env.WORKER_ALLOWED_ORIGINS ?? "").split(","),
+  ]
+    .map((o) => o?.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
+);
+// Vercel previews of this project: saycheeeeeze-<anything>.vercel.app
+const PREVIEW_ORIGIN = /^https:\/\/saycheeeeeze(-[a-z0-9-]+)?\.vercel\.app$/;
+
+const argv = process.argv.slice(2);
+const CHECK = argv.includes("--check");
+
+// ---------------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------------
+
+function workerName(raw) {
+  const clean = String(raw)
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .slice(0, 63);
+  return clean || "worker";
+}
+
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedOrigin(origin) {
+  return ALLOWED_ORIGINS.has(origin) || PREVIEW_ORIGIN.test(origin);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function clock() {
+  return new Date().toTimeString().slice(0, 8);
+}
+
+function log(...parts) {
+  console.log(clock(), ...parts);
+}
+
+function warn(...parts) {
+  console.warn(clock(), ...parts);
+}
+
+function human(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Keys, tokens and signed links never reach the database or the screen. */
+function sanitize(message) {
+  let text = String(message ?? "");
+  if (STORAGE_KEY) text = text.split(STORAGE_KEY).join("[key]");
+  if (SERVICE_KEY) text = text.split(SERVICE_KEY).join("[key]");
+  return text
+    .replace(/AccessKey[^\s]*/gi, "[key]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
+    .replace(/([?&])(token|expires|AccessKey)=[^&\s]*/gi, "$1$2=[redacted]")
+    .slice(0, 400);
+}
+
+/** An error with the short reason the Studio shows (uploads.error). */
+function reasoned(reason, message, isPermanent = false) {
+  const err = new Error(message);
+  err.reason = reason;
+  if (isPermanent) err.permanent = true;
+  return err;
+}
+
+/** Node's fetch hides the real reason down the `cause` chain. */
+function describeNetworkError(err) {
+  const parts = [];
+  const seen = new Set();
+  let e = err;
+  while (e && !seen.has(e)) {
+    seen.add(e);
+    if (e.code) parts.push(e.code);
+    else if (e.message && e.message !== "fetch failed") parts.push(e.message);
+    e = e.cause;
+  }
+  return parts.join(" <- ") || String(err?.message ?? err);
+}
+
+async function withRetries(fn) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (err) {
+      if (err?.permanent) throw err;
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS) await sleep(1000 * 2 ** (attempt - 1));
+    }
+  }
+  throw lastErr;
+}
+
+/** Runs tasks with a fixed ceiling on how many are in flight. */
+async function pool(items, limit, fn) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      await fn(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+}
+
+function sha256Hex(buf) {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
+// Files are opened and closed by hand here and below: Windows will not rename
+// or delete a file while any handle to it is still open.
+async function hashFile(file) {
+  const hash = createHash("sha256");
+  const fh = await open(file, "r");
+  try {
+    for await (const chunk of fh.createReadStream({ autoClose: false })) hash.update(chunk);
+  } finally {
+    await fh.close();
+  }
+  return hash.digest("hex");
+}
+
+async function fileSize(file) {
+  try {
+    return (await stat(file)).size;
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+/** supabase-js returns an embedded to-one relation as an object, or once as an array. */
+function one(rel) {
+  return Array.isArray(rel) ? rel[0] : rel;
+}
+
+// ---------------------------------------------------------------------------
+// The database
+// ---------------------------------------------------------------------------
+
+let db;
+
+/** A database function. SQL refusals are final; a dropped connection is retried. */
+async function rpc(fn, args) {
+  return withRetries(async () => {
+    const { data, error } = await db.rpc(fn, args);
+    if (error) {
+      const err = reasoned("database", `${fn}: ${error.message}`);
+      // A real answer from Postgres (a raised exception, a constraint, a
+      // permission) will be the same next time.
+      if (error.code && /^(P0|22|23|42)/.test(error.code)) err.permanent = true;
+      throw err;
+    }
+    return data;
+  });
+}
+
+/** A plain read or write through the API, retried on a dropped connection. */
+async function query(label, build) {
+  return withRetries(async () => {
+    const { data, error } = await build();
+    if (error) {
+      const err = reasoned("database", `${label}: ${error.message}`);
+      if (error.code && /^(P0|22|23|42)/.test(error.code)) err.permanent = true;
+      throw err;
+    }
+    return data;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Bunny storage
+// ---------------------------------------------------------------------------
+
+function storageUrl(storagePath) {
+  const clean = String(storagePath).replace(/^\/+/, "");
+  // Each segment encoded; the slashes between them kept.
+  return `https://${STORAGE_HOST}/${STORAGE_ZONE}/${clean.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+async function httpError(label, res) {
+  const body = (await res.text().catch(() => "")).trim().replace(/\s+/g, " ").slice(0, 140);
+  const err = reasoned("storage", `${label} HTTP ${res.status}${body ? ` - ${body}` : ""}`);
+  // 4xx means the request is wrong (a checksum that does not match is 400);
+  // repeating it changes nothing. 429 and 5xx are worth another go.
+  if (!(res.status >= 500 || res.status === 429)) err.permanent = true;
+  return err;
+}
+
+/**
+ * Puts one file in storage. Bunny recomputes the SHA-256 of what arrived and
+ * refuses the upload (400) if it is not the one sent with it, so a file that
+ * is in storage is the file that was meant to be.
+ */
+async function putFile(storagePath, body, contentType, sha256, timeoutMs = UPLOAD_TIMEOUT_MS) {
+  const label = `PUT ${storagePath}`;
+  return withRetries(async () => {
+    try {
+      const res = await fetch(storageUrl(storagePath), {
+        method: "PUT",
+        headers: {
+          AccessKey: STORAGE_KEY,
+          "Content-Type": contentType,
+          "Content-Length": String(body.length),
+          Checksum: (sha256 ?? sha256Hex(body)).toUpperCase(),
+          // Documents intent only; the pull zone's own setting decides.
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) throw await httpError(label, res);
+    } catch (err) {
+      if (err?.permanent) throw err;
+      if (err?.name === "TimeoutError") {
+        throw reasoned("storage", `${label} timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      if (err?.reason) throw err;
+      throw reasoned("storage", `${label} network error: ${describeNetworkError(err)}`);
+    }
+  });
+}
+
+async function getFile(storagePath) {
+  const res = await fetch(storageUrl(storagePath), {
+    headers: { AccessKey: STORAGE_KEY },
+    signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+  });
+  if (!res.ok) throw await httpError(`GET ${storagePath}`, res);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function deleteFile(storagePath) {
+  const res = await fetch(storageUrl(storagePath), {
+    method: "DELETE",
+    headers: { AccessKey: STORAGE_KEY },
+    signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+  });
+  if (!res.ok) throw await httpError(`DELETE ${storagePath}`, res);
+}
+
+// ---------------------------------------------------------------------------
+// Files waiting on this computer
+// ---------------------------------------------------------------------------
+
+const partPath = (id) => path.join(SPOOL, `${id}.part`); // still arriving
+const fullPath = (id) => path.join(SPOOL, `${id}.bin`); // all here
+
+// ---------------------------------------------------------------------------
+// Receiving files from the browser
+// ---------------------------------------------------------------------------
+
+/** Tickets read from the database, kept for 30 seconds. */
+const tickets = new Map();
+/** Files with a request in progress: one piece at a time per file. */
+const busy = new Set();
+/** When each file's progress was last written to the database. */
+const progressAt = new Map();
+
+const TICKET_TTL_MS = 30_000;
+
+async function readTicket(id) {
+  const data = await query("read ticket", () =>
+    db
+      .from("uploads")
+      .select("id, ticket_hash, ticket_expires_at, size_bytes, status, worker")
+      .eq("id", id)
+      .maybeSingle(),
+  );
+  if (!data) {
+    tickets.delete(id);
+    return null;
+  }
+  const t = {
+    hash: data.ticket_hash,
+    expiresAt: data.ticket_expires_at ? Date.parse(data.ticket_expires_at) : 0,
+    size: Number(data.size_bytes),
+    status: data.status,
+    worker: data.worker,
+    fetched: Date.now(),
+  };
+  tickets.set(id, t);
+  return t;
+}
+
+function tokenMatches(t, token) {
+  if (!t?.hash || !/^[0-9a-f]{64}$/.test(t.hash)) return false;
+  const want = Buffer.from(t.hash, "hex");
+  const got = createHash("sha256").update(token).digest();
+  return timingSafeEqual(want, got);
+}
+
+/**
+ * The ticket for this file, if the request carries the right one. An unknown
+ * file and a wrong ticket get the same answer, so nobody can find out which
+ * files exist.
+ */
+async function authorize(req, id) {
+  const header = req.headers.authorization ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!/^[0-9a-f]{48}$/.test(token)) return { status: 401, error: "ticket" };
+
+  let t = tickets.get(id);
+  let fresh = false;
+  if (!t || Date.now() - t.fetched > TICKET_TTL_MS) {
+    t = await readTicket(id);
+    fresh = true;
+  }
+  // A ticket renewed in the Studio since it was cached: read it once more.
+  if (t && !fresh && !tokenMatches(t, token)) {
+    t = await readTicket(id);
+  }
+  if (!t || !tokenMatches(t, token)) return { status: 401, error: "ticket" };
+  if (t.expiresAt <= Date.now()) return { status: 401, error: "ticket_expired" };
+  if (t.worker !== NAME) return { status: 409, error: "other_worker" };
+  return { ticket: t };
+}
+
+function send(res, status, body) {
+  if (res.headersSent) {
+    res.end();
+    return;
+  }
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify(body));
+}
+
+/** Reads and throws away a request body we are not going to keep. */
+async function drain(req) {
+  for await (const chunk of req) void chunk;
+}
+
+/** Writes how far a file has got, at most every 2 seconds per file. */
+function recordProgress(id, bytes) {
+  const last = progressAt.get(id) ?? 0;
+  if (Date.now() - last < 2000) return;
+  progressAt.set(id, Date.now());
+  db.from("uploads")
+    .update({ status: "uploading", bytes_received: bytes })
+    .eq("id", id)
+    .in("status", ["waiting", "uploading"])
+    .lt("bytes_received", bytes)
+    .then(({ error }) => {
+      if (error) warn(`could not record progress: ${sanitize(error.message)}`);
+    });
+}
+
+async function handleStatus(req, res, id) {
+  const auth = await authorize(req, id);
+  if (auth.error) return send(res, auth.status, { error: auth.error });
+  const t = auth.ticket;
+  if (!["waiting", "uploading"].includes(t.status)) {
+    return send(res, 200, { offset: t.size, size: t.size, status: t.status, done: true });
+  }
+  const full = await fileSize(fullPath(id));
+  const offset = full !== null ? t.size : ((await fileSize(partPath(id))) ?? 0);
+  return send(res, 200, { offset, size: t.size, status: t.status, done: false });
+}
+
+async function handlePut(req, res, id, url) {
+  if (stopping) {
+    await drain(req);
+    return send(res, 503, { error: "stopping" });
+  }
+  const auth = await authorize(req, id);
+  if (auth.error) {
+    await drain(req);
+    return send(res, auth.status, { error: auth.error });
+  }
+  let t = auth.ticket;
+
+  const offset = Number(url.searchParams.get("offset"));
+  const length = Number(req.headers["content-length"]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > t.size) {
+    await drain(req);
+    return send(res, 400, { error: "offset" });
+  }
+  if (!Number.isSafeInteger(length) || length < 0) {
+    await drain(req);
+    return send(res, 411, { error: "length" });
+  }
+  if (length > MAX_PIECE) {
+    // Not read at all: the connection is closed after the answer, so the
+    // sender may see the connection drop instead of this answer.
+    res.setHeader("Connection", "close");
+    return send(res, 413, { error: "too_large" });
+  }
+  if (offset + length > t.size) {
+    await drain(req);
+    return send(res, 413, { error: "past_end" });
+  }
+
+  // Already all here (a repeated last piece, or another tab): say so.
+  if (!["waiting", "uploading"].includes(t.status)) {
+    t = (await readTicket(id)) ?? t;
+  }
+  if (["queued", "processing", "ready", "skipped"].includes(t.status)) {
+    await drain(req);
+    return send(res, 200, { offset: t.size, size: t.size, status: t.status, done: true });
+  }
+  if (!["waiting", "uploading"].includes(t.status)) {
+    await drain(req);
+    return send(res, 409, { error: "status", status: t.status });
+  }
+
+  if (busy.has(id)) {
+    await drain(req);
+    return send(res, 409, { error: "busy" });
+  }
+  busy.add(id);
+  try {
+    // Every byte arrived before, but telling the database failed: try again.
+    if ((await fileSize(fullPath(id))) !== null) {
+      await drain(req);
+      return await finishReceiving(res, id, t);
+    }
+
+    const part = partPath(id);
+    const have = (await fileSize(part)) ?? 0;
+    if (offset > have) {
+      await drain(req);
+      return send(res, 409, { error: "gap", offset: have });
+    }
+    // A piece sent again after a dropped answer: write it over what is there.
+    if (offset < have) await truncate(part, offset);
+
+    let written = 0;
+    try {
+      const fh = await open(part, "a");
+      try {
+        for await (const chunk of req) {
+          written += chunk.length;
+          if (written > length) throw new Error("more bytes than Content-Length");
+          await fh.write(chunk);
+        }
+      } finally {
+        await fh.close();
+      }
+    } catch (err) {
+      // The browser went away mid-piece. Keep only whole pieces.
+      await truncate(part, offset).catch(() => {});
+      if (!res.writableEnded && !req.destroyed) send(res, 400, { error: "interrupted" });
+      warn(`piece of ${id} interrupted: ${sanitize(err.message)}`);
+      return;
+    }
+    if (written !== length) {
+      await truncate(part, offset);
+      return send(res, 400, { error: "short" });
+    }
+
+    const now = offset + written;
+    if (now < t.size) {
+      t.status = "uploading";
+      recordProgress(id, now);
+      return send(res, 200, { offset: now, size: t.size, status: "uploading", done: false });
+    }
+
+    await rename(part, fullPath(id));
+    return await finishReceiving(res, id, t);
+  } finally {
+    busy.delete(id);
+  }
+}
+
+async function finishReceiving(res, id, t) {
+  const file = fullPath(id);
+  const sha = await hashFile(file);
+  let status;
+  try {
+    status = await rpc("worker_upload_received", { p_upload_id: id, p_name: NAME, p_sha256: sha });
+  } catch (err) {
+    warn(`could not record a received file: ${sanitize(err.message)}`);
+    // The file stays; the browser sends an empty last piece to try again.
+    return send(res, 503, { error: "database", offset: t.size, size: t.size, done: false });
+  }
+  t.status = status;
+  t.fetched = Date.now();
+  progressAt.delete(id);
+  // Only a file nobody will build is thrown away. ('processing' or 'ready'
+  // here means this was a repeat of a last piece already handled.)
+  if (["skipped", "cancelled", "missing"].includes(status)) await rm(file, { force: true });
+  if (status === "queued") wake();
+  if (status === "skipped") log(`skipped   ${id}  the gallery already has this photograph`);
+  return send(res, 200, { offset: t.size, size: t.size, status, done: true });
+}
+
+function startServer() {
+  const server = http.createServer(async (req, res) => {
+    try {
+      const origin = req.headers.origin;
+      if (origin) {
+        if (!isAllowedOrigin(origin)) {
+          await drain(req);
+          return send(res, 403, { error: "origin" });
+        }
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+      }
+
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+          "Access-Control-Allow-Headers": "Authorization, Content-Type",
+          // Chrome asks before a website talks to this computer.
+          "Access-Control-Allow-Private-Network": "true",
+          "Access-Control-Max-Age": "600",
+        });
+        return res.end();
+      }
+
+      const url = new URL(req.url ?? "/", "http://worker");
+      if (url.pathname === "/health" && req.method === "GET") {
+        return send(res, 200, { ok: true, name: NAME, version: VERSION, accepting: !stopping });
+      }
+
+      const match = url.pathname.match(/^\/uploads\/([0-9a-fA-F-]{36})$/);
+      if (!match) {
+        await drain(req);
+        return send(res, 404, { error: "not_found" });
+      }
+      const id = match[1].toLowerCase();
+      if (req.method === "GET") return await handleStatus(req, res, id);
+      if (req.method === "PUT") return await handlePut(req, res, id, url);
+      await drain(req);
+      return send(res, 405, { error: "method" });
+    } catch (err) {
+      warn(`request failed: ${sanitize(err.message)}`);
+      if (!res.headersSent) send(res, err?.reason === "database" ? 503 : 500, { error: err?.reason ?? "internal" });
+      else res.destroy();
+    }
+  });
+
+  server.requestTimeout = 5 * 60_000;
+  server.keepAliveTimeout = 30_000;
+
+  return new Promise((resolve, reject) => {
+    server.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        reject(new Error(`Port ${PORT} is already in use. Is the worker already running in another window?`));
+      } else reject(err);
+    });
+    server.listen(PORT, HOST, () => resolve(server));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Jobs
+// ---------------------------------------------------------------------------
+
+let stopping = false;
+let running = 0;
+/** The job loops waiting for work. A file arriving wakes them at once. */
+const napping = new Set();
+
+function wake() {
+  for (const done of [...napping]) done();
+}
+
+function nap(ms) {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      napping.delete(done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    napping.add(done);
+  });
+}
+
+async function processUpload(job) {
+  const id = job.payload?.upload_id;
+  const u = await query("read upload", () =>
+    db
+      .from("uploads")
+      .select(
+        "id, gallery_id, photo_id, storage_path, content_type, size_bytes, sha256, status, attempts, original_name, galleries(id, slug, kind, title)",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+  );
+  // Cancelled, or its gallery deleted: nothing to do.
+  if (!u || !["queued", "processing"].includes(u.status)) {
+    await rm(fullPath(id), { force: true });
+    return;
+  }
+
+  await query("mark processing", () =>
+    db
+      .from("uploads")
+      .update({ status: "processing", attempts: u.attempts + 1 })
+      .eq("id", id)
+      .in("status", ["queued", "processing"]),
+  );
+
+  const started = Date.now();
+  let src;
+  try {
+    src = await readFile(fullPath(id));
+  } catch {
+    throw reasoned("file_missing", "the file is no longer on this computer; send it again", true);
+  }
+  if (src.length !== Number(u.size_bytes) || sha256Hex(src) !== u.sha256) {
+    throw reasoned("checksum", "the file on this computer is not the file that was sent; send it again", true);
+  }
+
+  // What the bytes really are, whatever the name says.
+  const isJpeg = src.length > 3 && src[0] === 0xff && src[1] === 0xd8 && src[2] === 0xff;
+  const isPng = src.length > 8 && src.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (!isJpeg && !isPng) throw reasoned("not_an_image", "not a JPEG or PNG file", true);
+  if ((isPng ? "image/png" : "image/jpeg") !== u.content_type) {
+    throw reasoned(
+      "type_mismatch",
+      `the file is a ${isPng ? "PNG" : "JPEG"} but its name says ${u.content_type === "image/png" ? "PNG" : "JPEG"}`,
+      true,
+    );
+  }
+
+  let ladder;
+  try {
+    ladder = await encodeLadder(src);
+  } catch (err) {
+    throw reasoned("not_an_image", `could not read the image: ${err.message}`, true);
+  }
+  if (ladder.format !== "jpeg" && ladder.format !== "png") {
+    throw reasoned("not_an_image", `not a JPEG or PNG file (${ladder.format})`, true);
+  }
+
+  const gallery = one(u.galleries);
+  const prefix = prefixFor(gallery?.kind, u.gallery_id, u.photo_id, ladder.checksum8, LADDER_REV);
+
+  // The derivatives first, the original last, the row after both: a page
+  // never finds a photo whose files are not all there.
+  const tUp = Date.now();
+  await pool(ladder.files, UPLOAD_CONCURRENCY, (f) => putFile(`${prefix}/${f.name}`, f.body, f.type));
+  await putFile(u.storage_path, src, u.content_type, u.sha256, ORIGINAL_TIMEOUT_MS);
+  const msUp = Date.now() - tUp;
+
+  await rpc("worker_complete_upload", {
+    p_upload_id: id,
+    p_name: NAME,
+    p_photo: {
+      alt: gallery?.title ?? null,
+      width: ladder.width,
+      height: ladder.height,
+      checksum8: ladder.checksum8,
+      thumbhash: ladder.thumbhash,
+      variants: ladder.variants,
+      delivery_bytes: ladder.delivery_bytes,
+      share_bytes: ladder.share_bytes,
+      ladder_rev: LADDER_REV,
+    },
+    p_stored_bytes: src.length + ladder.totalOut,
+  });
+
+  await rm(fullPath(id), { force: true });
+
+  const secs = ((Date.now() - started) / 1000).toFixed(1);
+  log(
+    `ready     ${u.storage_path}  ${ladder.width}x${ladder.height}  ${human(src.length)} + ` +
+      `${ladder.files.length} files ${human(ladder.totalOut)}  ` +
+      `encode ${(ladder.msEncode / 1000).toFixed(1)}s, upload ${(msUp / 1000).toFixed(1)}s, ${secs}s in all`,
+  );
+}
+
+/** File-name order, exactly as reseed.ts and /api/sync sort a folder. */
+function byFileName(a, b) {
+  const an = a.storage_path.split("/").pop();
+  const bn = b.storage_path.split("/").pop();
+  return an.localeCompare(bn, "en", { numeric: true });
+}
+
+async function finishBatch(job) {
+  const batchId = job.payload?.batch_id;
+  const batch = await query("read batch", () =>
+    db
+      .from("upload_batches")
+      .select("id, gallery_id, ready_count, galleries(slug)")
+      .eq("id", batchId)
+      .maybeSingle(),
+  );
+  if (!batch) return;
+  const slug = one(batch.galleries)?.slug;
+
+  const photos = await query("read photos", () =>
+    db.from("photos").select("id, storage_path").eq("gallery_id", batch.gallery_id),
+  );
+  const ordered = (photos ?? []).slice().sort(byFileName);
+  const moved = await rpc("worker_set_photo_order", {
+    p_gallery_id: batch.gallery_id,
+    p_photo_ids: ordered.map((p) => p.id),
+  });
+
+  const refreshed = slug ? await refreshSite(slug) : false;
+  log(
+    `drop done ${slug ?? batch.gallery_id}  ${batch.ready_count} new` +
+      `${moved ? `, ${moved} moved into file-name order` : ""}` +
+      `${refreshed ? ", site refreshed" : ""}`,
+  );
+}
+
+let warnedNoSecret = false;
+
+/** Tells the site that this gallery's pages changed. */
+async function refreshSite(slug) {
+  if (!REVALIDATE_SECRET) {
+    if (!warnedNoSecret) {
+      warn(
+        "REVALIDATE_SECRET is not set, so the site's cache is not refreshed. " +
+          "Client galleries show new photos at once; public albums update on their own later.",
+      );
+      warnedNoSecret = true;
+    }
+    return false;
+  }
+  const url = `${SITE_URL}/api/sync?only=revalidate&now=1&gallery=${encodeURIComponent(slug)}`;
+  return withRetries(async () => {
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${REVALIDATE_SECRET}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err) {
+      throw reasoned("site", `refresh ${SITE_URL}: ${describeNetworkError(err)}`);
+    }
+    if (!res.ok) {
+      const err = reasoned("site", `refresh ${SITE_URL}: HTTP ${res.status}`);
+      if (res.status === 401) err.permanent = true;
+      throw err;
+    }
+    return true;
+  });
+}
+
+async function runJob(job) {
+  running++;
+  const beat = setInterval(() => {
+    rpc("worker_job_heartbeat", { p_job_id: job.id, p_name: NAME }).catch(() => {});
+  }, JOB_HEARTBEAT_MS);
+  try {
+    if (job.kind === "process_upload") await processUpload(job);
+    else if (job.kind === "finish_batch") await finishBatch(job);
+    else throw permanent(new Error(`this worker does not run ${job.kind} jobs`));
+    await rpc("worker_finish_job", { p_job_id: job.id, p_name: NAME, p_ok: true });
+  } catch (err) {
+    const message = sanitize(err?.message ?? err);
+    const final = Boolean(err?.permanent) || job.attempts >= job.max_attempts;
+    const retryIn = RETRY_IN_SECONDS[Math.min(job.attempts - 1, RETRY_IN_SECONDS.length - 1)];
+    let status = "failed";
+    try {
+      status = await rpc("worker_finish_job", {
+        p_job_id: job.id,
+        p_name: NAME,
+        p_ok: false,
+        p_error: message,
+        p_retry_in: final ? null : retryIn,
+      });
+    } catch (e) {
+      warn(`could not record a failed job: ${sanitize(e.message)}`);
+    }
+
+    if (job.kind === "process_upload") {
+      const id = job.payload?.upload_id;
+      const patch =
+        status === "queued"
+          ? { status: "queued", error_detail: message }
+          : {
+              status: "failed",
+              error: err?.reason && /^[a-z_]{1,40}$/.test(err.reason) ? err.reason : "internal",
+              error_detail: message,
+              finished_at: new Date().toISOString(),
+            };
+      await query("mark upload", () =>
+        db.from("uploads").update(patch).eq("id", id).in("status", ["queued", "processing"]),
+      ).catch((e) => warn(`could not record a failed upload: ${sanitize(e.message)}`));
+      // A file that can never work is not kept.
+      if (status === "failed" && ["not_an_image", "type_mismatch", "checksum"].includes(err?.reason)) {
+        await rm(fullPath(id), { force: true });
+      }
+    }
+
+    if (status === "queued") warn(`retrying ${job.kind} in ${retryIn}s: ${message}`);
+    else warn(`FAILED    ${job.kind}: ${message}`);
+  } finally {
+    clearInterval(beat);
+    running--;
+  }
+}
+
+async function jobLoop() {
+  while (!stopping) {
+    let job = null;
+    try {
+      const rows = await rpc("worker_claim_job", { p_name: NAME, p_kinds: KINDS });
+      job = Array.isArray(rows) ? rows[0] : rows;
+    } catch (err) {
+      warn(`could not ask for work: ${sanitize(err.message)}`);
+    }
+    if (!job) {
+      await nap(IDLE_POLL_MS);
+      continue;
+    }
+    await runJob(job);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Staying in touch, tidying up
+// ---------------------------------------------------------------------------
+
+let offline = false;
+
+async function heartbeat() {
+  try {
+    await rpc("worker_heartbeat", {
+      p_name: NAME,
+      p_version: VERSION,
+      p_upload_url: PUBLIC_URL,
+      p_accepting: !stopping,
+    });
+    if (offline) log("the database answers again");
+    offline = false;
+  } catch (err) {
+    if (!offline) warn(`the database does not answer (${sanitize(err.message)}); uploads wait until it does`);
+    offline = true;
+  }
+}
+
+/** Deletes waiting files whose upload is finished, cancelled or long abandoned. */
+async function cleanSpool() {
+  let names;
+  try {
+    names = await readdir(SPOOL);
+  } catch {
+    return;
+  }
+  const files = names
+    .map((n) => n.match(/^([0-9a-f-]{36})\.(part|bin)$/))
+    .filter(Boolean)
+    .map((m) => ({ id: m[1], file: path.join(SPOOL, m[0]), kind: m[2] }));
+  if (files.length === 0) return;
+
+  const status = new Map();
+  for (let i = 0; i < files.length; i += 100) {
+    const ids = files.slice(i, i + 100).map((f) => f.id);
+    const rows = await query("read uploads", () => db.from("uploads").select("id, status").in("id", ids)).catch(
+      () => null,
+    );
+    // Not knowing is not a reason to delete.
+    if (!rows) return;
+    for (const r of rows) status.set(r.id, r.status);
+  }
+
+  const day = 24 * 3600_000;
+  let removed = 0;
+  for (const f of files) {
+    if (busy.has(f.id)) continue;
+    const s = status.get(f.id);
+    const age = Date.now() - ((await stat(f.file).catch(() => null))?.mtimeMs ?? Date.now());
+    const gone =
+      s === undefined || // its gallery or drop was deleted
+      ["ready", "skipped", "cancelled"].includes(s) ||
+      (s === "failed" && age > 14 * day) ||
+      (["waiting", "uploading"].includes(s) && age > 7 * day);
+    if (gone) {
+      await rm(f.file, { force: true });
+      removed++;
+    }
+  }
+  if (removed) log(`tidied    ${removed} finished file(s) from ${SPOOL}`);
+}
+
+// ---------------------------------------------------------------------------
+// --check: prove every connection before relying on them
+// ---------------------------------------------------------------------------
+
+async function check() {
+  console.log(`\nWorker check (${NAME})\n`);
+
+  process.stdout.write("  database (service key) ... ");
+  await query("read workers", () => db.from("workers").select("name").limit(1));
+  console.log("ok");
+
+  const testPath = `d/.worker-check-${Date.now()}.txt`;
+  const body = Buffer.from("saycheeeeeze worker write test\n");
+  process.stdout.write(`  storage ${STORAGE_ZONE} @ ${STORAGE_HOST}: write ... `);
+  await putFile(testPath, body, "text/plain");
+  process.stdout.write("read ... ");
+  const back = await getFile(testPath);
+  if (!back.equals(body)) throw new Error("read back different bytes");
+  process.stdout.write("delete ... ");
+  await deleteFile(testPath);
+  console.log("ok");
+
+  process.stdout.write(`  spool folder ${SPOOL} ... `);
+  await mkdir(SPOOL, { recursive: true });
+  const probe = path.join(SPOOL, ".write-test");
+  await writeFile(probe, "ok");
+  await rm(probe, { force: true });
+  console.log("ok");
+
+  if (REVALIDATE_SECRET) console.log(`  site to refresh: ${SITE_URL}`);
+  else console.log("  REVALIDATE_SECRET not set: the site's cache will not be refreshed after a drop");
+  console.log("\nEverything the worker needs answers. Start it without --check.\n");
+}
+
+// ---------------------------------------------------------------------------
+// Start and stop
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const missing = [];
+  if (!SUPABASE_URL) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!SERVICE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!STORAGE_ZONE) missing.push("BUNNY_STORAGE_ZONE");
+  if (!STORAGE_KEY) missing.push("BUNNY_STORAGE_API_KEY");
+  if (missing.length) {
+    console.error(`Missing environment variables: ${missing.join(", ")}`);
+    console.error("Run it from the project folder with:  pnpm worker");
+    process.exit(1);
+  }
+
+  db = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  if (CHECK) {
+    await check();
+    return;
+  }
+
+  await mkdir(SPOOL, { recursive: true });
+  const server = await startServer();
+
+  await rpc("worker_heartbeat", {
+    p_name: NAME,
+    p_version: VERSION,
+    p_upload_url: PUBLIC_URL,
+    p_accepting: true,
+  }).catch((err) => {
+    throw new Error(
+      `The database refused the worker: ${sanitize(err.message)}\n` +
+        "If it says a function does not exist, run supabase/migrations/20261116090000_studio_uploads.sql first.",
+    );
+  });
+  const requeued = await rpc("worker_start", { p_name: NAME });
+
+  console.log(`\nStudio worker ${NAME} (v${VERSION}, ladder v${LADDER_REV})`);
+  console.log(`  receiving files at  ${PUBLIC_URL}`);
+  console.log(`  waiting files in    ${SPOOL}`);
+  console.log(`  storage             ${STORAGE_ZONE} @ ${STORAGE_HOST}`);
+  console.log(`  refreshes           ${REVALIDATE_SECRET ? SITE_URL : "nothing (REVALIDATE_SECRET not set)"}`);
+  if (requeued) console.log(`  ${requeued} job(s) left from last time are back in the queue`);
+  console.log("\nLeave this window open while you upload. Ctrl-C stops it.\n");
+
+  const beat = setInterval(heartbeat, HEARTBEAT_MS);
+  cleanSpool().catch(() => {});
+  const tidy = setInterval(() => cleanSpool().catch(() => {}), CLEAN_EVERY_MS);
+  const loops = Array.from({ length: JOBS }, () => jobLoop());
+
+  let stops = 0;
+  const stop = async () => {
+    stops++;
+    if (stops > 1) {
+      console.log("\nStopped. Unfinished work is picked up next time.");
+      process.exit(130);
+    }
+    console.log("\nStopping: no new uploads; finishing what is in hand (Ctrl-C again to stop now) ...");
+    stopping = true;
+    clearInterval(beat);
+    clearInterval(tidy);
+    server.close();
+    server.closeIdleConnections?.();
+    wake();
+    await heartbeat();
+    await Promise.race([Promise.all(loops), sleep(120_000)]);
+    if (running) console.log("Stopped with work in hand; it is picked up next time.");
+    else console.log("Stopped.");
+    process.exit(0);
+  };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+}
+
+main().catch((err) => {
+  console.error(`\n${sanitize(err instanceof Error ? err.message : String(err))}\n`);
+  process.exit(1);
+});
