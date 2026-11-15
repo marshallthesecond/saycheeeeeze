@@ -59,7 +59,7 @@ import {
 /** Lives here rather than in ladder.ts because it has to match the hero's own
  *  container widths (65% at sm, 42% at lg), which nothing else uses. Get it
  *  wrong and the browser pulls the 2048 rung into a 400px box. */
-const HERO_SIZES = "(min-width: 1024px) 42vw, (min-width: 640px) 65vw, 100vw";
+const HERO_SIZES = "100vw";
 
 const PAGE_SIZE = 24;
 const SLIDESHOW_INTERVAL_MS = 3000;
@@ -458,133 +458,95 @@ export default function AlbumView({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar
-          The same StickyHeader every other page uses. What was here before was
-          a static <header> with two icon components that accepted `className`
-          and then never applied it — they rendered at a fixed 20px and neither
-          one did anything on tap. This one has the real language switcher and a
-          real back link. */}
+      {/* Top bar. The page title fades in once the header has scrolled away,
+          as on the service pages; there is no wordmark here. */}
       <StickyHeader
-        title="saycheeeeeze"
-        fadeOver={220}
-        variant="wordmark"
+        title={album.title}
+        fadeOver={260}
         backHref={`/${locale}/portfolio`}
       />
 
-      {/* Section A — a flat band, fixed height matching the photo.
-          The band used to be album.color, with the cover fading into it: a
-          per-album tint laid over the edge of the photograph and behind the
-          whole header. Photographs stay neutral now, so the band is the card
-          surface — cream in light mode, wine-black in dark — and the cover
-          fades into that instead. album.color is still in the data; nothing
-          here paints with it. */}
-      <section className="relative h-44 w-full overflow-hidden bg-card sm:h-60 lg:h-76">
-        <div
-          className="absolute left-0 top-0 h-full w-full sm:w-[65%] lg:w-[42%]"
-          style={blurStyle(album.coverThumbhash)}
-        >
+      {/* Header, after the service pages' photo hero: the cover as a faded
+          ground that sinks into the page, and the cover itself beside the
+          title. */}
+      <header className="relative h-[34vh] min-h-[250px] max-h-[330px] w-full overflow-hidden sm:h-[42vh] sm:max-h-[420px]">
+        {/* ThumbHash under the photograph so the first frame is not a flat
+            rectangle. This is the page's Largest Contentful Paint. */}
+        <span aria-hidden className="absolute inset-0" style={blurStyle(album.coverThumbhash)}>
           {hasLadder(album.coverLadder) ? (
-            // The hero is this page's Largest Contentful Paint, so it's the
-            // one image where the ladder is worth the most. fetchPriority
-            // high and no lazy attribute — it's above the fold by definition,
-            // so the browser should start it immediately rather than after
-            // layout.
             <picture>
-              <source
-                type="image/avif"
-                sizes={HERO_SIZES}
-                srcSet={srcSet(album.coverLadder, "avif")}
-              />
+              <source type="image/avif" sizes={HERO_SIZES} srcSet={srcSet(album.coverLadder, "avif")} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={fallbackSrc(album.coverLadder)}
                 srcSet={srcSet(album.coverLadder, "webp")}
                 sizes={HERO_SIZES}
-                alt={album.title}
+                alt=""
                 fetchPriority="high"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
+                style={{ opacity: 0.55, filter: "saturate(0.8)" }}
               />
             </picture>
           ) : (
             <Image
               src={album.cover}
-              alt={album.title}
+              alt=""
               fill
               priority
               sizes={HERO_SIZES}
               className="object-cover"
+              style={{ opacity: 0.55, filter: "saturate(0.8)" }}
               unoptimized
             />
           )}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(to right, transparent 0%, transparent 35%, var(--card) 88%)",
-            }}
-          />
+        </span>
 
-          {/* Over the photograph, on its own black scrim: white in both
-              themes. text-white on the wrapper because the page's own text
-              colour is now the theme's, which in light mode is ink. */}
-          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/55 to-transparent px-4 pb-4 pt-20 text-white lg:hidden">
-            <p className="mb-1 text-xs text-white">
-              {tx("gallery.eyebrow", "Gallery")}
-            </p>
-            <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">
-              {album.title}
-            </h1>
-            <p className="mt-1 text-sm text-white/90">
-              {album.location}, {album.year} · {album.photos.length}{" "}
-              {tx("gallery.photos", "photos")}
-            </p>
-          </div>
-        </div>
-
-        {/* Clears the fixed bar rather than sitting under the language
-            switcher. Keep in step with StickyHeader's height. */}
+        {/* The page ground laid over the photograph, heavier towards the
+            bottom, then a full fade into the page under the text. */}
         <div
-          className="absolute right-4 z-10 h-16 w-16 shadow-xl sm:h-20 sm:w-20 lg:hidden"
-          style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
-        >
-          {/* The ladder, not album.cover — that is bunnyUrl(cover_path),
-              i.e. the untouched original, for an 80px thumbnail. */}
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(168deg, color-mix(in oklab, var(--background) 55%, transparent) 0%, color-mix(in oklab, var(--background) 78%, transparent) 50%, color-mix(in oklab, var(--background) 94%, transparent) 100%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-44"
+          style={{ background: "linear-gradient(to bottom, transparent, var(--background) 82%)" }}
+        />
+
+        <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-4 sm:gap-5 sm:px-8 sm:pb-6">
           <PhotoFrame
             ladder={album.coverLadder}
             src={album.cover}
             thumbhash={album.coverThumbhash}
             alt=""
-            sizes="80px"
-            className="h-full w-full"
+            sizes="(min-width: 640px) 112px, 72px"
+            className="h-[72px] w-[72px] shrink-0 rounded-xl shadow-xl ring-1 ring-black/10 sm:h-28 sm:w-28"
           />
-        </div>
-
-        <div className="absolute right-16 top-1/2 hidden -translate-y-1/2 items-center gap-8 lg:flex">
-          <div className="text-right">
-            <p className="mb-2 text-sm text-foreground/80">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold text-foreground/70 sm:text-[11px]">
               {tx("gallery.eyebrow", "Gallery")}
             </p>
-            <h1 className="whitespace-nowrap text-6xl font-extrabold leading-none">
+            <h1 className="mt-1 break-words text-[26px] font-extrabold leading-[0.95] tracking-tighter text-foreground sm:text-5xl">
               {album.title}
             </h1>
-            <p className="mt-3 text-lg text-foreground/90">
-              {album.location}, {album.year} · {album.photos.length}{" "}
-              {tx("gallery.photos", "photos")}
+            <p className="mt-1.5 text-[13px] text-foreground/85 sm:text-sm">
+              {[album.location, album.year, `${album.photos.length} ${tx("gallery.photos", "photos")}`]
+                .filter(Boolean)
+                .join(", ")}
             </p>
-            <p className="max-w-[50vw] text-right text-sm text-foreground/80">
-              {album.description}
-            </p>
+            {album.description && (
+              <p className="mt-1 line-clamp-2 hidden max-w-xl text-[13px] text-foreground/70 sm:block">
+                {album.description}
+              </p>
+            )}
           </div>
-          <PhotoFrame
-            ladder={album.coverLadder}
-            src={album.cover}
-            thumbhash={album.coverThumbhash}
-            alt=""
-            sizes="220px"
-            className="h-55 w-55 shrink-0 rounded-2xl shadow-xl"
-          />
         </div>
-      </section>
+      </header>
 
       {/* Photographer's note — client galleries only */}
       {note && (
@@ -593,35 +555,37 @@ export default function AlbumView({
         </p>
       )}
 
-      {/* Section B — actions, the band settling into the page */}
-      <section className="relative w-full bg-linear-to-b from-card to-background py-8 sm:py-10">
-        <div className="mt-2 flex items-center justify-end gap-5 px-6 sm:px-10">
+      {/* Actions: one small glass bar, in the manner of the BottomNav. Icons
+          only on a phone; the words come back from 640px. */}
+      <div className="flex justify-end px-4 pb-4 pt-1 sm:px-8">
+        <div className="sc-glass isolate flex items-center gap-0.5 rounded-2xl p-1">
           <ActionIcon
-            icon={<Share2 className="h-4 w-4" />}
+            icon={<Share2 className="h-3.5 w-3.5" />}
             label={tx("gallery.share", "Share")}
             onClick={shareGallery}
           />
           {downloadEnabled && (
             <ActionIcon
-              icon={<Download className="h-4 w-4" />}
+              icon={<Download className="h-3.5 w-3.5" />}
               label={zipLabel ?? tx("gallery.downloadAll", "Download all")}
               onClick={downloadAll}
               disabled={!!zip || !!batch}
+              progress={!!zipLabel}
             />
           )}
           <ActionIcon
-            icon={<CheckSquare className="h-4 w-4" />}
+            icon={<CheckSquare className="h-3.5 w-3.5" />}
             label={tx("gallery.select", "Select")}
             onClick={() => setSelectionMode((v) => !v)}
             active={selectionMode}
           />
           <ActionIcon
-            icon={<Play className="h-4 w-4" />}
+            icon={<Play className="h-3.5 w-3.5" />}
             label={tx("gallery.slideshow", "Slideshow")}
             onClick={startSlideshow}
           />
         </div>
-      </section>
+      </div>
 
       {/* Selection hint */}
       {selectionMode && selected.size === 0 && (
@@ -870,32 +834,32 @@ function ActionIcon({
   onClick,
   disabled,
   active,
+  progress,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  /** The label is a running count ("12 / 40"): show it at every width. */
+  progress?: boolean;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className="group flex flex-col items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label={label}
+      title={label}
+      className={`flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-medium transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-2.5 ${
+        active
+          ? "bg-foreground text-background"
+          : "text-foreground/80 hover:bg-foreground/8 hover:text-foreground"
+      }`}
     >
-      <span
-        className={`flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition ${
-          active
-            ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-            : "bg-foreground text-background group-hover:bg-foreground/80"
-        }`}
-      >
-        {icon}
-      </span>
-      <span className="whitespace-nowrap text-[10px] text-foreground/70 transition group-hover:text-foreground">
-        {label}
-      </span>
+      {icon}
+      <span className={progress ? "tabular-nums" : "hidden sm:inline"}>{label}</span>
     </button>
   );
 }

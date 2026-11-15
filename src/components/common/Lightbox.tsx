@@ -277,8 +277,9 @@ export default function Lightbox({
   if (!photo) return null;
 
   const dismissProgress = Math.min(drag.y / (DISMISS_THRESHOLD * 2), 0.6);
+  // Icons only, no button shape: a 36px target around a 16px icon.
   const chipClass =
-    "flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs font-medium min-w-11 min-h-11 px-3 rounded-full transition disabled:opacity-40";
+    "flex h-9 w-9 items-center justify-center text-white/75 transition hover:text-white active:scale-90 disabled:opacity-40";
 
   return (
     <div
@@ -303,7 +304,7 @@ export default function Lightbox({
             controls plus three marks does not fit a 390px phone, and the marks
             are the ones that must not be the ones that get cut. */}
         {onMark && photo?.id && tx && (
-          <div className="mb-3 flex w-full justify-center">
+          <div className="mb-1 flex w-full justify-center">
             <MarkButtons
               variant="bar"
               tx={tx}
@@ -315,31 +316,32 @@ export default function Lightbox({
         )}
 
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/60">
+          <span className="text-xs tabular-nums text-white/60">
             {index + 1} / {photos.length}
           </span>
           {photo.alt && (
-            <span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/60 sm:inline">
+            <span className="hidden max-w-[40vw] truncate text-xs text-white/45 sm:inline">
               {photo.alt}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-0.5">
           {onToggleSelect && (
             <button
               onClick={() => onToggleSelect(photo.src)}
               aria-pressed={isSelected}
-              className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-medium transition ${
-                isSelected
-                  ? "bg-white text-black"
-                  : "bg-white/10 text-white hover:bg-white/20"
-              }`}
+              className={`${chipClass} ${isSelected ? "text-white" : ""}`}
               title={isSelected ? "Selected" : "Select"}
+              aria-label={isSelected ? "Selected" : "Select"}
             >
-              <Check className="h-4 w-4" strokeWidth={3} />
-              <span className="hidden sm:inline">
-                {isSelected ? "Selected" : "Select"}
+              {/* Selected: the tick sits in a small white disc. */}
+              <span
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ${
+                  isSelected ? "bg-white text-black" : "ring-[1.5px] ring-current"
+                }`}
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
               </span>
             </button>
           )}
@@ -348,30 +350,26 @@ export default function Lightbox({
             className={`${chipClass} hidden sm:flex`}
             title="Copy link to this photo"
           >
-            <Link2 className="h-4 w-4" />
+            <Link2 className="h-4 w-4" aria-hidden />
           </button>
           <button
             onClick={handleShare}
             disabled={busy === "share"}
             className={chipClass}
-            title="Share"
+            title={busy === "share" ? "Preparing…" : "Share"}
+            aria-label="Share"
           >
             <Share2 className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              {busy === "share" ? "Preparing…" : "Share"}
-            </span>
           </button>
           {canDownload && (
             <button
               onClick={handleDownload}
               disabled={busy === "download"}
               className={chipClass}
-              title="Download"
+              title={busy === "download" ? "Saving…" : (downloadLabel ?? "Download")}
+              aria-label={downloadLabel ?? "Download"}
             >
               <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                {busy === "download" ? "Saving…" : (downloadLabel ?? "Download")}
-              </span>
             </button>
           )}
           {/* A remembered choice you cannot see or change is a trap, so the
@@ -380,7 +378,7 @@ export default function Lightbox({
           {canDownload && onDownloadOptions && photo && (
             <button
               onClick={() => onDownloadOptions(photo)}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:bg-white/30"
+              className={`${chipClass} -ml-1.5 w-6`}
               title="Download options"
               aria-label="Download options"
             >
@@ -389,8 +387,9 @@ export default function Lightbox({
           )}
           <button
             onClick={onClose}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:bg-white/30"
+            className={chipClass}
             title="Close"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -400,24 +399,24 @@ export default function Lightbox({
       {/* Image area */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
         <button
-          className="absolute left-4 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/10 p-3 transition hover:bg-white/25 sm:flex"
+          className="absolute left-2 top-1/2 z-10 hidden -translate-y-1/2 p-2 text-white/60 transition hover:text-white sm:flex"
           onClick={(e) => {
             e.stopPropagation();
             onPrev();
           }}
           title="Previous"
         >
-          <ChevronLeft className="h-5 w-5 text-white" />
+          <ChevronLeft className="h-6 w-6" strokeWidth={1.5} />
         </button>
         <button
-          className="absolute right-4 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/10 p-3 transition hover:bg-white/25 sm:flex"
+          className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 p-2 text-white/60 transition hover:text-white sm:flex"
           onClick={(e) => {
             e.stopPropagation();
             onNext();
           }}
           title="Next"
         >
-          <ChevronRight className="h-5 w-5 text-white" />
+          <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
         </button>
 
         <div

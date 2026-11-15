@@ -77,7 +77,7 @@ export default function MarkButtons({
       className={
         tile
           ? "flex items-center gap-1 rounded-full bg-black/65 p-1 backdrop-blur-sm"
-          : "flex items-center gap-1.5"
+          : "flex items-center gap-1"
       }
       // The grid tile is a click target that opens the lightbox; without this
       // every mark press would also open the photograph it just marked.
@@ -104,14 +104,16 @@ export default function MarkButtons({
               "flex shrink-0 items-center justify-center transition disabled:opacity-40",
               tile
                 ? "h-7 w-7 rounded-full"
-                : "min-h-11 gap-1.5 rounded-full px-3 text-xs font-semibold",
+                : "h-8 w-8 rounded-full",
               active
                 ? `${ON[value]} ring-1`
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white",
+                : tile
+                  ? "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                  // In the lightbox: icon only, no button shape until chosen.
+                  : "text-white/70 hover:text-white",
             ].join(" ")}
           >
             <Icon className={tile ? "h-3.5 w-3.5" : "h-4 w-4"} />
-            {!tile && <span>{label}</span>}
           </button>
         );
       })}
