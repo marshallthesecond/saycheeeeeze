@@ -365,7 +365,15 @@
     "markHint": "These marks are a note to your photographer. Nothing happens to a photograph until he acts on it — you can change your mind any time.",
     "filterAll": "All",
     "filterUnmarked": "Unmarked",
-    "filterEmpty": "Nothing marked this way yet."
+    "filterEmpty": "Nothing marked this way yet.",
+    "layout": "Layout",
+    "layoutMasonry": "Mosaic",
+    "layoutGrid": "Grid",
+    "layoutList": "List",
+    "colName": "Name",
+    "colDimensions": "Dimensions",
+    "colSize": "Size",
+    "swipeHint": "Swipe to browse, swipe up to close"
   },
   "gate": {
     "eyebrow": "Private gallery",

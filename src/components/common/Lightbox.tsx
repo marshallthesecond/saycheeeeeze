@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   useState,
@@ -91,9 +92,58 @@ function subscribeToReducedMotion(onChange: () => void): () => void {
   return () => mq.removeEventListener("change", onChange);
 }
 
-const SWIPE_THRESHOLD = 50;
-const DISMISS_THRESHOLD = 110;
 const TOAST_MS = 2200;
+
+// THE STRIP. The photograph on screen and its two neighbours sit side by side
+// on one strip, and a swipe moves the strip, so the next photograph is already
+// under the finger as the current one leaves — the way a phone's own gallery
+// behaves. Letting go either finishes the move or lets the strip settle back.
+
+/** Space between two photographs while they slide past, in px. */
+const GAP = 24;
+const SLIDE_MS = 320;
+/** Fast at first, long gentle landing: reads as momentum rather than a tween. */
+const MOTION = `transform ${SLIDE_MS}ms cubic-bezier(0.22, 0.8, 0.26, 1)`;
+/** How far a finger moves before it counts as a swipe rather than a tap. */
+const SLOP = 8;
+/** Swipe up this far and the photograph closes. */
+const DISMISS_PX = 90;
+const BACKDROP = "rgba(0,0,0,0.97)";
+
+const mod = (a: number, n: number) => ((a % n) + n) % n;
+
+/** Where the strip sits when photograph number `pos` is the one on screen. */
+function stripTransform(pos: number, dx = 0, dy = 0): string {
+  return `translate3d(calc(${-pos} * (100% + ${GAP}px) + ${dx}px), ${dy}px, 0)`;
+}
+
+/** Where one photograph sits on the strip. */
+function slideTransform(pos: number): string {
+  return `translate3d(calc(${pos} * (100% + ${GAP}px)), 0, 0)`;
+}
+
+interface Gesture {
+  active: boolean;
+  id: number;
+  x0: number;
+  y0: number;
+  /** Where the strip already was when the finger landed (mid-slide), in px. */
+  offset: number;
+  axis: "none" | "x" | "y";
+  dx: number;
+  dy: number;
+  lastX: number;
+  lastY: number;
+  lastT: number;
+  /** px per ms, smoothed. */
+  vx: number;
+  vy: number;
+}
+
+const IDLE: Gesture = {
+  active: false, id: -1, x0: 0, y0: 0, offset: 0, axis: "none",
+  dx: 0, dy: 0, lastX: 0, lastY: 0, lastT: 0, vx: 0, vy: 0,
+};
 
 export default function Lightbox({
   photos,
@@ -113,12 +163,39 @@ export default function Lightbox({
 }: LightboxProps) {
   const photo = photos[index];
 
-  const [drag, setDrag] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<"share" | "download" | null>(null);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const axis = useRef<"none" | "x" | "y">("none");
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const gesture = useRef<Gesture>(IDLE);
+  const closing = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The position the strip was last set to, so the next one knows whether to slide. */
+  const synced = useRef<{ pos: number; epoch: number } | null>(null);
+
+  /**
+   * `pos` numbers the photographs WITHOUT wrapping round: stepping from the
+   * last one to the first is one more step to the right, not a trip back across
+   * the whole strip. `index` is the last value of the prop it was matched to.
+   * `epoch` changes when the gallery jumps more than one photograph, which
+   * remounts the strip so it does not slide across everything in between.
+   */
+  const [view, setView] = useState({ pos: index, index, epoch: 0 });
+  if (index !== view.index) {
+    // Changed from outside: the slideshow's timer, or a deep link. Comparing
+    // against the previous value during render is React's documented way to
+    // derive state from a changed prop.
+    const n = Math.max(photos.length, 1);
+    let d = index - view.index;
+    if (d > n / 2) d -= n;
+    else if (d < -n / 2) d += n;
+    setView({
+      pos: view.pos + d,
+      index,
+      epoch: Math.abs(d) > 1 ? view.epoch + 1 : view.epoch,
+    });
+  }
 
   const reduceMotion = useSyncExternalStore(
     subscribeToReducedMotion,
@@ -131,103 +208,208 @@ export default function Lightbox({
     setTimeout(() => setToast(null), TOAST_MS);
   }, []);
 
+  /**
+   * One photograph forward or back, sliding.
+   *
+   * The strip's own state moves first and the gallery is told in the same
+   * breath, so React commits both together and the strip is never one render
+   * ahead of the photograph list.
+   */
+  const step = useCallback(
+    (dir: 1 | -1) => {
+      if (closing.current) return;
+      const strip = stripRef.current;
+      if (strip) strip.style.transition = reduceMotion ? "none" : MOTION;
+      setView((v) => ({
+        ...v,
+        pos: v.pos + dir,
+        index: mod(v.index + dir, Math.max(photos.length, 1)),
+      }));
+      if (dir > 0) onNext();
+      else onPrev();
+    },
+    [onNext, onPrev, photos.length, reduceMotion],
+  );
+
+  // Puts the strip where the state says, after every render and before paint.
+  // This is the ONLY place outside a live drag that writes its position, so a
+  // gallery that refuses a step (or changes the photograph by itself) can never
+  // leave the strip showing an empty slot.
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (!strip || gesture.current.active || closing.current) return;
+    const last = synced.current;
+    if (!last || last.epoch !== view.epoch) {
+      // First paint, or a jump: appear in place.
+      strip.style.transition = "none";
+    } else if (last.pos !== view.pos) {
+      strip.style.transition = reduceMotion ? "none" : MOTION;
+    }
+    strip.style.transform = stripTransform(view.pos);
+    synced.current = { pos: view.pos, epoch: view.epoch };
+  });
+
   // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") onPrev();
-      if (e.key === "ArrowRight") onNext();
+      if (e.key === "ArrowLeft") step(-1);
+      if (e.key === "ArrowRight") step(1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onPrev, onNext]);
+  }, [onClose, step]);
 
-  // Lock body scroll
+  // Lock the page behind, and switch off the browser's pull-to-refresh while a
+  // photograph is open: a swipe here must never reload the gallery.
   useEffect(() => {
+    const html = document.documentElement;
+    const before = html.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
     return () => {
       document.body.style.overflow = "";
+      html.style.overscrollBehavior = before;
+      if (closeTimer.current) clearTimeout(closeTimer.current);
     };
   }, []);
 
-  // Reset any leftover drag when moving between photos. Comparing against the
-  // previous index during render is React's documented way to derive state
-  // from a changed prop — an effect here would paint the new photo at the old
-  // drag offset for one frame first.
-  const [lastIndex, setLastIndex] = useState(index);
-  if (index !== lastIndex) {
-    setLastIndex(index);
-    setDrag({ x: 0, y: 0 });
-  }
-
-  // Preload the neighbours so a swipe lands on a decoded image instead of a
-  // blank frame, and warm the full bytes of the CURRENT photo so that Share
-  // can hand navigator.share a File without an await in between — on iOS the
-  // await is what kills the share sheet.
+  // The neighbours are on the strip already, so the browser is loading them.
+  // What still needs warming is the full file of the CURRENT photo, so that
+  // Share can hand navigator.share a File without an await in between — on iOS
+  // the await is what kills the share sheet.
   useEffect(() => {
-    const neighbours = [
-      photos[(index + 1) % photos.length],
-      photos[(index - 1 + photos.length) % photos.length],
-    ];
-    neighbours.forEach((p) => {
-      if (!p) return;
-      const img = new window.Image();
-      if (hasLadder(p.ladder)) {
-        // Warm the SAME file the <picture> above will pick, or this preloads
-        // one URL and the swipe then requests a different one — all cost, no
-        // benefit. Giving the bare <img> a srcset and sizes makes the browser
-        // run the same selection it will run for real.
-        //
-        // AVIF specifically, because that is what any browser reaching this
-        // code will choose from the <source>. A browser without AVIF support
-        // fails this preload silently and still renders correctly from the
-        // WebP source — a warm-up that misses costs nothing.
-        img.sizes = FULL_SIZES;
-        img.srcset = srcSet(p.ladder, "avif");
-      } else {
-        img.src = p.src;
-      }
-    });
     if (photos[index]) prefetchPhotoFile(sharePhotoUrl(photos[index]));
   }, [index, photos]);
 
-  // Touch gestures: swipe L/R to navigate, swipe down to close
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStart.current = { x: t.clientX, y: t.clientY };
-    axis.current = "none";
-    setIsDragging(true);
-  }, []);
+  // Gestures: sideways to move between photographs, up to close.
+  //
+  // Up, not down: pulling down is the browser's own "reload this page", and a
+  // firm downward swipe was doing exactly that instead of closing.
+  //
+  // The strip is moved by writing its style directly rather than through
+  // state. A finger reports sixty to a hundred and twenty positions a second,
+  // and re-rendering this component for each one is what made the old swipe
+  // stutter.
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (gesture.current.active || closing.current) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const strip = stripRef.current;
+    if (!strip) return;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStart.current.x;
-    const dy = t.clientY - touchStart.current.y;
+    // Caught mid-slide: start from where the strip actually is, not from where
+    // it was heading, or it would jump under the finger.
+    const width = strip.offsetWidth;
+    const now = new DOMMatrixReadOnly(getComputedStyle(strip).transform).m41;
+    const offset = now - -view.pos * (width + GAP);
 
-    if (axis.current === "none" && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-      axis.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    gesture.current = {
+      ...IDLE,
+      active: true,
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      offset: Math.abs(offset) < 1 ? 0 : offset,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastT: e.timeStamp,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    const strip = stripRef.current;
+    const root = rootRef.current;
+    if (!g.active || e.pointerId !== g.id || !strip || !root) return;
+
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+
+    if (g.axis === "none") {
+      if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+      g.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+      strip.style.transition = "none";
+      root.style.transition = "none";
     }
 
-    if (axis.current === "x") setDrag({ x: dx, y: 0 });
-    else if (axis.current === "y" && dy > 0) setDrag({ x: 0, y: dy });
-  }, []);
+    const dt = e.timeStamp - g.lastT;
+    if (dt > 0) {
+      g.vx = 0.6 * ((e.clientX - g.lastX) / dt) + 0.4 * g.vx;
+      g.vy = 0.6 * ((e.clientY - g.lastY) / dt) + 0.4 * g.vy;
+      g.lastX = e.clientX;
+      g.lastY = e.clientY;
+      g.lastT = e.timeStamp;
+    }
 
-  const handleTouchEnd = useCallback(() => {
-    const { x, y } = drag;
-    setIsDragging(false);
+    if (g.axis === "x") {
+      // One photograph has nowhere to go: it gives a little and comes back.
+      g.dx = photos.length > 1 ? g.offset + dx : dx * 0.3;
+      strip.style.transform = stripTransform(view.pos, g.dx, 0);
+    } else {
+      // Up follows the finger. Down is held back hard, so it reads as "not
+      // this way" instead of as nothing happening.
+      g.dy = dy < 0 ? dy : dy * 0.15;
+      strip.style.transform = stripTransform(view.pos, 0, g.dy);
+      const lift = Math.min(Math.max(-g.dy, 0) / 320, 1);
+      root.style.backgroundColor = `rgba(0,0,0,${0.97 - lift * 0.6})`;
+      if (lift > 0.04) root.dataset.lifting = "";
+      else delete root.dataset.lifting;
+    }
+  };
 
-    if (axis.current === "y" && y > DISMISS_THRESHOLD) {
+  /** Slides the photograph off the top and closes. */
+  const dismiss = () => {
+    const strip = stripRef.current;
+    const root = rootRef.current;
+    closing.current = true;
+    if (!strip || !root || reduceMotion) {
       onClose();
-    } else if (axis.current === "x" && Math.abs(x) > SWIPE_THRESHOLD) {
-      if (x > 0) onPrev();
-      else onNext();
+      return;
+    }
+    strip.style.transition = "transform 240ms cubic-bezier(0.4, 0, 1, 1)";
+    strip.style.transform = stripTransform(view.pos, 0, -window.innerHeight);
+    root.style.transition = "background-color 240ms ease";
+    root.style.backgroundColor = "rgba(0,0,0,0)";
+    root.dataset.lifting = "";
+    closeTimer.current = setTimeout(onClose, 230);
+  };
+
+  const endGesture = (e: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
+    const g = gesture.current;
+    if (!g.active || e.pointerId !== g.id) return;
+    gesture.current = { ...g, active: false };
+
+    const strip = stripRef.current;
+    const root = rootRef.current;
+    if (!strip || !root || g.axis === "none") return; // a tap
+
+    strip.style.transition = reduceMotion ? "none" : MOTION;
+    root.style.transition = reduceMotion ? "none" : `background-color ${SLIDE_MS}ms ease`;
+
+    if (g.axis === "x") {
+      const width = strip.offsetWidth || 1;
+      // Far enough, or a quick flick in the same direction.
+      const far = Math.abs(g.dx) > width * 0.2;
+      const flick =
+        Math.abs(g.vx) > 0.35 && Math.abs(g.dx) > 12 && Math.sign(g.vx) === Math.sign(g.dx);
+      if (!cancelled && photos.length > 1 && (far || flick)) {
+        step(g.dx < 0 ? 1 : -1);
+        return;
+      }
+      strip.style.transform = stripTransform(view.pos);
+      return;
     }
 
-    setDrag({ x: 0, y: 0 });
-    touchStart.current = null;
-    axis.current = "none";
-  }, [drag, onClose, onPrev, onNext]);
+    const up = -g.dy;
+    if (!cancelled && (up > DISMISS_PX || (g.vy < -0.5 && up > 24))) {
+      dismiss();
+      return;
+    }
+    strip.style.transform = stripTransform(view.pos);
+    root.style.backgroundColor = BACKDROP;
+    delete root.dataset.lifting;
+  };
 
   // Download
   // Keeps the original extension. The old version renamed everything to .png,
@@ -276,18 +458,28 @@ export default function Lightbox({
 
   if (!photo) return null;
 
-  const dismissProgress = Math.min(drag.y / (DISMISS_THRESHOLD * 2), 0.6);
+  const count = photos.length;
+  // The photograph on screen and one either side; a gallery of one has none.
+  const slots = count > 1 ? [-1, 0, 1] : [0];
+  const hint = tx
+    ? tx("gallery.swipeHint", "Swipe to browse, swipe up to close")
+    : "Swipe to browse, swipe up to close";
   // Icons only, no button shape: a 36px target around a 16px icon.
   const chipClass =
     "flex h-9 w-9 items-center justify-center text-white/75 transition hover:text-white active:scale-90 disabled:opacity-40";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
+      ref={rootRef}
+      // `group`: the bars fade while the photograph is being lifted away, which
+      // is switched by a data attribute so it costs no render.
+      className="group fixed inset-0 z-50 flex flex-col overflow-hidden"
       style={{
-        backgroundColor: `rgba(0,0,0,${0.97 - dismissProgress})`,
+        backgroundColor: BACKDROP,
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        // Every gesture in here is ours: no page scroll, no pull-to-refresh.
+        touchAction: "none",
       }}
       onClick={onClose}
     >
@@ -296,8 +488,7 @@ export default function Lightbox({
         // flex-wrap so the marking row above can claim a full line of its own;
         // without it the row becomes a third item squeezed between the
         // counter and the toolbar.
-        className="relative z-10 flex shrink-0 flex-wrap items-center justify-between px-4 py-3 transition-opacity"
-        style={{ opacity: isDragging ? 0 : 1 }}
+        className="relative z-10 flex shrink-0 flex-wrap items-center justify-between px-4 py-3 transition-opacity duration-150 group-data-[lifting]:opacity-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Its own full-width row above the toolbar, centred. Five toolbar
@@ -335,13 +526,14 @@ export default function Lightbox({
               title={isSelected ? "Selected" : "Select"}
               aria-label={isSelected ? "Selected" : "Select"}
             >
-              {/* Selected: the tick sits in a small white disc. */}
+              {/* An empty ring until it is selected, then a white disc with
+                  the tick in it, as in a phone's own gallery. */}
               <span
                 className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ${
                   isSelected ? "bg-white text-black" : "ring-[1.5px] ring-current"
                 }`}
               >
-                <Check className="h-3 w-3" strokeWidth={3} />
+                <Check className={`h-3 w-3 ${isSelected ? "" : "opacity-0"}`} strokeWidth={3} />
               </span>
             </button>
           )}
@@ -396,100 +588,127 @@ export default function Lightbox({
         </div>
       </div>
 
-      {/* Image area */}
-      <div className="relative flex min-h-0 flex-1 items-center justify-center">
+      {/* Image area: the stage the strip slides across. */}
+      <div
+        className="relative min-h-0 flex-1 select-none"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(e) => endGesture(e, false)}
+        onPointerCancel={(e) => endGesture(e, true)}
+      >
         <button
           className="absolute left-2 top-1/2 z-10 hidden -translate-y-1/2 p-2 text-white/60 transition hover:text-white sm:flex"
+          // Kept away from the stage's own handler, which would otherwise
+          // capture the pointer and swallow the click.
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onPrev();
+            step(-1);
           }}
           title="Previous"
+          aria-label="Previous"
         >
           <ChevronLeft className="h-6 w-6" strokeWidth={1.5} />
         </button>
         <button
           className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 p-2 text-white/60 transition hover:text-white sm:flex"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onNext();
+            step(1);
           }}
           title="Next"
+          aria-label="Next"
         >
           <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
         </button>
 
         <div
-          className="relative h-full w-full touch-pan-y sm:mx-20"
-          style={{
-            // contain, not the cover that blurStyle defaults to: the photo is
-            // object-contain here, so a cover-sized blur would spill past its
-            // edges instead of sitting exactly behind it.
-            ...blurStyle(photo.thumbhash),
-            backgroundSize: "contain",
-            backgroundRepeat: "no-repeat",
-            transform: `translate(${drag.x}px, ${drag.y}px)`,
-            transition:
-              isDragging || reduceMotion
-                ? "none"
-                : "transform 0.25s cubic-bezier(0.22,1,0.36,1)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          // A jump of more than one photograph gets a new strip rather than a
+          // slide across everything in between.
+          key={view.epoch}
+          ref={stripRef}
+          className="absolute inset-0 will-change-transform"
         >
-          {hasLadder(photo.ladder) ? (
-            // The top rung is both smaller AND sharper than what the Optimizer
-            // was returning here: this used to pull the original capped at
-            // 1600px and re-encoded on the fly, where 2048.avif is a larger
-            // image in fewer bytes.
-            //
-            // Hand-rolled rather than next/image because <picture> is the whole
-            // point — the browser picks AVIF or WebP itself. The classes
-            // reproduce what `fill` does: absolutely positioned, filling the
-            // parent, letterboxed by object-contain.
-            <picture>
-              <source
-                type="image/avif"
-                sizes={FULL_SIZES}
-                srcSet={srcSet(photo.ladder, "avif")}
-              />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fallbackSrc(photo.ladder)}
-                srcSet={srcSet(photo.ladder, "webp")}
-                sizes={FULL_SIZES}
-                alt={photo.alt ?? ""}
-                // Never lazy — this element only exists once the viewer has
-                // deliberately opened the photo.
-                fetchPriority="high"
-                decoding="async"
-                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-                onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
-                className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
-              />
-            </picture>
-          ) : (
-            <Image
-              src={photo.src}
-              alt={photo.alt ?? ""}
-              fill
-              sizes="100vw"
-              className="pointer-events-none select-none object-contain"
-              priority
-              unoptimized
-              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-              onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
-            />
-          )}
+          {slots.map((slot) => {
+            const shown = photos[mod(index + slot, count)];
+            const current = slot === 0;
+            return (
+              <div
+                // Keyed on the unwrapped position, so a photograph keeps its
+                // element (and its decoded image) as it moves from "next" to
+                // "current" to "previous".
+                key={view.pos + slot}
+                className="absolute inset-0 sm:px-16"
+                style={{ transform: slideTransform(view.pos + slot) }}
+                aria-hidden={!current}
+              >
+                <div
+                  className="relative h-full w-full"
+                  style={{
+                    // contain, not the cover that blurStyle defaults to: the
+                    // photo is object-contain here, so a cover-sized blur
+                    // would spill past its edges instead of sitting exactly
+                    // behind it.
+                    ...blurStyle(shown.thumbhash),
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                  }}
+                >
+                  {hasLadder(shown.ladder) ? (
+                    // Hand-rolled rather than next/image because <picture> is
+                    // the whole point — the browser picks AVIF or WebP itself.
+                    // The classes reproduce what `fill` does: absolutely
+                    // positioned, filling the parent, letterboxed by
+                    // object-contain.
+                    <picture>
+                      <source
+                        type="image/avif"
+                        sizes={FULL_SIZES}
+                        srcSet={srcSet(shown.ladder, "avif")}
+                      />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={fallbackSrc(shown.ladder)}
+                        srcSet={srcSet(shown.ladder, "webp")}
+                        sizes={FULL_SIZES}
+                        alt={current ? (shown.alt ?? "") : ""}
+                        // Never lazy: the one on screen was opened on purpose,
+                        // and its neighbours have to be decoded before a swipe
+                        // brings them in.
+                        fetchPriority={current ? "high" : "low"}
+                        decoding="async"
+                        draggable={false}
+                        onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                        onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
+                        className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+                      />
+                    </picture>
+                  ) : (
+                    <Image
+                      src={shown.src}
+                      alt={current ? (shown.alt ?? "") : ""}
+                      fill
+                      sizes="100vw"
+                      className="pointer-events-none select-none object-contain"
+                      priority={current}
+                      draggable={false}
+                      unoptimized
+                      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                      onLoad={(e) => { e.currentTarget.style.visibility = ""; }}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Footer hint + toast */}
       <div
-        className="flex shrink-0 flex-col items-center gap-2 py-4 transition-opacity"
-        style={{ opacity: isDragging ? 0 : 1 }}
+        className="flex shrink-0 flex-col items-center gap-2 py-4 transition-opacity duration-150 group-data-[lifting]:opacity-0"
         onClick={(e) => e.stopPropagation()}
       >
         {toast ? (
@@ -497,9 +716,7 @@ export default function Lightbox({
             {toast}
           </p>
         ) : (
-          <p className="text-[10px] tracking-wide text-white/25 sm:hidden">
-            Swipe to browse · swipe down to close
-          </p>
+          <p className="text-[10px] text-white/30 sm:hidden">{hint}</p>
         )}
       </div>
     </div>

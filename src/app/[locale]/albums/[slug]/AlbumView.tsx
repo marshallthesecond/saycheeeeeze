@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -11,8 +11,14 @@ import {
   CheckSquare,
   X,
   MessageCircleQuestion,
+  Images,
+  CircleDashed,
+  LayoutDashboard,
+  LayoutGrid,
+  List,
 } from "lucide-react";
-import PhotoGrid from "@/src/components/common/PhotoGrid";
+import PhotoGrid, { type GridLayout } from "@/src/components/common/PhotoGrid";
+import { MARK_ICONS } from "@/src/components/common/MarkButtons";
 import Lightbox from "@/src/components/common/Lightbox";
 import GalleryRequestSheet from "@/src/components/common/GalleryRequestSheet";
 import DownloadSheet, { type DownloadChoice } from "@/src/components/common/DownloadSheet";
@@ -60,6 +66,61 @@ import {
  *  container widths (65% at sm, 42% at lg), which nothing else uses. Get it
  *  wrong and the browser pulls the 2048 rung into a 400px box. */
 const HERO_SIZES = "100vw";
+
+// THE LAYOUT. Mosaic (photographs at their own shapes), grid (equal squares
+// with their names) or list (one row per file). The choice is this browser's,
+// kept in localStorage, and read through useSyncExternalStore so the server
+// render and the first client render agree on "masonry" and the saved choice
+// arrives straight after, without an effect that sets state.
+const LAYOUTS: GridLayout[] = ["masonry", "grid", "list"];
+const LAYOUT_KEY = "sc:gallery-layout";
+const layoutListeners = new Set<() => void>();
+/** Holds the choice when localStorage refuses (private windows). */
+let layoutInMemory: GridLayout | null = null;
+
+function readLayout(): GridLayout {
+  if (layoutInMemory) return layoutInMemory;
+  try {
+    const saved = window.localStorage.getItem(LAYOUT_KEY) as GridLayout | null;
+    return saved && LAYOUTS.includes(saved) ? saved : "masonry";
+  } catch {
+    return "masonry";
+  }
+}
+
+function writeLayout(next: GridLayout): void {
+  layoutInMemory = next;
+  try {
+    window.localStorage.setItem(LAYOUT_KEY, next);
+  } catch {
+    // Kept in memory for this visit instead.
+  }
+  layoutListeners.forEach((notify) => notify());
+}
+
+function subscribeLayout(notify: () => void): () => void {
+  layoutListeners.add(notify);
+  return () => layoutListeners.delete(notify);
+}
+
+const LAYOUT_ICONS: Record<GridLayout, React.ComponentType<{ className?: string }>> = {
+  masonry: LayoutDashboard,
+  grid: LayoutGrid,
+  list: List,
+};
+
+const LAYOUT_NAMES: Record<GridLayout, [key: string, fallback: string]> = {
+  masonry: ["gallery.layoutMasonry", "Mosaic"],
+  grid: ["gallery.layoutGrid", "Grid"],
+  list: ["gallery.layoutList", "List"],
+};
+
+/** The filter shows the same picture for a mark as the buttons under a photo. */
+const FILTER_ICONS: Record<MarkFilter, React.ComponentType<{ className?: string }>> = {
+  all: Images,
+  ...MARK_ICONS,
+  unmarked: CircleDashed,
+};
 
 const PAGE_SIZE = 24;
 const SLIDESHOW_INTERVAL_MS = 3000;
@@ -149,6 +210,7 @@ export default function AlbumView({
   const [requestOpen, setRequestOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [markFilter, setMarkFilter] = useState<MarkFilter>("all");
+  const layout = useSyncExternalStore(subscribeLayout, readLayout, (): GridLayout => "masonry");
   const slideshowTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
@@ -448,6 +510,9 @@ export default function AlbumView({
     [requestDownload, selectedPhotos],
   );
 
+  const LayoutIcon = LAYOUT_ICONS[layout];
+  const layoutName = tx(...LAYOUT_NAMES[layout]);
+
   const zipLabel = zip
     ? zip.phase === "packing"
       ? tx("gallery.packing", "Packing…")
@@ -469,7 +534,7 @@ export default function AlbumView({
       {/* Header, after the service pages' photo hero: the cover as a faded
           ground that sinks into the page, and the cover itself beside the
           title. */}
-      <header className="relative h-[34vh] min-h-[250px] max-h-[330px] w-full overflow-hidden sm:h-[42vh] sm:max-h-[420px]">
+      <header className="relative h-[38vh] min-h-[280px] max-h-[360px] w-full overflow-hidden sm:h-[46vh] sm:max-h-[460px]">
         {/* ThumbHash under the photograph so the first frame is not a flat
             rectangle. This is the page's Largest Contentful Paint. */}
         <span aria-hidden className="absolute inset-0" style={blurStyle(album.coverThumbhash)}>
@@ -485,7 +550,6 @@ export default function AlbumView({
                 fetchPriority="high"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
-                style={{ opacity: 0.55, filter: "saturate(0.8)" }}
               />
             </picture>
           ) : (
@@ -496,26 +560,21 @@ export default function AlbumView({
               priority
               sizes={HERO_SIZES}
               className="object-cover"
-              style={{ opacity: 0.55, filter: "saturate(0.8)" }}
               unoptimized
             />
           )}
         </span>
 
-        {/* The page ground laid over the photograph, heavier towards the
-            bottom, then a full fade into the page under the text. */}
+        {/* The photograph is left as it is over the top three fifths, then
+            sinks into the page: nothing is laid over it up there, so it is as
+            bright as the photograph itself. */}
         <div
           aria-hidden
-          className="absolute inset-0"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "linear-gradient(168deg, color-mix(in oklab, var(--background) 55%, transparent) 0%, color-mix(in oklab, var(--background) 78%, transparent) 50%, color-mix(in oklab, var(--background) 94%, transparent) 100%)",
+              "linear-gradient(to bottom, transparent 0%, transparent 58%, color-mix(in oklab, var(--background) 82%, transparent) 80%, var(--background) 98%)",
           }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-44"
-          style={{ background: "linear-gradient(to bottom, transparent, var(--background) 82%)" }}
         />
 
         <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 px-4 pb-4 sm:gap-5 sm:px-8 sm:pb-6">
@@ -527,8 +586,10 @@ export default function AlbumView({
             sizes="(min-width: 640px) 112px, 72px"
             className="h-[72px] w-[72px] shrink-0 rounded-xl shadow-xl ring-1 ring-black/10 sm:h-28 sm:w-28"
           />
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-foreground/70 sm:text-[11px]">
+          {/* A soft halo in the page's own colour, so the words hold on any
+              photograph where the fade is still thin. */}
+          <div className="min-w-0 [text-shadow:0_0_12px_var(--background),0_0_3px_var(--background)]">
+            <p className="text-[10px] font-semibold text-foreground/80 sm:text-[11px]">
               {tx("gallery.eyebrow", "Gallery")}
             </p>
             <h1 className="mt-1 break-words text-[26px] font-extrabold leading-[0.95] tracking-tighter text-foreground sm:text-5xl">
@@ -584,6 +645,15 @@ export default function AlbumView({
             label={tx("gallery.slideshow", "Slideshow")}
             onClick={startSlideshow}
           />
+          <span aria-hidden className="mx-0.5 h-4 w-px bg-foreground/15" />
+          {/* One button that steps through the three layouts and shows the
+              one in use. */}
+          <ActionIcon
+            icon={<LayoutIcon className="h-3.5 w-3.5" />}
+            label={layoutName}
+            title={`${tx("gallery.layout", "Layout")}: ${layoutName}`}
+            onClick={() => writeLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length])}
+          />
         </div>
       </div>
 
@@ -598,27 +668,33 @@ export default function AlbumView({
           filtered. Rendering five chips that all say 0 over an unreviewed
           gallery would be a control with nothing to control. */}
       {onMark && (
-        <div className="px-4 pt-4 sm:px-6">
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0">
+        <div className="px-3 pt-3 sm:px-6">
+          {/* One row at every width and never a sideways scroll. On a phone
+              the five share the width equally and show the mark's icon and its
+              count; the words join them from 640px. */}
+          <div className="grid grid-cols-5 gap-1 sm:flex sm:flex-wrap sm:gap-1.5">
             {MARK_FILTERS.map((value) => {
               const active = markFilter === value;
               const count = markCounts[value];
+              const Icon = FILTER_ICONS[value];
+              const name = tx(FILTER_KEYS[value], FILTER_FALLBACK[value]);
               return (
                 <button
                   key={value}
                   type="button"
                   aria-pressed={active}
+                  aria-label={`${name}, ${count}`}
+                  title={name}
                   onClick={() => chooseFilter(value)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+                  className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded-full px-1.5 text-[12px] font-semibold transition sm:gap-1.5 sm:px-3 ${
                     active
                       ? "bg-primary text-primary-foreground"
-                      : "bg-foreground/10 text-foreground/75 hover:bg-foreground/15 hover:text-foreground"
+                      : "bg-foreground/8 text-foreground/75 hover:bg-foreground/12 hover:text-foreground"
                   }`}
                 >
-                  {tx(FILTER_KEYS[value], FILTER_FALLBACK[value])}
-                  <span
-                    className={`tabular-nums ${active ? "text-primary-foreground" : "text-muted-foreground"}`}
-                  >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline">{name}</span>
+                  <span className={`tabular-nums ${active ? "" : "text-muted-foreground"}`}>
                     {count}
                   </span>
                 </button>
@@ -632,11 +708,16 @@ export default function AlbumView({
       )}
 
       {/* Photo grid */}
-      <div className="pb-4 pt-4">
+      <div className="pb-4 pt-3">
         <PhotoGrid
           photos={visiblePhotos}
           onPhotoClick={openLightbox}
-          gap={2}
+          // Client galleries get a line under each photograph (marks left,
+          // file name right), and a little more air between columns so two
+          // names never run into each other.
+          gap={onMark ? 6 : 2}
+          captions={Boolean(onMark)}
+          layout={layout}
           selectable
           selectionMode={selectionMode}
           selected={selected}
@@ -835,12 +916,15 @@ function ActionIcon({
   disabled,
   active,
   progress,
+  title,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  /** Tooltip, when it should say more than the label. */
+  title?: string;
   /** The label is a running count ("12 / 40"): show it at every width. */
   progress?: boolean;
 }) {
@@ -850,8 +934,8 @@ function ActionIcon({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      aria-label={label}
-      title={label}
+      aria-label={title ?? label}
+      title={title ?? label}
       className={`flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-medium transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-2.5 ${
         active
           ? "bg-foreground text-background"

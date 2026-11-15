@@ -8,12 +8,19 @@
 //
 // Photos whose dimensions could not be probed fall back to assuming 3:2 and
 // correcting from naturalWidth/naturalHeight on load.
+//
+// That is the default layout, "masonry", and the only one the portfolio uses.
+// A gallery page can ask for two more: "grid", equal squares with space around
+// them and the file name underneath, and "list", one row per file the way a
+// file manager shows a folder. All three share the same tap, long-press,
+// selection and marking behaviour, which is why they live in one component.
 
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { thumbUrl } from "@/src/lib/gallery";
+import { formatBytes } from "@/src/lib/ladder";
 import MarkButtons, { MarkDot } from "./MarkButtons";
 import type { PhotoMark } from "@/src/lib/photo-marks";
 import {
@@ -40,7 +47,13 @@ export interface Photo {
   ladder?: LadderSources;
   /** ThumbHash, base64. ~25 bytes. */
   thumbhash?: string;
+  /** The name the file was uploaded under ("3M0A1432.png"). */
+  fileName?: string;
+  /** Bytes per download size, when the worker recorded them. */
+  sizes?: { share?: number; full?: number; original?: number };
 }
+
+export type GridLayout = "masonry" | "grid" | "list";
 
 interface PhotoGridProps {
   photos: Photo[];
@@ -66,6 +79,39 @@ interface PhotoGridProps {
   markBusy?: Set<string>;
   /** tx(key, fallback) from the page — see MarkButtons. */
   tx?: (key: string, fallback: string) => string;
+  /** How the photographs are laid out. Default "masonry". */
+  layout?: GridLayout;
+  /**
+   * Masonry only: a line under each photograph, its marks on the left and its
+   * file name on the right. The marks then leave the photograph itself. Grid
+   * and list always show the name, so this does nothing there.
+   */
+  captions?: boolean;
+}
+
+/** Height of the line under a photograph, in px. Also used by the packing. */
+const CAPTION_PX = 32;
+
+/** The name to show for a file: the stored one, else the last piece of its address. */
+function photoName(photo: Photo): string {
+  if (photo.fileName) return photo.fileName;
+  const last = photo.src.split("?")[0].split("/").pop() ?? "";
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+}
+
+/** "6000 × 4000", or "" when the size was never read. */
+function photoDimensions(photo: Photo): string {
+  return photo.width && photo.height ? `${photo.width} × ${photo.height}` : "";
+}
+
+/** The size of the file as uploaded when known, else of the largest copy offered. */
+function photoBytes(photo: Photo): string {
+  const bytes = photo.sizes?.original ?? photo.sizes?.full ?? photo.sizes?.share;
+  return typeof bytes === "number" ? formatBytes(bytes) : "";
 }
 
 const LONG_PRESS_MS = 450;
@@ -104,9 +150,13 @@ export default function PhotoGrid({
   onMark,
   markBusy,
   tx,
+  layout = "masonry",
+  captions = false,
 }: PhotoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(2);
+  // Only used to weigh the caption line against the photographs when packing.
+  const [containerWidth, setContainerWidth] = useState(390);
   const [ratios, setRatios] = useState<Record<string, number>>({});
 
   // Column count follows the container, not the viewport — so the grid still
@@ -116,10 +166,12 @@ export default function PhotoGrid({
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       setCols(columnsForWidth(entry.contentRect.width));
+      setContainerWidth(entry.contentRect.width);
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // Each layout renders its own root element, so observe again when it changes.
+  }, [layout]);
 
   const noteRatio = useCallback((src: string, ratio: number) => {
     setRatios((prev) => (prev[src] ? prev : { ...prev, [src]: ratio }));
@@ -132,6 +184,10 @@ export default function PhotoGrid({
       () => [],
     );
     const heights = new Array(cols).fill(0);
+    // A caption adds the same height to every tile, in the same unit as the
+    // ratios (multiples of the column width). Without it a column of many
+    // short photographs would be packed as if it were shorter than it is.
+    const captionRatio = captions ? CAPTION_PX / Math.max(containerWidth / cols, 1) : 0;
 
     photos.forEach((photo, index) => {
       let shortest = 0;
@@ -139,11 +195,11 @@ export default function PhotoGrid({
         if (heights[i] < heights[shortest]) shortest = i;
       }
       buckets[shortest].push({ photo, index });
-      heights[shortest] += ratioOf(photo, ratios);
+      heights[shortest] += ratioOf(photo, ratios) + captionRatio;
     });
 
     return buckets;
-  }, [photos, cols, ratios]);
+  }, [photos, cols, ratios, captions, containerWidth]);
 
   // A long-press that opens selection must not also count as a tap that opens
   // the lightbox, so the click handler checks this first.
@@ -173,130 +229,292 @@ export default function PhotoGrid({
   if (photos.length === 0) return null;
 
   const thumbWidth = cols <= 2 ? 700 : cols <= 3 ? 620 : 520;
+  const interactive = Boolean(onPhotoClick) || selectable;
+  const label = (key: string, fallback: string) => (tx ? tx(key, fallback) : fallback);
 
+  /** Tap, long-press and the Android image menu: the same for a tile and a row. */
+  const pressHandlers = (photo: Photo, index: number) => ({
+    onClick: () => {
+      // A long-press that opened selection must not also count as a tap.
+      if (pressFired.current) {
+        pressFired.current = false;
+        return;
+      }
+      if (selectionMode) onToggleSelect?.(photo.src);
+      else onPhotoClick?.(index);
+    },
+    onTouchStart: () => startPress(photo.src),
+    onTouchEnd: cancelPress,
+    onTouchMove: cancelPress,
+    onContextMenu: (e: React.MouseEvent) => {
+      // Stop Android's long-press image menu from fighting our own.
+      if (selectable) e.preventDefault();
+    },
+  });
+
+  /**
+   * The photograph itself.
+   *
+   * Format negotiation happens HERE, in the HTML, not at the edge. The browser
+   * picks AVIF or WebP from the <source>, which means every URL maps to exactly
+   * one file and the CDN never has to vary on Accept. No ladder yet and the
+   * <source> is simply not emitted, so the <img> falls back to the Optimizer
+   * URL as before.
+   *
+   * `natural` is the masonry case: the image keeps its own shape, so it carries
+   * width/height (which is what reserves its space before the bytes arrive and
+   * removes the layout shift) and reports its real ratio when none was stored.
+   * Grid and list crop it into a fixed box instead.
+   */
+  const picture = (photo: Photo, sizes: string, className: string, natural: boolean) => (
+    <picture>
+      {hasLadder(photo.ladder) && (
+        <source type="image/avif" sizes={sizes} srcSet={srcSet(photo.ladder, "avif")} />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={
+          hasLadder(photo.ladder)
+            ? fallbackSrc(photo.ladder)
+            : photo.thumbSrc ?? thumbUrl(photo.src, thumbWidth)
+        }
+        srcSet={hasLadder(photo.ladder) ? srcSet(photo.ladder, "webp") : undefined}
+        sizes={hasLadder(photo.ladder) ? sizes : undefined}
+        alt={photo.alt ?? ""}
+        width={natural ? photo.width : undefined}
+        height={natural ? photo.height : undefined}
+        loading="lazy"
+        decoding="async"
+        // Hiding the img uncovers the ThumbHash already painted on the wrapper.
+        // Safe to mutate the node directly: the wrapper is keyed on photo.src.
+        onError={(e) => {
+          e.currentTarget.style.visibility = "hidden";
+        }}
+        onLoad={(e) => {
+          e.currentTarget.style.visibility = "";
+          // Only needed for photos with no stored dimensions.
+          if (!natural || (photo.width && photo.height)) return;
+          const img = e.currentTarget;
+          if (img.naturalWidth > 0) noteRatio(photo.src, img.naturalHeight / img.naturalWidth);
+        }}
+        className={className}
+      />
+    </picture>
+  );
+
+  /** The line under a photograph: its marks on the left, its file name on the right. */
+  const caption = (photo: Photo) => {
+    const name = photoName(photo);
+    const marks = Boolean(onMark && photo.id && tx);
+    return (
+      <div className="flex min-w-0 items-center gap-1.5 px-0.5" style={{ height: CAPTION_PX }}>
+        {onMark && photo.id && tx && (
+          <MarkButtons
+            variant="inline"
+            tx={tx}
+            mark={photo.mark ?? null}
+            busy={markBusy?.has(photo.id) ?? false}
+            onMark={(next) => onMark(photo.id as string, next)}
+          />
+        )}
+        <span
+          title={name}
+          className={`min-w-0 flex-1 truncate text-[11px] text-muted-foreground ${marks ? "text-right" : ""}`}
+        >
+          {name}
+        </span>
+      </div>
+    );
+  };
+
+  /** The round tick on a tile. `size` positions and sizes it for the layout. */
+  const tick = (photo: Photo, isSelected: boolean, size: string) => (
+    <button
+      type="button"
+      aria-label={isSelected ? "Deselect photo" : "Select photo"}
+      aria-pressed={isSelected}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggleSelect?.(photo.src);
+      }}
+      className={`absolute flex items-center justify-center rounded-full border transition ${size} ${
+        isSelected
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-white/60 bg-black/30 text-transparent backdrop-blur-sm hover:border-white"
+      } ${
+        selectionMode || isSelected
+          ? "opacity-100"
+          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+      }`}
+    >
+      <Check className="h-4 w-4" strokeWidth={3} />
+    </button>
+  );
+
+  // ---------------------------------------------------------------- list
+  if (layout === "list") {
+    return (
+      <div ref={containerRef} className="px-3 sm:px-6">
+        {/* Column names, where there is room for columns. */}
+        <div className="hidden h-8 items-center gap-3 border-b border-border px-1 text-[11px] text-muted-foreground sm:flex">
+          <span className="w-10 shrink-0" />
+          <span className="min-w-0 flex-1">{label("gallery.colName", "Name")}</span>
+          <span className="w-28 shrink-0 text-right">{label("gallery.colDimensions", "Dimensions")}</span>
+          <span className="w-20 shrink-0 text-right">{label("gallery.colSize", "Size")}</span>
+          {onMark && tx && <span className="w-[84px] shrink-0" />}
+        </div>
+        <ul className="divide-y divide-border">
+          {photos.map((photo, index) => {
+            const isSelected = selected?.has(photo.src) ?? false;
+            const name = photoName(photo);
+            const dimensions = photoDimensions(photo);
+            const bytes = photoBytes(photo);
+            const meta = [dimensions, bytes].filter(Boolean).join(", ");
+
+            return (
+              <li
+                key={photo.src}
+                className={`flex h-13 items-center gap-3 px-1 transition ${
+                  interactive ? "cursor-pointer hover:bg-foreground/5" : ""
+                } ${isSelected ? "bg-foreground/8" : ""}`}
+                {...pressHandlers(photo, index)}
+              >
+                {selectable && (selectionMode || isSelected) && (
+                  <button
+                    type="button"
+                    aria-label={isSelected ? "Deselect photo" : "Select photo"}
+                    aria-pressed={isSelected}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelect?.(photo.src);
+                    }}
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-foreground/35 text-transparent"
+                    }`}
+                  >
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </button>
+                )}
+                <div
+                  className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-foreground/5"
+                  style={blurStyle(photo.thumbhash)}
+                >
+                  {picture(photo, "40px", "absolute inset-0 h-full w-full object-cover", false)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium leading-tight" title={name}>
+                    {name}
+                  </p>
+                  {meta && (
+                    <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground sm:hidden">
+                      {meta}
+                    </p>
+                  )}
+                </div>
+                <span className="hidden w-28 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block">
+                  {dimensions}
+                </span>
+                <span className="hidden w-20 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block">
+                  {bytes}
+                </span>
+                {onMark && photo.id && tx && (
+                  <MarkButtons
+                    variant="inline"
+                    tx={tx}
+                    mark={photo.mark ?? null}
+                    busy={markBusy?.has(photo.id) ?? false}
+                    onMark={(next) => onMark(photo.id as string, next)}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------- grid
+  if (layout === "grid") {
+    return (
+      <div
+        ref={containerRef}
+        className="grid grid-cols-2 gap-x-3 gap-y-1.5 px-3 sm:grid-cols-3 sm:gap-x-4 sm:px-6 lg:grid-cols-4 xl:grid-cols-5"
+      >
+        {photos.map((photo, index) => {
+          const isSelected = selected?.has(photo.src) ?? false;
+          return (
+            <div key={photo.src} className="min-w-0">
+              <div
+                className={`relative aspect-square overflow-hidden rounded-lg bg-foreground/5 ring-1 ${
+                  isSelected ? "ring-2 ring-primary" : "ring-border"
+                } ${interactive ? "cursor-pointer group" : ""}`}
+                style={blurStyle(photo.thumbhash)}
+                {...pressHandlers(photo, index)}
+              >
+                {picture(
+                  photo,
+                  GRID_SIZES,
+                  `absolute inset-0 h-full w-full object-cover transition-[filter,transform,opacity] duration-200 ${
+                    isSelected ? "scale-[0.94] opacity-80" : ""
+                  } ${interactive ? "group-hover:brightness-90 group-active:brightness-75" : ""}`,
+                  false,
+                )}
+                {selectable && tick(photo, isSelected, "left-1.5 top-1.5 h-6 w-6")}
+              </div>
+              {caption(photo)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------- masonry
   return (
-    <div ref={containerRef} className="flex w-full" style={{ gap: `${gap}px` }}>
+    <div
+      ref={containerRef}
+      className="flex w-full"
+      style={{ gap: `${gap}px`, paddingInline: captions ? `${gap}px` : undefined }}
+    >
       {columns.map((column, colIndex) => (
         <div
           key={colIndex}
           className="flex min-w-0 flex-1 flex-col"
-          style={{ gap: `${gap}px` }}
+          style={{ gap: captions ? 0 : `${gap}px` }}
         >
           {column.map(({ photo, index }) => {
             const isSelected = selected?.has(photo.src) ?? false;
 
-            return (
+            const tile = (
               <div
-                key={photo.src}
+                key={captions ? undefined : photo.src}
                 className={`relative overflow-hidden bg-foreground/5 ${
-                  onPhotoClick || selectable ? "cursor-pointer group" : ""
+                  interactive ? "cursor-pointer group" : ""
                 }`}
                 // The ThumbHash sits UNDER the image rather than being swapped
                 // out when it loads, so there is no "loaded" state to track and
                 // no fade to get wrong. It is also the whole error strategy:
-                // onError below hides the img, which reveals the blur that was
-                // already there instead of the browser painting alt text. Photos are opaque — JPEG, and AVIF/WebP
-                // encoded without alpha — so the moment the real image paints it
-                // covers the placeholder completely.
-                //
-                // Combined with the width/height attributes below, this is what
-                // makes the grid feel instant: every tile has believable content
-                // and correct geometry before a single photo byte arrives.
+                // onError hides the img, which reveals the blur that was
+                // already there instead of the browser painting alt text.
                 style={blurStyle(photo.thumbhash)}
-                onClick={() => {
-                  if (pressFired.current) {
-                    pressFired.current = false;
-                    return;
-                  }
-                  if (selectionMode) onToggleSelect?.(photo.src);
-                  else onPhotoClick?.(index);
-                }}
-                onTouchStart={() => startPress(photo.src)}
-                onTouchEnd={cancelPress}
-                onTouchMove={cancelPress}
-                onContextMenu={(e) => {
-                  // Stop Android's long-press image menu from fighting our own.
-                  if (selectable) e.preventDefault();
-                }}
+                {...pressHandlers(photo, index)}
               >
-                {/* Format negotiation happens HERE, in the HTML, not at the
-                    edge. The browser picks AVIF or WebP from these <source>
-                    elements, which means every URL maps to exactly one file and
-                    the CDN never has to vary on Accept. That single decision is
-                    what makes an edge transform layer unnecessary — it is the
-                    whole reason the Optimizer can be switched off.
-
-                    No ladder yet (or NEXT_PUBLIC_IMAGE_MODE=legacy) and the
-                    <source> elements simply are not emitted, so the <img> falls
-                    back to the Optimizer URL exactly as before. That is the
-                    dual-read: both paths live side by side until every row has
-                    variants. */}
-                <picture>
-                  {hasLadder(photo.ladder) && (
-                    <source
-                      type="image/avif"
-                      sizes={GRID_SIZES}
-                      srcSet={srcSet(photo.ladder, "avif")}
-                    />
-                  )}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                  src={
-                    hasLadder(photo.ladder)
-                      ? fallbackSrc(photo.ladder)
-                      : photo.thumbSrc ?? thumbUrl(photo.src, thumbWidth)
-                  }
-                  srcSet={
-                    hasLadder(photo.ladder)
-                      ? srcSet(photo.ladder, "webp")
-                      : undefined
-                  }
-                  sizes={hasLadder(photo.ladder) ? GRID_SIZES : undefined}
-                  alt={photo.alt ?? ""}
-                  // With `h-auto w-full` in the class list, these two attributes
-                  // give the browser an aspect ratio to reserve space from
-                  // before the bytes arrive. This is what actually removes the
-                  // layout shift — the column packing above only decides which
-                  // column a photo lands in, not how tall its box is while it
-                  // loads. Omitted entirely when unknown, because a wrong pair
-                  // is worse than none.
-                  width={photo.width}
-                  height={photo.height}
-                  loading="lazy"
-                  decoding="async"
-                  // Hiding the img uncovers the ThumbHash already painted on
-                  // the wrapper. The alt attribute stays for screen readers —
-                  // it just stops being drawn. Safe to mutate the node directly:
-                  // the wrapper is keyed on photo.src, so a different photograph
-                  // is a different element and cannot inherit this.
-                  onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-                  onLoad={(e) => {
-                    e.currentTarget.style.visibility = "";
-                    // Only needed for photos with no stored dimensions. Skipping
-                    // it otherwise avoids a pointless setState per image on
-                    // every gallery render.
-                    if (photo.width && photo.height) return;
-                    const img = e.currentTarget;
-                    if (img.naturalWidth > 0) {
-                      noteRatio(photo.src, img.naturalHeight / img.naturalWidth);
-                    }
-                  }}
-                  className={`block h-auto w-full transition-[filter,transform,opacity] duration-200 ${
+                {picture(
+                  photo,
+                  GRID_SIZES,
+                  `block h-auto w-full transition-[filter,transform,opacity] duration-200 ${
                     isSelected ? "scale-[0.94] opacity-80" : ""
-                  } ${
-                    onPhotoClick || selectable
-                      ? "group-hover:brightness-75 group-active:brightness-50"
-                      : ""
-                  }`}
-                  />
-                </picture>
+                  } ${interactive ? "group-hover:brightness-75 group-active:brightness-50" : ""}`,
+                  true,
+                )}
 
-                {/* Marking. Always visible rather than revealed on hover:
-                    this is the job the client came to do, and on a phone there
-                    is no hover to reveal anything with. The row sits at the
-                    bottom so it never covers a face, and the tile's own click
-                    handler is stopped inside MarkButtons. */}
-                {onMark && photo.id && tx && (
+                {/* Marking laid over the photograph: only when there is no
+                    caption line to carry it. Always visible rather than
+                    revealed on hover, because on a phone there is no hover. */}
+                {!captions && onMark && photo.id && tx && (
                   <>
                     <MarkDot mark={photo.mark ?? null} />
                     <div className="absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
@@ -316,28 +534,17 @@ export default function PhotoGrid({
                     {isSelected && (
                       <div className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-white" />
                     )}
-                    <button
-                      type="button"
-                      aria-label={isSelected ? "Deselect photo" : "Select photo"}
-                      aria-pressed={isSelected}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleSelect?.(photo.src);
-                      }}
-                      className={`absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border transition ${
-                        isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-white/60 bg-black/30 text-transparent backdrop-blur-sm hover:border-white"
-                      } ${
-                        selectionMode || isSelected
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      }`}
-                    >
-                      <Check className="h-4 w-4" strokeWidth={3} />
-                    </button>
+                    {tick(photo, isSelected, "left-2 top-2 h-7 w-7")}
                   </>
                 )}
+              </div>
+            );
+
+            if (!captions) return tile;
+            return (
+              <div key={photo.src} className="min-w-0">
+                {tile}
+                {caption(photo)}
               </div>
             );
           })}
