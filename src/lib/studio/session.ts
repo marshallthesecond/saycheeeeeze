@@ -20,6 +20,8 @@ export interface StudioAccount {
   storageUsedBytes: number;
   /** null = no limit. */
   storageQuotaBytes: number | null;
+  /** Folder in the storage zone this account's files sit under. '' = the zone root. */
+  storagePrefix: string;
 }
 
 export interface StudioSession {
@@ -59,7 +61,7 @@ export const getStudioState = cache(async (): Promise<StudioState> => {
   const [accounts, members] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id, username, display_name, plan, status, storage_used_bytes, storage_quota_bytes")
+      .select("id, username, display_name, plan, status, storage_used_bytes, storage_quota_bytes, storage_prefix")
       .eq("status", "active")
       .order("created_at", { ascending: true }),
     supabase.from("account_members").select("account_id, role").eq("user_id", user.id),
@@ -92,6 +94,7 @@ export const getStudioState = cache(async (): Promise<StudioState> => {
         plan: account.plan,
         storageUsedBytes: account.storage_used_bytes,
         storageQuotaBytes: account.storage_quota_bytes,
+        storagePrefix: account.storage_prefix,
       },
     },
   };

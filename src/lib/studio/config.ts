@@ -5,6 +5,12 @@
 
 export const STUDIO_HOME = "/studio";
 export const STUDIO_LOGIN = "/studio/login";
+export const STUDIO_NEW_GALLERY = "/studio/new";
+
+/** A gallery's page in the Studio. `tab` is "settings" or "access". */
+export function studioGalleryPath(slug: string, tab?: "settings" | "access"): string {
+  return `/studio/g/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}`;
+}
 
 /** "/studio" and everything under it, but not "/studios" or "/studio-x". */
 export function isStudioPath(pathname: string): boolean {

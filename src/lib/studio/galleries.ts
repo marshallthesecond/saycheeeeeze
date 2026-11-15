@@ -28,7 +28,7 @@ export interface StudioGallery {
   slug: string;
   title: string;
   kind: GalleryKind;
-  /** A passkey is required to open it. */
+  /** Not open to everyone. For a client gallery: a passkey is required. */
   isPrivate: boolean;
   isPublished: boolean;
   photoCount: number;
@@ -42,7 +42,7 @@ export interface StudioGallery {
 
 const PUBLIC_CDN = (process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE ?? "").replace(/\/$/, "");
 
-interface CoverRow {
+export interface CoverRow {
   id: string;
   gallery_id: string;
   storage_path: string;
@@ -52,7 +52,7 @@ interface CoverRow {
   ladder_rev: number | null;
 }
 
-const COVER_COLUMNS = "id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev";
+export const COVER_COLUMNS = "id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev";
 
 /**
  * The cover's optimized versions, from the public zone for an album and from
@@ -61,7 +61,7 @@ const COVER_COLUMNS = "id, gallery_id, storage_path, checksum8, thumbhash, varia
  * Keyed on the gallery's KIND, never its visibility, for the reason given at
  * derivativePrefix(): that is where the files physically are.
  */
-function coverLadder(kind: GalleryKind, row: CoverRow, expiresAt: number): LadderSources | undefined {
+export function coverLadder(kind: GalleryKind, row: CoverRow, expiresAt: number): LadderSources | undefined {
   const variants = parseVariants(row.variants);
   if (!row.checksum8 || variants.length === 0) return undefined;
 
@@ -80,6 +80,11 @@ function coverLadder(kind: GalleryKind, row: CoverRow, expiresAt: number): Ladde
 
   if (!PUBLIC_CDN) return undefined;
   return { base: `${PUBLIC_CDN}/${prefix}`, widths, query: "" };
+}
+
+/** A gallery's page on the public site, without the language prefix. */
+export function publicPath(kind: GalleryKind, slug: string): string {
+  return kind === "client" ? `/galleries/${slug}` : `/albums/${slug}`;
 }
 
 export async function listStudioGalleries(session: StudioSession): Promise<StudioGallery[]> {
@@ -147,14 +152,16 @@ export async function listStudioGalleries(session: StudioSession): Promise<Studi
       slug: r.slug,
       title: r.title,
       kind,
-      isPrivate: r.visibility === "private",
+      // Anything that is not exactly 'public' is closed, the same reading the
+      // site itself takes (visibilityOf() in client-galleries.ts).
+      isPrivate: r.visibility !== "public",
       isPublished: r.is_published,
       photoCount: countOf(r),
       dateLabel: r.date_label || r.year || "",
       accent: r.accent_color,
       cover: cover ? coverLadder(kind, cover, expiresAt) : undefined,
       coverThumbhash: cover?.thumbhash ?? undefined,
-      href: kind === "client" ? `/galleries/${r.slug}` : `/albums/${r.slug}`,
+      href: publicPath(kind, r.slug),
     };
   });
 }

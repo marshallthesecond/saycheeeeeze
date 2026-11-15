@@ -13,6 +13,11 @@
 // accent_color, location, year, date_label, client_note) are set only when a
 // folder first appears and then left alone — deleting the folder in Bunny
 // deletes the row and those edits with it.
+//
+// One exception to "no folder, no row": a gallery made in the Studio exists
+// before its folder does (the row and its passkeys come first, the files are
+// uploaded afterwards). While it has no photos it is waiting, not abandoned,
+// and is left alone. See studioMadeAndEmpty() below.
 
 import { createClient } from "@supabase/supabase-js";
 import { imageSize } from "image-size";
@@ -372,11 +377,47 @@ async function main() {
   // Scoped to the subtree walked, so --folder=X never touches rows outside it.
   const inScope = (f: string) => !ONLY || f === ONLY || f.startsWith(ONLY + "/");
 
-  const doomed = rows.filter((r) => {
+  const missing = rows.filter((r) => {
     const f = norm(r.bunny_folder);
     if (f === null) return false; // handled as an orphan below
     return inScope(f) && !zone.has(f);
   });
+
+  // A gallery made in the Studio gets its row, and often a passkey that has
+  // already been sent to the client, before a single file is uploaded. Its
+  // folder is not in the zone yet, which is exactly what "doomed" means, and
+  // deleting it would take the passkey with it. So: made in the Studio AND
+  // still without photos = waiting for its files, not deleted. Once it has
+  // photos the ordinary rule applies again, and removing the folder in Bunny
+  // removes the gallery as it always did.
+  //
+  // created_by arrived with 20261115100000_studio_gallery_writes.sql. On a
+  // database without it nothing was made in the Studio, so nothing waits.
+  async function studioMadeAndEmpty(ids: string[]): Promise<Set<string>> {
+    const out = new Set<string>();
+    if (ids.length === 0 || !columns.has("created_by")) return out;
+
+    const { data, error } = await db
+      .from("galleries")
+      .select("id, photos(count)")
+      .in("id", ids)
+      .not("created_by", "is", null);
+    // Not knowing is not a reason to delete.
+    if (error) throw error;
+
+    const made = (data ?? []) as unknown as {
+      id: string;
+      photos: { count: number }[] | null;
+    }[];
+    for (const g of made) {
+      if ((g.photos?.[0]?.count ?? 0) === 0) out.add(g.id);
+    }
+    return out;
+  }
+
+  const waitingIds = await studioMadeAndEmpty(missing.map((r) => r.id));
+  const waiting = missing.filter((r) => waitingIds.has(r.id));
+  const doomed = missing.filter((r) => !waitingIds.has(r.id));
 
   // Rows with no bunny_folder at all. Nothing in the zone backs them, but they
   // are also not something this script created, so they survive unless asked.
@@ -436,6 +477,12 @@ async function main() {
   }
   for (const d of doomed) {
     console.log(`  - ${d.slug.padEnd(24)}         ${d.bunny_folder}`);
+  }
+  for (const w of waiting) {
+    console.log(
+      `  ~ ${w.slug.padEnd(24)}         ${w.bunny_folder}  ` +
+        `(made in the Studio, no files yet: kept)`,
+    );
   }
   for (const o of orphans) {
     console.log(`  - ${o.slug.padEnd(24)}         (orphan, no folder)`);
