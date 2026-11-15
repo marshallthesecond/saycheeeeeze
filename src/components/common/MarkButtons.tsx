@@ -21,11 +21,14 @@ import {
   type PhotoMark,
 } from "@/src/lib/photo-marks";
 
-const ICONS: Record<PhotoMark, React.ComponentType<{ className?: string }>> = {
+/** One icon per mark. Exported so the filter above the grid shows the same
+ *  three pictures the buttons under each photograph do. */
+export const MARK_ICONS: Record<PhotoMark, React.ComponentType<{ className?: string }>> = {
   keep: Check,
   publish: Globe,
   delete: Trash2,
 };
+const ICONS = MARK_ICONS;
 
 /**
  * Colour per mark, on the pressed state only.
@@ -56,9 +59,10 @@ export interface MarkButtonsProps {
   /** AlbumView's tx(key, fallback). Passed in rather than imported so this
    *  component does not pull the dictionary into every surface that uses it. */
   tx: (key: string, fallback: string) => string;
-  /** `tile` is the compact row over a grid photograph; `bar` is the lightbox,
-   *  where there is room for the words. */
-  variant?: "tile" | "bar";
+  /** `tile` is the dark pill laid over a photograph; `bar` is the lightbox;
+   *  `inline` sits on the page itself, in the caption under a photograph or
+   *  in a list row, so it takes the theme's colours rather than white. */
+  variant?: "tile" | "bar" | "inline";
   /** True while this photograph's request is in flight. */
   busy?: boolean;
 }
@@ -71,13 +75,16 @@ export default function MarkButtons({
   busy = false,
 }: MarkButtonsProps) {
   const tile = variant === "tile";
+  const inline = variant === "inline";
 
   return (
     <div
       className={
         tile
           ? "flex items-center gap-1 rounded-full bg-black/65 p-1 backdrop-blur-sm"
-          : "flex items-center gap-1.5"
+          : inline
+            ? "flex shrink-0 items-center"
+            : "flex items-center gap-1"
       }
       // The grid tile is a click target that opens the lightbox; without this
       // every mark press would also open the photograph it just marked.
@@ -102,16 +109,32 @@ export default function MarkButtons({
             }}
             className={[
               "flex shrink-0 items-center justify-center transition disabled:opacity-40",
-              tile
-                ? "h-7 w-7 rounded-full"
-                : "min-h-11 gap-1.5 rounded-full px-3 text-xs font-semibold",
-              active
-                ? `${ON[value]} ring-1`
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white",
+              tile || inline ? "h-7 w-7 rounded-full" : "h-8 w-8 rounded-full",
+              inline
+                ? active
+                  ? ""
+                  : "text-foreground/45 hover:text-foreground"
+                : active
+                  ? `${ON[value]} ring-1`
+                  : tile
+                    ? "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                    // In the lightbox: icon only, no button shape until chosen.
+                    : "text-white/70 hover:text-white",
             ].join(" ")}
           >
-            <Icon className={tile ? "h-3.5 w-3.5" : "h-4 w-4"} />
-            {!tile && <span>{label}</span>}
+            {inline ? (
+              // The target stays 28px; the coloured disc inside it is 22px, so
+              // three of them in a row do not read as one blob.
+              <span
+                className={`flex h-[22px] w-[22px] items-center justify-center rounded-full ${
+                  active ? ON[value] : ""
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+            ) : (
+              <Icon className={tile ? "h-3.5 w-3.5" : "h-4 w-4"} />
+            )}
           </button>
         );
       })}

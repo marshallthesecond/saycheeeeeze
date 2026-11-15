@@ -273,6 +273,7 @@ export type Database = {
           client_note: string | null
           cover_path: string | null
           created_at: string
+          created_by: string | null
           date_label: string
           description: string
           download_enabled: boolean
@@ -300,6 +301,7 @@ export type Database = {
           client_note?: string | null
           cover_path?: string | null
           created_at?: string
+          created_by?: string | null
           date_label?: string
           description?: string
           download_enabled?: boolean
@@ -327,6 +329,7 @@ export type Database = {
           client_note?: string | null
           cover_path?: string | null
           created_at?: string
+          created_by?: string | null
           date_label?: string
           description?: string
           download_enabled?: boolean
@@ -603,6 +606,37 @@ export type Database = {
       reset_stale_photo_claims: {
         Args: { older_than?: unknown }
         Returns: number
+      }
+      studio_create_gallery: {
+        Args: {
+          p_account_id: string
+          p_category?: string
+          p_date_label?: string
+          p_kind: string
+          p_location?: string
+          p_passkey?: string
+          p_passkey_label?: string
+          p_slug: string
+          p_title: string
+        }
+        Returns: string
+      }
+      studio_create_passkey: {
+        Args: {
+          p_code: string
+          p_expires_at?: string
+          p_gallery_id: string
+          p_label?: string
+        }
+        Returns: string
+      }
+      studio_delete_gallery: {
+        Args: { p_gallery_id: string }
+        Returns: undefined
+      }
+      studio_set_cover: {
+        Args: { p_gallery_id: string; p_photo_id?: string }
+        Returns: undefined
       }
       unlock_gallery: {
         Args: { p_code: string; p_ip: string; p_slug: string }

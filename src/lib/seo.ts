@@ -27,7 +27,7 @@ import { locales, localeHreflang, defaultLocale, type Locale } from "./i18n/conf
 
 /** No trailing slash — every URL here is built by concatenation. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.uz"
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio"
 ).replace(/\/+$/, "");
 
 /**

@@ -1,10 +1,12 @@
-// /studio — the Galleries screen. Read-only for now: it lists what is in the
-// account. Creating and editing galleries is the next step.
+// /studio — the Galleries screen: everything in the account, and the way in
+// to each gallery and to making a new one.
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import GalleryCard from "@/src/components/studio/GalleryCard";
-import { STUDIO_HOME } from "@/src/lib/studio/config";
+import { BUTTON_PRIMARY } from "@/src/components/studio/fields";
+import { STUDIO_HOME, STUDIO_NEW_GALLERY } from "@/src/lib/studio/config";
 import { listStudioGalleries } from "@/src/lib/studio/galleries";
 import { getStudioDictionary, translator } from "@/src/lib/studio/i18n";
 import { getStudioLocale } from "@/src/lib/studio/locale";
@@ -52,7 +54,16 @@ export default async function StudioGalleriesPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold leading-tight">{t("galleries.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold leading-tight">{t("galleries.title")}</h1>
+        <Link
+          href={filter === "client" ? `${STUDIO_NEW_GALLERY}?type=client` : STUDIO_NEW_GALLERY}
+          className={BUTTON_PRIMARY}
+        >
+          <Plus aria-hidden className="size-4" />
+          {t("galleries.new")}
+        </Link>
+      </div>
 
       {/* One line that scrolls sideways rather than wrapping, like the chips
           on the public site. */}
@@ -92,6 +103,7 @@ export default async function StudioGalleriesPage({
                   kindAlbum: t("galleries.kindAlbum"),
                   kindClient: t("galleries.kindClient"),
                   private: t("galleries.private"),
+                  open: t("galleries.open"),
                   hidden: t("galleries.hidden"),
                   view: t("galleries.view"),
                   photos: photosLabel(g.photoCount),

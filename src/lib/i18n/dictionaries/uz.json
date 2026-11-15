@@ -365,7 +365,15 @@
     "markHint": "Bu belgilar — fotograf uchun eslatma. U ko‘rib chiqmaguncha suratga hech narsa bo‘lmaydi — istalgan vaqtda fikringizni o‘zgartirishingiz mumkin.",
     "filterAll": "Hammasi",
     "filterUnmarked": "Belgilanmagan",
-    "filterEmpty": "Bunday belgi bilan hozircha hech narsa yo‘q."
+    "filterEmpty": "Bunday belgi bilan hozircha hech narsa yo‘q.",
+    "layout": "Ko'rinish",
+    "layoutMasonry": "Mozaika",
+    "layoutGrid": "Katakcha",
+    "layoutList": "Ro'yxat",
+    "colName": "Nomi",
+    "colDimensions": "O'lchami",
+    "colSize": "Hajmi",
+    "swipeHint": "Yon tomonga suring, yopish uchun tepaga suring"
   },
   "gate": {
     "eyebrow": "Yopiq galereya",

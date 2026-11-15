@@ -53,7 +53,7 @@ const cyrillicSerif = Playfair_Display({
 // NEXT_PUBLIC_SITE_URL is the production domain. metadataBase resolves
 // relative OG image paths to absolute URLs, which social platforms require —
 // without it, shared links show no preview image.
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.uz";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

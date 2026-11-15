@@ -27,7 +27,7 @@ const ITEMS: Item[] = [
     href: STUDIO_HOME,
     label: "nav.galleries",
     Icon: Images,
-    matches: (p) => p === STUDIO_HOME || p.startsWith(`${STUDIO_HOME}/galleries`),
+    matches: (p) => p === STUDIO_HOME || p === `${STUDIO_HOME}/new` || p.startsWith(`${STUDIO_HOME}/g/`),
   },
 ];
 

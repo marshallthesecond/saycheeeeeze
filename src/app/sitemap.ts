@@ -8,7 +8,7 @@ import { getAllAlbumSlugs } from "@/src/lib/albums";
 import { getAllServiceSlugs } from "@/src/lib/services";
 import { locales, localeHreflang } from "@/src/lib/i18n/config";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.uz";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio";
 
 /** One sitemap entry per locale, each pointing at all the others. */
 function localised(
