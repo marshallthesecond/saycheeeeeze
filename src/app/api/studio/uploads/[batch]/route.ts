@@ -1,6 +1,6 @@
 // One drop of files.
 //
-//   GET  /api/studio/uploads/<batch>    the drop and every file in it
+//   GET  /api/studio/uploads/<batch>    the drop, every file in it, and the worker
 //   POST /api/studio/uploads/<batch>    { action: "retry", uploadId }
 //                                       { action: "cancel", uploadIds? }   all when left out
 //                                       { action: "renew" }   new tickets for files still on their way
@@ -9,6 +9,7 @@ import {
   UploadRefused,
   cancelUploads,
   getUploadBatch,
+  getWorkerStatus,
   renewUploadTickets,
   retryUpload,
 } from "@/src/lib/studio/uploads";
@@ -26,9 +27,9 @@ export async function GET(_req: Request, { params }: Ctx): Promise<Response> {
   const { batch } = await params;
   if (!isUuid(batch)) return json(404, { error: "not_found" });
 
-  const found = await getUploadBatch(session, batch);
+  const [found, worker] = await Promise.all([getUploadBatch(session, batch), getWorkerStatus()]);
   if (!found) return json(404, { error: "not_found" });
-  return json(200, found);
+  return json(200, { ...found, worker });
 }
 
 export async function POST(req: Request, { params }: Ctx): Promise<Response> {

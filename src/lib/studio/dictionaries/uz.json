@@ -4,7 +4,8 @@
     "galleries": "Galereyalar",
     "viewSite": "Saytni ochish",
     "signOut": "Chiqish",
-    "language": "Til"
+    "language": "Til",
+    "uploads": "Yuklashlar"
   },
   "login": {
     "title": "Studiyaga kirish",
@@ -45,7 +46,8 @@
     "saved": "Saqlandi",
     "cancel": "Bekor qilish",
     "copy": "Nusxalash",
-    "copied": "Nusxalandi"
+    "copied": "Nusxalandi",
+    "close": "Yopish"
   },
   "newGallery": {
     "title": "Yangi galereya",
@@ -94,8 +96,6 @@
     "notFoundBlurb": "U o'chirilgan yoki manzil noto'g'ri bo'lishi mumkin.",
     "photos": {
       "empty": "Hali surat yo'q",
-      "emptyBlurb": "Studiyadan yuklash keyingi bosqichda qo'shiladi. Hozircha fayllarni xotiradagi shu papkaga joylang va avvalgidek reseed hamda build-ladder ni ishga tushiring. Suratlar shu galereyaga tushadi.",
-      "folder": "Xotiradagi papka",
       "cover": "Muqova",
       "setCover": "Muqova qilish",
       "coverHint": "Muqova birinchi bo'lib va galereya plitkasida ko'rsatiladi."
@@ -194,5 +194,129 @@
     "title": "Nimadir xato ketdi",
     "blurb": "Sahifani yuklab bo'lmadi. Hech narsa o'zgarmadi.",
     "retry": "Qayta urinish"
+  },
+  "units": {
+    "kb": "{n} KB",
+    "mb": "{n} MB",
+    "gb": "{n} GB"
+  },
+  "shell": {
+    "workerOn": "Ishlovchi yoqilgan",
+    "workerOff": "Ishlovchi o'chiq",
+    "stored": "xotirada {size}"
+  },
+  "upload": {
+    "title": "Yuklashlar",
+    "dropTitle": "Suratlarni shu yerga tashlang",
+    "rules": "JPEG yoki PNG, har biri 100 MB gacha, bir martada 500 tagacha.",
+    "choose": "Fayllarni tanlash",
+    "add": "Surat qo'shish",
+    "dropAnywhere": "Yoki fayllarni sahifaning istalgan joyiga tashlang.",
+    "dropHere": "Shu galereyaga yuklash uchun qo'yib yuboring",
+    "workerOn": "Ishlovchi yoqilgan",
+    "workerOff": "Ishlovchi o'chiq",
+    "workerOffHint": "Yuklash uchun kompyuteringizda ishlovchi dastur ishlab turishi kerak. Loyiha papkasida buyruqni bering:",
+    "starting": "Fayllar tayyorlanmoqda…",
+    "tryAgain": "Qayta urinish",
+    "resumeTitle": "Ba'zi fayllar oxirigacha yuborilmadi",
+    "resumeBlurb": "Fayllar soni: {n}. Sahifa yopilganda yoki yangilanganda yuborish to'xtadi. Xuddi shu fayllarni qayta tanlang, ular to'xtagan joyidan davom etadi.",
+    "resumeChoose": "Qayta tanlash",
+    "resumeCancel": "Ularni bekor qilish",
+    "summary": {
+      "ready": "{total} tadan {n} tasi tayyor",
+      "sending": "yuborilmoqda: {n}",
+      "failed": "xato: {n}",
+      "skipped": "galereyada bor: {n}",
+      "refused": "qabul qilinmadi: {n}",
+      "cancelled": "bekor qilindi: {n}"
+    },
+    "retryFailed": "Xatolarni qayta urinish",
+    "cancelRest": "Qolganini bekor qilish",
+    "clear": "Tayyorlarini olib tashlash",
+    "sendingBar": "Yuborish",
+    "retry": "Qayta urinish",
+    "cancel": "Bekor qilish",
+    "state": {
+      "waiting": "Kutmoqda",
+      "uploading": "Yuborilmoqda, {n}%",
+      "queued": "Navbatda",
+      "processing": "Ishlanmoqda",
+      "ready": "Tayyor",
+      "failed": "Xato",
+      "skipped": "Galereyada bor",
+      "cancelled": "Bekor qilindi",
+      "needs_file": "Qayta tanlang",
+      "paused": "To'xtatildi",
+      "refused": "Qabul qilinmadi"
+    },
+    "problem": {
+      "type": "JPEG ham, PNG ham emas",
+      "size": "100 MB dan katta",
+      "empty": "Bo'sh fayl"
+    },
+    "fileError": {
+      "not_an_image": "Ishlovchi suratni o'qiy olmadi",
+      "type_mismatch": "Nomida JPEG, fayl esa PNG, yoki aksincha",
+      "checksum": "Buzilib keldi, qayta yuboring",
+      "file_missing": "Ishlovchida u endi yo'q, qayta yuboring",
+      "storage": "Xotira javob bermadi",
+      "database": "Ma'lumotlar bazasi javob bermadi",
+      "site": "Saytni yangilab bo'lmadi",
+      "internal": "Nimadir xato ketdi",
+      "duplicate": "Galereyada bor",
+      "too_large": "100 MB dan katta"
+    },
+    "errors": {
+      "worker_offline": "Kompyuteringizda ishlovchi dastur ishga tushmagan. pnpm worker bilan ishga tushiring va qayta urining.",
+      "door_unreachable": "Shu kompyuterdagi ishlovchiga ulanib bo'lmayapti. pnpm worker ishlayotganini tekshiring. Agar brauzer saytga shu qurilmadagi ilovalarga ulanishga ruxsat so'rasa, ruxsat bering.",
+      "network": "Studiya bilan aloqa yo'q. Internetni tekshirib, qayta urining.",
+      "quota": "Bu fayllar uchun xotirada joy yetmaydi.",
+      "no_folder": "Bu galereyaning xotirada o'z papkasi yo'q, unga yuklab bo'lmaydi.",
+      "folder_not_private": "Bu mijoz galereyasining papkasi clients/ ichida emas, suratlar hammaga ochiq bo'lib qolardi. Unga yuklash taqiqlangan.",
+      "too_many_files": "Bir martada 500 tagacha fayl. Qolganini keyin tashlang.",
+      "refused_files": "Ba'zi fayllar qabul qilinmadi. Faqat 100 MB gacha JPEG va PNG.",
+      "files": "Ba'zi fayllar qabul qilinmadi. Faqat 100 MB gacha JPEG va PNG.",
+      "file_name": "Ba'zi fayllar qabul qilinmadi. Faqat 100 MB gacha JPEG va PNG.",
+      "file_type": "Ba'zi fayllar qabul qilinmadi. Faqat 100 MB gacha JPEG va PNG.",
+      "file_size": "Ba'zi fayllar qabul qilinmadi. Faqat 100 MB gacha JPEG va PNG.",
+      "not_found": "Bu galereya endi yo'q.",
+      "not_member": "Bu galereya endi yo'q.",
+      "signed_out": "Akkauntdan chiqib ketdingiz. Qayta kiring va fayllarni yana tashlang.",
+      "no_account": "Bu kirish studiyaga ulanmagan.",
+      "unavailable": "Studiya hozir ma'lumotlar bazasiga ulana olmayapti. Birozdan keyin urinib ko'ring.",
+      "no_match": "Bu fayllar orasida to'xtab qolganlari yo'q. Xuddi shu nomdagi fayllarni tanlang.",
+      "not_failed": "Bu fayl endi xato holatida emas.",
+      "cannot_retry": "Bu faylni qayta urinish bilan tuzatib bo'lmaydi.",
+      "failed": "Amalga oshmadi, hech narsa o'zgarmadi. Qayta urinib ko'ring."
+    }
+  },
+  "uploads": {
+    "title": "Yuklashlar",
+    "blurb": "Studiyadan barcha yuklashlar, yangilari tepada.",
+    "empty": "Studiyadan hali hech narsa yuklanmagan.",
+    "worker": "Ishlovchi dastur",
+    "workerOn": "Yoqilgan, {name}",
+    "workerOff": "O'chiq",
+    "lastSeen": "oxirgi marta {when}",
+    "never": "hali ishga tushmagan",
+    "hint": "Yuklash uchun uni kompyuteringizda ishga tushiring:",
+    "storage": "Xotirada",
+    "status": {
+      "uploading": "Yuborilmoqda",
+      "processing": "Ishlanmoqda",
+      "done": "Tayyor",
+      "cancelled": "Bekor qilindi"
+    },
+    "filesOne": "{n} ta fayl",
+    "filesMany": "{n} ta fayl",
+    "ready": "tayyor: {n}",
+    "failed": "xato: {n}",
+    "skipped": "galereyada bor: {n}",
+    "cancelled": "bekor qilindi: {n}",
+    "failedFiles": "Xato bo'lgan fayllar",
+    "retry": "Qayta urinish",
+    "retried": "Yana navbatda",
+    "resend": "Uni galereya sahifasida qayta qo'shing",
+    "unavailable": "Yuklashlarni hali ko'rsatib bo'lmaydi: bazada yuklashlar uchun yangilanish yo'q (20261116090000_studio_uploads.sql)."
   }
 }

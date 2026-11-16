@@ -1,15 +1,17 @@
-// A gallery's Photos tab: what is in it, and which photo is the cover.
-// Read-only apart from the cover until uploading arrives.
+// A gallery's Photos tab: uploading into it, what is in it, and which photo
+// is the cover.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
-import CopyButton from "@/src/components/studio/CopyButton";
 import { PendingButton } from "@/src/components/studio/FormFeedback";
+import UploadPanel from "@/src/components/studio/UploadPanel";
 import { setCover } from "@/src/app/studio/gallery-actions";
 import { getStudioGallery, listStudioPhotos } from "@/src/lib/studio/gallery";
 import { getStudioDictionary, translator } from "@/src/lib/studio/i18n";
 import { getStudioLocale } from "@/src/lib/studio/locale";
+import { requireStudio } from "@/src/lib/studio/session";
+import { getWorkerStatus, unfinishedUploads } from "@/src/lib/studio/uploads";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -22,31 +24,31 @@ export default async function GalleryPhotosPage({ params }: Props) {
   const gallery = await getStudioGallery(decodeURIComponent((await params).slug));
   if (!gallery) notFound();
 
+  const session = await requireStudio();
   const t = translator(await getStudioDictionary(await getStudioLocale()));
-  const photos = await listStudioPhotos(gallery);
+  // Uploading is optional on this page: if the database has not had the
+  // uploads migration yet, the photos still show and the panel says nothing.
+  const [photos, pending, worker] = await Promise.all([
+    listStudioPhotos(gallery),
+    unfinishedUploads(session, gallery.id).catch(() => []),
+    getWorkerStatus().catch(() => null),
+  ]);
 
-  if (photos.length === 0) {
-    return (
-      <div className="max-w-prose">
-        <h2 className="text-base font-semibold">{t("gallery.photos.empty")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t("gallery.photos.emptyBlurb")}</p>
-        {gallery.folder && (
-          <dl className="mt-5">
-            <dt className="text-[13px] text-muted-foreground">{t("gallery.photos.folder")}</dt>
-            <dd className="mt-1 flex flex-wrap items-center gap-3">
-              <code className="min-w-0 break-all rounded-lg bg-foreground/6 px-3 py-2 font-mono text-sm">
-                {gallery.folder}
-              </code>
-              <CopyButton text={gallery.folder} />
-            </dd>
-          </dl>
-        )}
-      </div>
-    );
-  }
+  const panel = (
+    <UploadPanel
+      galleryId={gallery.id}
+      canUpload={Boolean(gallery.folder)}
+      hasPhotos={photos.length > 0}
+      pending={pending}
+      worker={worker ? { online: worker.online, name: worker.name } : null}
+    />
+  );
+
+  if (photos.length === 0) return panel;
 
   return (
     <>
+      {panel}
       <p className="text-sm text-muted-foreground">{t("gallery.photos.coverHint")}</p>
       <ul className="mt-4 grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-x-3 lg:grid-cols-5 2xl:grid-cols-6">
         {photos.map((photo) => (

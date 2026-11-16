@@ -78,6 +78,8 @@ export interface UploadFileView {
 export interface UploadBatchView {
   id: string;
   galleryId: string;
+  /** Filled by listUploadBatches(). */
+  gallery?: { slug: string; title: string } | null;
   status: "uploading" | "processing" | "done" | "cancelled";
   fileCount: number;
   totalBytes: number;
@@ -227,6 +229,9 @@ export async function cancelUploads(batchId: string, uploadIds?: string[]): Prom
 
 const BATCH_COLUMNS =
   "id, gallery_id, status, file_count, total_bytes, ready_count, failed_count, skipped_count, cancelled_count, created_at, finished_at";
+// ONE string literal: supabase-js reads the columns from it at the type level.
+const BATCH_WITH_GALLERY =
+  "id, gallery_id, status, file_count, total_bytes, ready_count, failed_count, skipped_count, cancelled_count, created_at, finished_at, galleries(slug, title)";
 
 type BatchRow = {
   id: string;
@@ -240,12 +245,15 @@ type BatchRow = {
   cancelled_count: number;
   created_at: string;
   finished_at: string | null;
+  galleries?: { slug: string; title: string } | { slug: string; title: string }[] | null;
 };
 
 function toBatch(r: BatchRow): UploadBatchView {
+  const g = Array.isArray(r.galleries) ? r.galleries[0] : r.galleries;
   return {
     id: r.id,
     galleryId: r.gallery_id,
+    ...(r.galleries !== undefined ? { gallery: g ? { slug: g.slug, title: g.title } : null } : {}),
     status: r.status as UploadBatchView["status"],
     fileCount: r.file_count,
     totalBytes: Number(r.total_bytes),
@@ -306,14 +314,77 @@ export async function listUploadBatches(
   const supabase = await studioSupabase();
   let q = supabase
     .from("upload_batches")
-    .select(BATCH_COLUMNS)
+    .select(BATCH_WITH_GALLERY)
     .eq("account_id", session.account.id)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(options.limit ?? 20, 1), 100));
   if (options.galleryId) q = q.eq("gallery_id", options.galleryId);
   const { data, error } = await q;
   if (error) throw new Error(`Studio: could not load the uploads: ${error.message}`);
-  return ((data ?? []) as BatchRow[]).map(toBatch);
+  return ((data ?? []) as unknown as BatchRow[]).map(toBatch);
+}
+
+/** A failed file, for the Uploads screen. */
+export interface FailedUpload {
+  id: string;
+  batchId: string;
+  name: string;
+  error: string | null;
+  errorDetail: string | null;
+}
+
+/** The failed files of these drops. */
+export async function listFailedUploads(session: StudioSession, batchIds: string[]): Promise<FailedUpload[]> {
+  if (batchIds.length === 0) return [];
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase
+    .from("uploads")
+    .select("id, batch_id, original_name, error, error_detail")
+    .eq("account_id", session.account.id)
+    .eq("status", "failed")
+    .in("batch_id", batchIds)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(`Studio: could not load the failed files: ${error.message}`);
+  return (data ?? []).map((u) => ({
+    id: u.id,
+    batchId: u.batch_id,
+    name: u.original_name,
+    error: u.error,
+    errorDetail: u.error_detail,
+  }));
+}
+
+/**
+ * The drops of one gallery that still need attention, with their files, in
+ * the shape the upload panel takes: not finished yet, or finished in the last
+ * day with failed files.
+ */
+export async function unfinishedUploads(
+  session: StudioSession,
+  galleryId: string,
+): Promise<{ batch: { id: string; status: string }; files: Omit<UploadFileView, "storagePath" | "errorDetail" | "photoId">[] }[]> {
+  const recent = await listUploadBatches(session, { galleryId, limit: 10 });
+  const dayAgo = Date.now() - 24 * 3600_000;
+  const open = recent.filter(
+    (b) =>
+      b.status === "uploading" ||
+      b.status === "processing" ||
+      (b.failed > 0 && new Date(b.createdAt).getTime() > dayAgo),
+  );
+  const found = await Promise.all(open.map((b) => getUploadBatch(session, b.id)));
+  return found
+    .filter((f): f is NonNullable<typeof f> => f !== null)
+    .map(({ batch, files }) => ({
+      batch: { id: batch.id, status: batch.status },
+      files: files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        bytesReceived: f.bytesReceived,
+        status: f.status,
+        error: f.error,
+      })),
+    }));
 }
 
 /** Is a worker ready to receive files? */

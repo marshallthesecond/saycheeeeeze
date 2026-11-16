@@ -4,7 +4,8 @@
     "galleries": "Galleries",
     "viewSite": "View site",
     "signOut": "Sign out",
-    "language": "Language"
+    "language": "Language",
+    "uploads": "Uploads"
   },
   "login": {
     "title": "Sign in to your studio",
@@ -45,7 +46,8 @@
     "saved": "Saved",
     "cancel": "Cancel",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "close": "Close"
   },
   "newGallery": {
     "title": "New gallery",
@@ -94,8 +96,6 @@
     "notFoundBlurb": "It may have been deleted, or the address is wrong.",
     "photos": {
       "empty": "No photos yet",
-      "emptyBlurb": "Uploading from the Studio is the next thing being built. Until then, put the files in this folder of the storage zone and run reseed and build-ladder as before. They will land in this gallery.",
-      "folder": "Storage folder",
       "cover": "Cover",
       "setCover": "Set as cover",
       "coverHint": "The cover is the photo shown first and on the gallery's tile."
@@ -194,5 +194,129 @@
     "title": "Something went wrong",
     "blurb": "The page could not be loaded. Nothing was changed.",
     "retry": "Try again"
+  },
+  "units": {
+    "kb": "{n} KB",
+    "mb": "{n} MB",
+    "gb": "{n} GB"
+  },
+  "shell": {
+    "workerOn": "Worker on",
+    "workerOff": "Worker off",
+    "stored": "{size} stored"
+  },
+  "upload": {
+    "title": "Uploads",
+    "dropTitle": "Drop photos here",
+    "rules": "JPEG or PNG, up to 100 MB each, up to 500 at a time.",
+    "choose": "Choose files",
+    "add": "Add photos",
+    "dropAnywhere": "Or drop files anywhere on this page.",
+    "dropHere": "Drop to upload into this gallery",
+    "workerOn": "Worker on",
+    "workerOff": "Worker off",
+    "workerOffHint": "Uploading needs the worker running on your computer. In the project folder, run",
+    "starting": "Getting the files ready…",
+    "tryAgain": "Try again",
+    "resumeTitle": "Some files didn't finish sending",
+    "resumeBlurb": "{n} of them stopped when the page was closed or reloaded. Choose the same files again and they continue where they stopped.",
+    "resumeChoose": "Choose them again",
+    "resumeCancel": "Cancel them",
+    "summary": {
+      "ready": "{n} of {total} ready",
+      "sending": "{n} sending",
+      "failed": "{n} failed",
+      "skipped": "{n} already in the gallery",
+      "refused": "{n} not accepted",
+      "cancelled": "{n} cancelled"
+    },
+    "retryFailed": "Retry failed",
+    "cancelRest": "Cancel the rest",
+    "clear": "Clear finished",
+    "sendingBar": "Sending",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "state": {
+      "waiting": "Waiting",
+      "uploading": "Sending, {n}%",
+      "queued": "In the queue",
+      "processing": "Processing",
+      "ready": "Done",
+      "failed": "Failed",
+      "skipped": "Already in the gallery",
+      "cancelled": "Cancelled",
+      "needs_file": "Choose it again",
+      "paused": "Paused",
+      "refused": "Not accepted"
+    },
+    "problem": {
+      "type": "Not a JPEG or PNG",
+      "size": "Over 100 MB",
+      "empty": "Empty file"
+    },
+    "fileError": {
+      "not_an_image": "Not a photo the worker can read",
+      "type_mismatch": "The name says JPEG and the file is PNG, or the other way round",
+      "checksum": "Arrived damaged, send it again",
+      "file_missing": "The worker no longer has it, send it again",
+      "storage": "Storage didn't answer",
+      "database": "The database didn't answer",
+      "site": "Couldn't refresh the site",
+      "internal": "Something went wrong",
+      "duplicate": "Already in the gallery",
+      "too_large": "Over 100 MB"
+    },
+    "errors": {
+      "worker_offline": "The worker isn't running on your computer. Start it with pnpm worker and try again.",
+      "door_unreachable": "Can't reach the worker on this computer. Check that pnpm worker is running. If the browser asked to let this site reach apps on this device, allow it.",
+      "network": "No connection to the Studio. Check the internet and try again.",
+      "quota": "There isn't enough storage left for these files.",
+      "no_folder": "This gallery has no storage folder of its own, so it can't take uploads.",
+      "folder_not_private": "This client gallery's folder isn't under clients/, so its photos would be public. Uploading into it is blocked.",
+      "too_many_files": "Up to 500 files at a time. Drop the rest afterwards.",
+      "refused_files": "Some files weren't accepted. Only JPEG and PNG up to 100 MB.",
+      "files": "Some files weren't accepted. Only JPEG and PNG up to 100 MB.",
+      "file_name": "Some files weren't accepted. Only JPEG and PNG up to 100 MB.",
+      "file_type": "Some files weren't accepted. Only JPEG and PNG up to 100 MB.",
+      "file_size": "Some files weren't accepted. Only JPEG and PNG up to 100 MB.",
+      "not_found": "This gallery no longer exists.",
+      "not_member": "This gallery no longer exists.",
+      "signed_out": "You were signed out. Sign in again and drop the files again.",
+      "no_account": "This login isn't connected to a studio.",
+      "unavailable": "The Studio can't reach the database right now. Try again in a moment.",
+      "no_match": "None of these are the files that stopped. Choose the same files, with the same names.",
+      "not_failed": "That file isn't failed any more.",
+      "cannot_retry": "Trying again won't fix that file.",
+      "failed": "That didn't work. Try again."
+    }
+  },
+  "uploads": {
+    "title": "Uploads",
+    "blurb": "Every drop of files from the Studio, newest first.",
+    "empty": "Nothing uploaded from the Studio yet.",
+    "worker": "Worker",
+    "workerOn": "On, {name}",
+    "workerOff": "Off",
+    "lastSeen": "last seen {when}",
+    "never": "not started yet",
+    "hint": "To upload, start it on your computer:",
+    "storage": "Stored",
+    "status": {
+      "uploading": "Sending",
+      "processing": "Processing",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "filesOne": "{n} file",
+    "filesMany": "{n} files",
+    "ready": "{n} ready",
+    "failed": "{n} failed",
+    "skipped": "{n} already in the gallery",
+    "cancelled": "{n} cancelled",
+    "failedFiles": "Failed files",
+    "retry": "Retry",
+    "retried": "Back in the queue",
+    "resend": "Add it again on the gallery's page",
+    "unavailable": "Uploads can't be shown yet: the database is missing the uploads update (20261116090000_studio_uploads.sql)."
   }
 }
