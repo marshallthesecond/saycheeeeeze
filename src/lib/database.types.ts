@@ -672,6 +672,7 @@ export type Database = {
           gallery_id: string
           id: string
           ready_count: number
+          settled_at: string | null
           skipped_count: number
           status: string
           total_bytes: number
@@ -688,6 +689,7 @@ export type Database = {
           gallery_id: string
           id?: string
           ready_count?: number
+          settled_at?: string | null
           skipped_count?: number
           status?: string
           total_bytes: number
@@ -704,6 +706,7 @@ export type Database = {
           gallery_id?: string
           id?: string
           ready_count?: number
+          settled_at?: string | null
           skipped_count?: number
           status?: string
           total_bytes?: number
@@ -928,6 +931,10 @@ export type Database = {
       worker_set_photo_order: {
         Args: { p_gallery_id: string; p_photo_ids: string[] }
         Returns: number
+      }
+      worker_settle_batch: {
+        Args: { p_batch_id: string }
+        Returns: boolean
       }
       worker_start: {
         Args: { p_name: string }

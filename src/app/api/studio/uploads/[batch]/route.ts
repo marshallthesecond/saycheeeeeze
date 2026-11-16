@@ -4,10 +4,15 @@
 //   POST /api/studio/uploads/<batch>    { action: "retry", uploadId }
 //                                       { action: "cancel", uploadIds? }   all when left out
 //                                       { action: "renew" }   new tickets for files still on their way
+//                                       { action: "refresh" } this site's pages for the drop's gallery, once
+//                                                             the worker is done with it
+
+import { revalidateTag } from "next/cache";
 
 import {
   UploadRefused,
   cancelUploads,
+  dropRefresh,
   getUploadBatch,
   getWorkerStatus,
   renewUploadTickets,
@@ -64,6 +69,20 @@ export async function POST(req: Request, { params }: Ctx): Promise<Response> {
       }
       case "renew":
         return json(200, await renewUploadTickets(batch));
+      case "refresh": {
+        // After a drop the worker refreshes www, and only www. This does the
+        // same for the site the Studio is open on, which may be another one
+        // (a dev preview, pnpm dev) with a cache of its own.
+        const drop = await dropRefresh(session, batch);
+        if (!drop) return json(404, { error: "not_found" });
+        if (drop.state !== "ready") return json(200, { state: drop.state });
+        // { expire: 0 }: the next visitor waits for the new page instead of
+        // being given the cached one first. Same tags as /api/sync.
+        revalidateTag("albums", { expire: 0 });
+        revalidateTag(`album:${drop.slug.toLowerCase()}`, { expire: 0 });
+        revalidateTag("client-galleries", { expire: 0 });
+        return json(200, { state: "refreshed" });
+      }
       default:
         return json(400, { error: "action" });
     }

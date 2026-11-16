@@ -23,7 +23,9 @@
 //      uploads them, then the original, each checked by Bunny against its
 //      SHA-256, and only then inserts the photos row, already 'ready'.
 //   5. When the last file of a drop is done, puts the gallery in file-name
-//      order and refreshes the site's cache for it.
+//      order, marks the drop finished with, and refreshes the cache of the
+//      site in NEXT_PUBLIC_SITE_URL. A Studio open on any other site (a dev
+//      preview, pnpm dev) sees the mark and refreshes its own.
 //
 // Files waiting here live in WORKER_SPOOL_DIR (default: a .saycheeeeeze-worker
 // folder in your home folder), never in the project, and are deleted once
@@ -35,7 +37,7 @@
 //   BUNNY_STORAGE_ZONE, BUNNY_STORAGE_API_KEY             storage
 //   BUNNY_STORAGE_HOST          optional, default storage.bunnycdn.com
 //   REVALIDATE_SECRET           to refresh the site's cache after a drop
-//   NEXT_PUBLIC_SITE_URL        which site to refresh (default https://saycheeeeeze.studio)
+//   NEXT_PUBLIC_SITE_URL        which site to refresh after a drop (default https://saycheeeeeze.studio)
 //   LADDER_REV                  same meaning as in build-ladder.mjs (default 1)
 //   WORKER_NAME                 optional, default this computer's name
 //   WORKER_PORT                 optional, default 7811
@@ -55,7 +57,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { encodeLadder, ladderRev, permanent, prefixFor } from "./lib/ladder-core.mjs";
 
-const VERSION = "1";
+const VERSION = "2";
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -70,6 +72,14 @@ const STORAGE_HOST = (env.BUNNY_STORAGE_HOST ?? "storage.bunnycdn.com")
   .replace(/^https?:\/\//, "")
   .replace(/\/$/, "");
 const SITE_URL = (env.WORKER_SITE_URL ?? env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio").replace(/\/+$/, "");
+/** For the log: which site a drop refreshed. A Studio on any other site refreshes its own. */
+const SITE_HOST = (() => {
+  try {
+    return new URL(SITE_URL).host;
+  } catch {
+    return SITE_URL;
+  }
+})();
 const REVALIDATE_SECRET = env.REVALIDATE_SECRET;
 const LADDER_REV = ladderRev();
 
@@ -269,9 +279,11 @@ async function rpc(fn, args) {
     const { data, error } = await db.rpc(fn, args);
     if (error) {
       const err = reasoned("database", `${fn}: ${error.message}`);
+      err.code = error.code;
       // A real answer from Postgres (a raised exception, a constraint, a
-      // permission) will be the same next time.
-      if (error.code && /^(P0|22|23|42)/.test(error.code)) err.permanent = true;
+      // permission) will be the same next time, and so will a function that
+      // is not in the database (PGRST202).
+      if (error.code && (/^(P0|22|23|42)/.test(error.code) || error.code === "PGRST202")) err.permanent = true;
       throw err;
     }
     return data;
@@ -817,12 +829,36 @@ async function finishBatch(job) {
     p_photo_ids: ordered.map((p) => p.id),
   });
 
+  // Before refreshing SITE_URL, so a Studio on another site (a preview,
+  // pnpm dev) can refresh its own pages even if that refresh fails.
+  await settleBatch(batchId);
   const refreshed = slug ? await refreshSite(slug) : false;
   log(
     `drop done ${slug ?? batch.gallery_id}  ${batch.ready_count} new` +
       `${moved ? `, ${moved} moved into file-name order` : ""}` +
-      `${refreshed ? ", site refreshed" : ""}`,
+      `${refreshed ? `, ${SITE_HOST} refreshed` : ""}`,
   );
+}
+
+let warnedNoSettle = false;
+
+/**
+ * Marks the drop finished with (upload_batches.settled_at). The Studio that
+ * sent it waits for this, then refreshes the album page on its own site.
+ */
+async function settleBatch(batchId) {
+  try {
+    await rpc("worker_settle_batch", { p_batch_id: batchId });
+  } catch (err) {
+    if (err.code !== "PGRST202") throw err;
+    if (!warnedNoSettle) {
+      warn(
+        "worker_settle_batch is not in the database: run 20261116140000_upload_batch_settled.sql. " +
+          "Until then a Studio on another site refreshes its pages 90 seconds after a drop.",
+      );
+      warnedNoSettle = true;
+    }
+  }
 }
 
 let warnedNoSecret = false;

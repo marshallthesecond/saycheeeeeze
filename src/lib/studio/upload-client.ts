@@ -3,7 +3,9 @@
 // It asks the Studio for tickets (/api/studio/uploads), sends each file to
 // the door the tickets name (today the worker on the laptop) in pieces, a few
 // files at a time, and then watches the drop until every file has an answer.
-// See scripts/studio-worker.mjs for the door's side.
+// When the worker is done with a drop that brought new photos, it asks the
+// Studio to refresh this site's pages for the gallery (the worker itself only
+// refreshes www). See scripts/studio-worker.mjs for the door's side.
 //
 // A plain object outside React, kept per gallery for the life of the tab, so
 // moving between the Studio's pages does not stop an upload; the Photos tab
@@ -82,7 +84,11 @@ export interface ServerBatch {
 const SENDING: ItemState[] = ["waiting", "uploading"];
 const AT_WORKER: ItemState[] = ["queued", "processing"];
 const FINISHED: ItemState[] = ["ready", "skipped", "cancelled", "refused"];
+/** A drop with any of these on this page is not finished yet. */
+const OPEN: ItemState[] = [...SENDING, ...AT_WORKER, "needs_file", "paused"];
 const POLL_MS = 2500;
+/** The server stops making a drop wait after 90 s; this is only a backstop. */
+const REFRESH_GIVE_UP_MS = 3 * 60_000;
 const EMIT_MS = 120;
 /** Network failures in a row on one file before the door counts as unreachable. */
 const MAX_FAILURES = 5;
@@ -117,6 +123,8 @@ export class GalleryUploads {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private hydrated = false;
   private onReady: (() => void) | null = null;
+  /** Drops with new photos whose site pages are still to be refreshed: id -> first asked (0 = not yet). */
+  private toRefresh = new Map<string, number>();
 
   constructor(readonly galleryId: string) {}
 
@@ -492,13 +500,19 @@ export class GalleryUploads {
 
   // ------------------------------------------------------------ watching the worker
 
-  /** Polls the drops that have files at the worker, until none has. */
+  /**
+   * Polls the drops that have files at the worker, until none has, and asks
+   * for the site's pages of each finished drop to be refreshed.
+   */
   private watch() {
     if (this.pollTimer) return;
     const pending = new Set(
       this.items.filter((i) => i.batchId && AT_WORKER.includes(i.state)).map((i) => i.batchId as string),
     );
-    if (pending.size === 0) return;
+    const finished = [...this.toRefresh.keys()].filter(
+      (b) => !this.items.some((i) => i.batchId === b && OPEN.includes(i.state)),
+    );
+    if (pending.size === 0 && finished.length === 0) return;
     this.pollTimer = setTimeout(async () => {
       this.pollTimer = null;
       let newlyReady = 0;
@@ -514,17 +528,50 @@ export class GalleryUploads {
             if (!item || this.requests.has(item.key) || SENDING.includes(item.state)) continue;
             const state = toState(f.status);
             if (state === item.state && f.error === item.error) continue;
-            if (state === "ready" && item.state !== "ready") newlyReady++;
+            if (state === "ready" && item.state !== "ready") {
+              newlyReady++;
+              if (!this.toRefresh.has(batchId)) this.toRefresh.set(batchId, 0);
+            }
             Object.assign(item, { state: SENDING.includes(state) ? "needs_file" : state, error: f.error });
           }
         } catch {
           // Try again next round.
         }
       }
+      let refreshed = 0;
+      for (const batchId of finished) if (await this.askRefresh(batchId)) refreshed++;
       this.changed(true);
-      if (newlyReady) this.onReady?.();
+      // Again after a refresh: the worker may have moved the new photos
+      // between the old ones since they became ready.
+      if (newlyReady || refreshed) this.onReady?.();
       this.watch();
     }, POLL_MS);
+  }
+
+  /**
+   * Asks the Studio to refresh this site's pages for a finished drop. True
+   * once it has; the drop stays on the list while the worker is not done.
+   */
+  private async askRefresh(batchId: string): Promise<boolean> {
+    const since = this.toRefresh.get(batchId) || Date.now();
+    this.toRefresh.set(batchId, since);
+    let state: unknown = null;
+    try {
+      const res = await fetch(`/api/studio/uploads/${batchId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refresh" }),
+      });
+      const body = await res.json().catch(() => null);
+      // Refused (signed out, gone): nothing to wait for.
+      state = res.ok ? body?.state : "refused";
+    } catch {
+      // Network: next round.
+    }
+    const again = (state === "waiting" || state === null) && Date.now() - since < REFRESH_GIVE_UP_MS;
+    if (again) return false;
+    this.toRefresh.delete(batchId);
+    return state === "refreshed";
   }
 
   // ------------------------------------------------------------ the photographer's buttons

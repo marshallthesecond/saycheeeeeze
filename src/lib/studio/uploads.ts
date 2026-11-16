@@ -408,3 +408,58 @@ export async function getWorkerStatus(): Promise<WorkerStatus> {
     lastSeenAt: latest?.last_seen_at ?? null,
   };
 }
+
+/**
+ * How long a finished drop waits for the worker's last pass (file-name order,
+ * settled_at) before its pages are refreshed anyway: the worker may have
+ * stopped, or the database not have settled_at yet.
+ */
+const SETTLE_WAIT_MS = 90_000;
+
+/**
+ * Whether the site's pages for a drop can be refreshed now.
+ *
+ *   waiting   files still on their way, or the worker not finished with it
+ *   nothing   no new photo in it (all cancelled, failed or already there)
+ *   ready     done, in its final order: refresh `slug`
+ */
+export type DropRefresh = { state: "waiting" } | { state: "nothing" } | { state: "ready"; slug: string };
+
+type SettleRow = {
+  status: string;
+  ready_count: number;
+  finished_at: string | null;
+  settled_at?: string | null;
+  galleries?: { slug: string } | { slug: string }[] | null;
+};
+
+export async function dropRefresh(session: StudioSession, batchId: string): Promise<DropRefresh | null> {
+  const supabase = await studioSupabase();
+  const read = (columns: string) =>
+    supabase
+      .from("upload_batches")
+      .select(columns)
+      .eq("id", batchId)
+      .eq("account_id", session.account.id)
+      .maybeSingle();
+
+  let { data, error } = await read("status, ready_count, finished_at, settled_at, galleries(slug)");
+  // 42703: no settled_at column, 20261116140000_upload_batch_settled.sql not
+  // run yet. Work without it: refresh as soon as the drop is done.
+  const known = error?.code !== "42703";
+  if (!known) ({ data, error } = await read("status, ready_count, finished_at, galleries(slug)"));
+  if (error) throw new Error(`Studio: could not read the upload: ${error.message}`);
+  if (!data) return null;
+
+  const row = data as unknown as SettleRow;
+  const g = Array.isArray(row.galleries) ? row.galleries[0] : row.galleries;
+  if (row.status === "uploading" || row.status === "processing") return { state: "waiting" };
+  if (row.status !== "done" || row.ready_count === 0 || !g?.slug) return { state: "nothing" };
+
+  const finished = row.finished_at ? Date.parse(row.finished_at) : 0;
+  const settled = row.settled_at ? Date.parse(row.settled_at) : 0;
+  if (!known || (settled && settled >= finished) || Date.now() - finished > SETTLE_WAIT_MS) {
+    return { state: "ready", slug: g.slug };
+  }
+  return { state: "waiting" };
+}
