@@ -485,21 +485,13 @@
     "tilesLabel": "Быстрый доступ",
     "tiles": {
       "book": "Записаться",
-      "bookDetail": "Свободные дни",
       "portfolio": "Портфолио",
-      "portfolioDetail": "Фото: {n}",
       "services": "Услуги",
-      "servicesDetail": "Съёмки и цены",
       "galleries": "Галереи",
-      "galleriesDetail": "Альбомов: {n}",
       "private": "Личные галереи",
-      "privateDetail": "По вашему коду",
       "about": "Обо мне",
-      "aboutDetail": "Шамшод, с {year}",
       "message": "Написать мне",
-      "messageDetail": "В Telegram",
-      "studio": "Студия",
-      "studioDetail": "Скоро"
+      "studio": "Студия"
     },
     "studioNote": "Студия, где фотографы смогут вести здесь свои страницы, пока закрыта. Скоро откроется.",
     "servicesHeading": "Услуги",
@@ -518,7 +510,11 @@
     "pitchDetails": "Подробнее",
     "pitchUnsure": "Не знаете, что выбрать?",
     "pitchAsk": "Спросите меня в Telegram",
-    "pitchPhotoAlt": "Портретная съёмка, пример {n}"
+    "pitchPhotoAlt": "Портретная съёмка, пример {n}",
+    "allAlbums": "Все альбомы ({n})",
+    "privateTitle": "Ваша личная галерея",
+    "privateBody": "Есть код от меня? Откройте свои фото здесь.",
+    "enterPasskey": "Ввести код"
   },
   "aboutPage": {
     "storyTitle": "Моя история",

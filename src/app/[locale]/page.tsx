@@ -1,8 +1,9 @@
-// The site root: the Home page. Rebuilt 2026-11-17 as one column, phone
-// first: eight quick-access tiles, Best picks, one album to look through (a
-// different one each visit), and the Portraits session pitched properly. See
-// HomeContent.tsx for the layout. The profile panel that used to be the left
-// column is the About page's main section now.
+// The site root: the Home page. Rebuilt 2026-11-17: eight quick-access tiles
+// (the left column), Best picks, one album to look through (a different one
+// each visit) and the Portraits session pitched properly (the middle), the
+// albums, private-gallery and sessions cards (the right). See HomeContent.tsx
+// for the layout. The profile panel that used to be the left column is the
+// About page's main section now.
 //
 // Until 2026-11-10 this rendered the About page, and /about canonicalised to
 // here because the two were the same page on two URLs. They are different
@@ -15,7 +16,6 @@ import { getAlbumPhotos, getAllAlbums, getPhotosByPaths, getPortfolioPhotos, typ
 import { getGalleryIndex } from "@/src/lib/client-galleries";
 import { sessionSummaries } from "@/src/lib/session-summaries";
 import { formatSom } from "@/src/lib/packages";
-import { PROFILE } from "@/src/lib/profile";
 import { entryPackage, getServiceBySlug, offeredPackages, pickLocale } from "@/src/lib/services";
 import { formatDelivery, formatPhotoCountShort, packageDuration } from "@/src/lib/service-format";
 import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
@@ -93,15 +93,6 @@ export default async function HomePage({
     return path ? photoIndex[path] : undefined;
   });
 
-  // The cheapest session on offer, for the Services tile.
-  const prices = PROFILE.sessions
-    .map((slug) => {
-      const s = getServiceBySlug(slug);
-      return s ? entryPackage(s)?.priceUzs : undefined;
-    })
-    .filter((n): n is number => typeof n === "number");
-  const servicesFrom = prices.length > 0 ? formatSom(Math.min(...prices), locale) : null;
-
   // Best picks are chosen by hand. While there are fewer than the grid holds,
   // the rest come from the portfolio, the same ones all day.
   const visible = portfolio.filter((p) => !p.hidden);
@@ -172,10 +163,8 @@ export default async function HomePage({
         albums={albums}
         photoIndex={photoIndex}
         extraPicks={extraPicks}
-        photosCount={visible.length}
         galleries={galleries}
         sessions={sessions}
-        servicesFrom={servicesFrom}
         shelf={shelf}
         pitch={pitch}
       />

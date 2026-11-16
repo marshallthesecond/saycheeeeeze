@@ -1,44 +1,48 @@
 "use client";
 
-// The Home page (rebuilt 2026-11-17), one column, phone first:
+// The Home page (rebuilt 2026-11-17). Three columns from 1280px, as before:
 //
-//   1  who this is, in one line (the page's h1), and the way to About
-//   2  eight quick-access tiles: two across on a phone, four from 640px
-//   3  Best picks: the feature, then small photographs, Full portfolio
-//   4  one album, scrolling sideways, a different one each visit
-//   5  the Portraits session, pitched: what you get, the prices, Book
+//   left    eight quick-access tiles, one small piece of glass
+//   middle  Best picks, then one album to look through (a different one each
+//           visit), then the Portraits session, pitched
+//   right   albums, the private-gallery door, the session types
 //
-// The profile panel (portrait, bio, details, Book) that was the left column
-// until now is the About page's main section. The galleries card, the
-// private-gallery card and the session list that were the right column are
-// the tiles now: Galleries and Private galleries open the same sheets, and
-// Services opens the session list.
+// Below 1280px one column in that order: the tiles first, right under the
+// header, then the work, then the cards. The profile panel that used to be
+// the left column is the About page's main section; the page's h1 is kept
+// for search engines and screen readers but not shown.
 
 import { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import Lightbox from "@/src/components/common/Lightbox";
 import StickyHeader from "@/src/components/common/StickyHeader";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
-import QuickTiles, { TILE_ICONS, type QuickTile } from "@/src/components/home/QuickTiles";
+import { Album, Aperture, Camera, Briefcase, LayoutDashboard, Lock, Send, User } from "lucide-react";
+import QuickTiles, { type QuickTile } from "@/src/components/home/QuickTiles";
 import AlbumShelf, { type ShelfAlbum } from "@/src/components/home/AlbumShelf";
 import PortraitsPitch, { type PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
 import ServicesSheet from "@/src/components/home/ServicesSheet";
+import { GalleriesCard, PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { bunnyUrl } from "@/src/lib/bunny-url";
-import { pfps } from "@/src/lib/pfps";
 import { PROFILE } from "@/src/lib/profile";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import BestPicks, { type PickItem } from "./about/BestPicks";
 import { FALLBACK_RATIO, PICKS_WANTED, formatPickDate } from "./about/best-picks";
-import { BEST_PICKS, QUICK_PHOTOS, type WorksCategory } from "./about/photos";
+import { BEST_PICKS, type WorksCategory } from "./about/photos";
 
-/** The column stops at 1280px; the grids' `sizes` follow that cap. */
-const FEATURE_SIZES = "(min-width: 1280px) 624px, (min-width: 640px) 50vw, 100vw";
+/**
+ * The middle column is the viewport minus two 300px columns, three 16px gaps
+ * and the page padding — so the feature tile is half of that, not half the
+ * screen. Below 1280px it is the full width again.
+ */
+const MIDDLE = "calc(100vw - 664px)";
+const FEATURE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 2), (min-width: 640px) 50vw, 100vw`;
 const PHONE_TILE_SIZES = "34vw";
-const DESKTOP_TILE_SIZES = "(min-width: 1280px) 208px, 17vw";
+const DESKTOP_TILE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 6), 17vw`;
+const STICKY =
+  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto [scrollbar-width:thin]";
 
 /** A portfolio photograph that fills a Best picks slot nobody chose yet. */
 export interface ExtraPick {
@@ -51,10 +55,8 @@ export default function HomeContent({
   albums,
   photoIndex,
   extraPicks,
-  photosCount,
   galleries,
   sessions,
-  servicesFrom,
   shelf,
   pitch,
 }: {
@@ -62,12 +64,8 @@ export default function HomeContent({
   /** storage path → photo, for the best picks and the tiles. */
   photoIndex: Record<string, AlbumPhoto>;
   extraPicks: ExtraPick[];
-  /** How many photographs the portfolio shows. */
-  photosCount: number;
   galleries: GalleryListing[];
   sessions: SessionSummary[];
-  /** The cheapest session's price, formatted; null when none is on offer. */
-  servicesFrom: string | null;
   shelf: ShelfAlbum[];
   pitch: PortraitsPitchData | null;
 }) {
@@ -119,124 +117,64 @@ export default function HomeContent({
   }, [photoIndex, extraPicks, pickLabel, locale, t]);
   const pickPhotos = useMemo(() => pickItems.map((it) => ({ ...it.photo, alt: it.alt })), [pickItems]);
 
-  const newest = albums[0];
   const tiles: QuickTile[] = [
-    {
-      key: "book",
-      name: t("home.tiles.book"),
-      detail: t("home.tiles.bookDetail"),
-      art: { kind: "photo", photo: photoIndex[QUICK_PHOTOS.book] ?? { src: bunnyUrl(QUICK_PHOTOS.book) } },
-      href: `/${locale}/book`,
-    },
-    {
-      key: "portfolio",
-      name: t("home.tiles.portfolio"),
-      detail: t("home.tiles.portfolioDetail", { n: photosCount }),
-      art: { kind: "photo", photo: photoIndex[QUICK_PHOTOS.portfolio] ?? { src: bunnyUrl(QUICK_PHOTOS.portfolio) } },
-      href: `/${locale}/portfolio`,
-    },
-    {
-      key: "services",
-      name: t("home.tiles.services"),
-      detail: servicesFrom ? t("home.fromPrice", { price: servicesFrom }) : t("home.tiles.servicesDetail"),
-      art: { kind: "photo", photo: photoIndex[QUICK_PHOTOS.services] ?? { src: bunnyUrl(QUICK_PHOTOS.services) } },
-      onClick: () => setSheet("services"),
-    },
-    {
-      key: "galleries",
-      name: t("home.tiles.galleries"),
-      detail: t("home.tiles.galleriesDetail", { n: albums.length }),
-      art: {
-        kind: "photo",
-        photo: newest ? { src: newest.cover, ladder: newest.coverLadder, thumbhash: newest.coverThumbhash } : undefined,
-      },
-      onClick: () => setSheet("albums"),
-    },
-    {
-      key: "private",
-      name: t("home.tiles.private"),
-      detail: t("home.tiles.privateDetail"),
-      art: { kind: "icon", Icon: TILE_ICONS.Lock, tone: "brand" },
-      onClick: () => setSheet("private"),
-    },
-    {
-      key: "about",
-      name: t("home.tiles.about"),
-      detail: t("home.tiles.aboutDetail", { year: PROFILE.sinceYear }),
-      art: { kind: "local", src: pfps[0] },
-      href: `/${locale}/about`,
-    },
-    {
-      key: "message",
-      name: t("home.tiles.message"),
-      detail: t("home.tiles.messageDetail"),
-      art: { kind: "icon", Icon: TILE_ICONS.Send, tone: "quiet" },
-      href: PROFILE.telegram,
-      external: true,
-    },
-    {
-      key: "studio",
-      name: t("home.tiles.studio"),
-      detail: t("home.tiles.studioDetail"),
-      art: { kind: "icon", Icon: TILE_ICONS.Studio, tone: "quiet" },
-      onClick: () => setNote(true),
-    },
+    { key: "book", name: t("home.tiles.book"), Icon: Camera, accent: true, href: `/${locale}/book` },
+    { key: "portfolio", name: t("home.tiles.portfolio"), Icon: Briefcase, href: `/${locale}/portfolio` },
+    { key: "services", name: t("home.tiles.services"), Icon: Aperture, onClick: () => setSheet("services") },
+    { key: "galleries", name: t("home.tiles.galleries"), Icon: Album, onClick: () => setSheet("albums") },
+    { key: "private", name: t("home.tiles.private"), Icon: Lock, onClick: () => setSheet("private") },
+    { key: "about", name: t("home.tiles.about"), Icon: User, href: `/${locale}/about` },
+    { key: "message", name: t("home.tiles.message"), Icon: Send, href: PROFILE.telegram, external: true },
+    { key: "studio", name: t("home.tiles.studio"), Icon: LayoutDashboard, onClick: () => setNote(true) },
   ];
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       <StickyHeader title="saycheeeeeze" fadeOver={120} variant="wordmark" />
 
-      <main
-        className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pb-32 sm:gap-10 sm:px-6"
-        style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}
+      <h1 className="sr-only">{`${t("profile.name")}, ${t("about.heroTitle")}`}</h1>
+
+      <div
+        className="mx-auto grid max-w-[1920px] grid-cols-1 gap-8 px-4 pb-32 xl:grid-cols-[300px_minmax(0,1fr)_300px] xl:gap-4"
+        style={{ paddingTop: "calc(3rem + env(safe-area-inset-top))" }}
       >
-        <div className="flex flex-col gap-3">
-          {/* Who this is: one line, and the way to the About page. */}
-          <Link href={`/${locale}/about`} className="group flex w-fit max-w-full items-center gap-2.5">
-            {/* Through next/image: the first portrait is a 5 MB PNG. */}
-            <Image
-              src={pfps[0]}
-              alt=""
-              width={36}
-              height={36}
-              sizes="36px"
-              priority
-              className="size-9 shrink-0 rounded-full object-cover ring-1 ring-border"
-            />
-            <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-bold text-foreground underline-offset-2 group-hover:underline">
-                {t("profile.name")}
-              </p>
-              <h1 className="truncate text-xs text-muted-foreground">{t("about.heroTitle")}</h1>
-            </div>
-          </Link>
-
+        {/* Left — the ways in. */}
+        <aside className={STICKY}>
           <QuickTiles tiles={tiles} label={t("home.tilesLabel")} />
-        </div>
+        </aside>
 
-        <section aria-labelledby="picks-h" className="flex flex-col gap-3">
-          <h2 id="picks-h" className="text-xl font-bold tracking-tight sm:text-2xl">
-            {t("about.bestPicks")}
-          </h2>
-          <BestPicks
-            items={pickItems}
-            fullPortfolioLabel={t("about.fullPortfolio")}
-            portfolioHref={`/${locale}/portfolio`}
-            onOpen={(i) => setLightbox({ photos: pickPhotos, index: i })}
-            featureSizes={FEATURE_SIZES}
-            phoneTileSizes={PHONE_TILE_SIZES}
-            desktopTileSizes={DESKTOP_TILE_SIZES}
-            className="-mx-4 sm:mx-0"
-          />
-        </section>
+        {/* Middle — the work. */}
+        <main className="flex min-w-0 flex-col gap-8 sm:gap-10">
+          <section aria-labelledby="picks-h" className="flex flex-col gap-3">
+            <h2 id="picks-h" className="text-xl font-bold tracking-tight sm:text-2xl">
+              {t("about.bestPicks")}
+            </h2>
+            <BestPicks
+              items={pickItems}
+              fullPortfolioLabel={t("about.fullPortfolio")}
+              portfolioHref={`/${locale}/portfolio`}
+              onOpen={(i) => setLightbox({ photos: pickPhotos, index: i })}
+              featureSizes={FEATURE_SIZES}
+              phoneTileSizes={PHONE_TILE_SIZES}
+              desktopTileSizes={DESKTOP_TILE_SIZES}
+              className="-mx-4 sm:mx-0"
+            />
+          </section>
 
-        {shelf.length > 0 && (
-          <AlbumShelf albums={shelf} onOpen={(photos, index) => setLightbox({ photos, index })} />
-        )}
+          {shelf.length > 0 && (
+            <AlbumShelf albums={shelf} onOpen={(photos, index) => setLightbox({ photos, index })} />
+          )}
 
-        {pitch && <PortraitsPitch pitch={pitch} />}
-      </main>
+          {pitch && <PortraitsPitch pitch={pitch} />}
+        </main>
+
+        {/* Right — what else. */}
+        <aside aria-label={t("about.galleries")} className={`flex flex-col gap-4 ${STICKY}`}>
+          <GalleriesCard albums={albums} />
+          <PrivateGalleryCard onOpen={() => setSheet("private")} />
+          <SessionsList sessions={sessions} />
+        </aside>
+      </div>
 
       {note && <StudioNote onClose={() => setNote(false)} />}
 

@@ -5,7 +5,7 @@
 //
 // Feature tile, a staggered pair of columns beside it, then one row of small
 // photographs (six across on a computer, three rows of three on a phone), a
-// caption under every photograph and a "Full portfolio" pill. The geometry
+// caption under every photograph and a small glass "Full portfolio" button. The geometry
 // lives in best-picks.ts; this file only renders it. No "Load more": the
 // portfolio is one tap away and is where the rest of the work lives.
 //
@@ -21,6 +21,7 @@
 
 import { useMemo, type CSSProperties } from "react";
 import Link from "next/link";
+import { ArrowRight, Images } from "lucide-react";
 import type { AlbumPhoto } from "@/src/lib/albums";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 import { DESKTOP_ROW, PHONE_COLUMNS, PHONE_ROWS, planDesktop } from "./best-picks";
@@ -117,19 +118,21 @@ export default function BestPicks({
         )}
       </div>
 
-      <div className="mt-4 flex justify-center px-4 sm:mt-5">
+      <div className="mt-3 flex justify-center px-4 sm:mt-4">
         <Link href={portfolioHref} className={PILL}>
+          <Images aria-hidden className="size-3.5" />
           {fullPortfolioLabel}
+          <ArrowRight aria-hidden className="size-3.5" />
         </Link>
       </div>
     </section>
   );
 }
 
+/** A small piece of glass, like the controls on a gallery page. */
 const PILL =
-  "inline-flex h-10 items-center justify-center rounded-full bg-foreground/10 px-8 " +
-  "text-[11px] font-bold uppercase tracking-[0.16em] text-foreground " +
-  "transition hover:bg-foreground/16 active:scale-[0.98]";
+  "sc-glass isolate inline-flex h-8 items-center justify-center gap-1.5 rounded-xl px-3 " +
+  "text-[12px] font-medium text-foreground transition hover:text-foreground active:scale-95";
 
 /**
  * One photograph and its caption.

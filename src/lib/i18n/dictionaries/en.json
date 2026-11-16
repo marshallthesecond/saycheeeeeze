@@ -485,21 +485,13 @@
     "tilesLabel": "Quick access",
     "tiles": {
       "book": "Book a session",
-      "bookDetail": "See free days",
       "portfolio": "Portfolio",
-      "portfolioDetail": "{n} photos",
       "services": "Services",
-      "servicesDetail": "Sessions and prices",
       "galleries": "Galleries",
-      "galleriesDetail": "{n} albums",
       "private": "Private galleries",
-      "privateDetail": "With your passkey",
       "about": "About me",
-      "aboutDetail": "Shamshod, since {year}",
       "message": "Message me",
-      "messageDetail": "On Telegram",
-      "studio": "Studio",
-      "studioDetail": "Coming soon"
+      "studio": "Studio"
     },
     "studioNote": "The Studio, where photographers will run their own pages here, is not open yet. Soon.",
     "servicesHeading": "Services",
@@ -518,7 +510,11 @@
     "pitchDetails": "All the details",
     "pitchUnsure": "Not sure which one fits?",
     "pitchAsk": "Ask me on Telegram",
-    "pitchPhotoAlt": "Portrait session, example {n}"
+    "pitchPhotoAlt": "Portrait session, example {n}",
+    "allAlbums": "All {n} albums",
+    "privateTitle": "Your private gallery",
+    "privateBody": "Got a passkey from me? Open your photos here.",
+    "enterPasskey": "Enter passkey"
   },
   "aboutPage": {
     "storyTitle": "My story",

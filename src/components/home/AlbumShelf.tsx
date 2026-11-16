@@ -32,6 +32,13 @@ export interface ShelfAlbum {
 
 const LAST_KEY = "home.shelf.last";
 
+/** Small pieces of glass, like the controls on a gallery page. */
+const GLASS_ICON =
+  "sc-glass isolate size-8 items-center justify-center rounded-xl text-foreground transition active:scale-95";
+const GLASS_BUTTON =
+  "sc-glass isolate inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 " +
+  "text-[12px] font-medium text-foreground transition active:scale-95";
+
 /**
  * The album chosen for this page load. Kept outside React so the choice is
  * made once: React runs effects twice in development, and a second draw would
@@ -104,7 +111,7 @@ export default function AlbumShelf({
             type="button"
             onClick={() => scroll(-1)}
             aria-label={t("home.shelfBack")}
-            className="hidden size-8 items-center justify-center rounded-full bg-foreground/8 text-foreground transition hover:bg-foreground/15 sm:flex"
+            className={`${GLASS_ICON} hidden sm:flex`}
           >
             <ChevronLeft aria-hidden className="size-4" />
           </button>
@@ -112,15 +119,13 @@ export default function AlbumShelf({
             type="button"
             onClick={() => scroll(1)}
             aria-label={t("home.shelfForward")}
-            className="hidden size-8 items-center justify-center rounded-full bg-foreground/8 text-foreground transition hover:bg-foreground/15 sm:flex"
+            className={`${GLASS_ICON} hidden sm:flex`}
           >
             <ChevronRight aria-hidden className="size-4" />
           </button>
-          <Link
-            href={href}
-            className="whitespace-nowrap text-[13px] font-semibold text-foreground underline-offset-4 hover:underline sm:ml-2"
-          >
+          <Link href={href} className={GLASS_BUTTON}>
             {t("home.openAlbum")}
+            <ArrowRight aria-hidden className="size-3.5" />
           </Link>
         </div>
       </div>

@@ -10,8 +10,9 @@
 // dictionaries under home.pitch*.
 //
 // A phone gets it in reading order: photos, promise, what is included, the
-// tiers, the button. From 1024px the photographs sit on the left and the
-// words on the right.
+// tiers, the button. When the section is 768px wide or more (a container
+// query, so the same holds in Home's middle column) the photographs sit on
+// the left and the words on the right.
 
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -49,18 +50,19 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
   return (
     <section
       aria-labelledby="pitch-h"
-      className="overflow-hidden rounded-2xl bg-card ring-1 ring-border lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"
+      className="@container overflow-hidden rounded-2xl bg-card ring-1 ring-border"
     >
+      <div className="@3xl:grid @3xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* The work first: one large frame and two beside it. */}
       {first && (
-        <div className="grid grid-cols-[2fr_1fr] gap-0.5 lg:min-h-[440px]">
+        <div className="grid grid-cols-[2fr_1fr] gap-0.5 @3xl:min-h-[440px]">
           <PhotoFrame
             ladder={first.ladder}
             src={first.src}
             thumbhash={first.thumbhash}
             alt={t("home.pitchPhotoAlt", { n: 1 })}
-            sizes="(min-width: 1280px) 400px, (min-width: 1024px) 30vw, 66vw"
-            className="aspect-[4/5] lg:aspect-auto lg:h-full"
+            sizes="(min-width: 1280px) 30vw, 66vw"
+            className="aspect-[4/5] @3xl:aspect-auto @3xl:h-full"
           />
           <div className="grid grid-rows-2 gap-0.5">
             {others.map((p, i) => (
@@ -70,7 +72,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
                 src={p.src}
                 thumbhash={p.thumbhash}
                 alt={t("home.pitchPhotoAlt", { n: i + 2 })}
-                sizes="(min-width: 1280px) 200px, (min-width: 1024px) 15vw, 33vw"
+                sizes="(min-width: 1280px) 15vw, 33vw"
                 className="h-full min-h-0"
               />
             ))}
@@ -78,18 +80,18 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
         </div>
       )}
 
-      <div className="flex flex-col gap-4 p-5 sm:p-7 lg:p-8">
+      <div className="flex flex-col gap-4 p-5 @lg:p-7 @3xl:p-8">
         <div className="flex flex-col gap-2">
           <p className="text-[13px] font-semibold text-accent-warm">{pitch.title}</p>
-          <h2 id="pitch-h" className="text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-[32px]">
+          <h2 id="pitch-h" className="text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] @lg:text-[32px]">
             {t("home.pitchTitle")}
           </h2>
-          <p className="max-w-prose text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+          <p className="max-w-prose text-sm leading-relaxed text-muted-foreground @lg:text-[15px]">
             {t("home.pitchBody")}
           </p>
         </div>
 
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid gap-2 @xl:grid-cols-2">
           {pitch.includes.map((line) => (
             <li key={line} className="flex items-start gap-2 text-[13px] leading-snug text-foreground">
               <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-accent-warm" strokeWidth={2.25} />
@@ -135,7 +137,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
           </div>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 @lg:flex-row">
           <Link
             href={book()}
             className="flex h-11 items-center justify-center rounded-lg bg-primary px-5 sm:flex-1 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.99]"
@@ -144,7 +146,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
           </Link>
           <Link
             href={`/${locale}/services/${pitch.slug}`}
-            className="flex h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-foreground ring-1 ring-input transition hover:bg-foreground/6"
+            className="sc-glass isolate flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-foreground transition active:scale-[0.99]"
           >
             {t("home.pitchDetails")}
           </Link>
@@ -161,6 +163,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
             {t("home.pitchAsk")}
           </a>
         </p>
+      </div>
       </div>
     </section>
   );

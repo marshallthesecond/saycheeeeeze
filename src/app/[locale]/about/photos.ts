@@ -87,20 +87,9 @@ export const SESSION_PHOTOS: Record<string, string> = {
   "brand-product": "Random/espressomachine.jpg",
 };
 
-/**
- * The small photographs on Home's quick-access tiles, by tile. "Galleries"
- * takes the newest album's cover and "About me" the first portrait in
- * public/pfps, so neither is listed here; the rest show an icon.
- */
-export const QUICK_PHOTOS = {
-  book: "Portraits/Radmir/3M0A0675.png",
-  portfolio: "WIUT-Fashion-Show/3M0A3551.png",
-  services: "Portraits/Gulasal at WIUT/2W6A7098.png",
-} as const;
-
-/** What the Home page resolves: best picks, tiles and session thumbnails. */
+/** What the Home page resolves: best picks and session thumbnails. */
 export const HOME_PHOTO_PATHS: string[] = Array.from(
-  new Set([...BEST_PICKS.map((p) => p.path), ...Object.values(QUICK_PHOTOS), ...Object.values(SESSION_PHOTOS)]),
+  new Set([...BEST_PICKS.map((p) => p.path), ...Object.values(SESSION_PHOTOS)]),
 );
 
 /** What the About page resolves: session thumbnails. */

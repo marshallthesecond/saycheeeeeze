@@ -485,21 +485,13 @@
     "tilesLabel": "Tezkor bo'limlar",
     "tiles": {
       "book": "Band qilish",
-      "bookDetail": "Bo'sh kunlar",
       "portfolio": "Portfolio",
-      "portfolioDetail": "{n} ta surat",
       "services": "Xizmatlar",
-      "servicesDetail": "Suratga olish va narxlar",
       "galleries": "Galereyalar",
-      "galleriesDetail": "{n} ta albom",
       "private": "Yopiq galereyalar",
-      "privateDetail": "Kodingiz bilan kiring",
       "about": "Men haqimda",
-      "aboutDetail": "{year}-yildan beri",
       "message": "Menga yozing",
-      "messageDetail": "Telegram orqali",
-      "studio": "Studiya",
-      "studioDetail": "Tez orada"
+      "studio": "Studiya"
     },
     "studioNote": "Fotograflar bu yerda o'z sahifalarini yuritadigan Studiya hozircha yopiq. Tez orada ochiladi.",
     "servicesHeading": "Xizmatlar",
@@ -518,7 +510,11 @@
     "pitchDetails": "Batafsil",
     "pitchUnsure": "Qaysi biri mos kelishini bilmayapsizmi?",
     "pitchAsk": "Telegramda so'rang",
-    "pitchPhotoAlt": "Portret suratga olish, {n}-namuna"
+    "pitchPhotoAlt": "Portret suratga olish, {n}-namuna",
+    "allAlbums": "Barcha albomlar ({n})",
+    "privateTitle": "Yopiq galereyangiz",
+    "privateBody": "Mendan kod oldingizmi? Suratlaringizni shu yerda oching.",
+    "enterPasskey": "Kodni kiritish"
   },
   "aboutPage": {
     "storyTitle": "Mening hikoyam",
