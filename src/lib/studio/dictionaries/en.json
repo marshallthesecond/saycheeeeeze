@@ -98,7 +98,18 @@
       "empty": "No photos yet",
       "cover": "Cover",
       "setCover": "Set as cover",
-      "coverHint": "The cover is the photo shown first and on the gallery's tile."
+      "coverHint": "The cover is the photo shown first and on the gallery's tile.",
+      "select": "Select",
+      "selectAll": "Select all",
+      "selectNone": "Clear",
+      "done": "Done",
+      "selected": "{n} selected",
+      "selectHint": "Click photos to choose them. Shift-click chooses a range.",
+      "delete": "Delete",
+      "deleteConfirmOne": "Yes, delete 1 photo",
+      "deleteConfirmMany": "Yes, delete {n} photos",
+      "deletedOne": "1 photo deleted. The worker removes its files from storage.",
+      "deletedMany": "{n} photos deleted. The worker removes their files from storage."
     }
   },
   "settings": {
@@ -135,8 +146,11 @@
     "tierOriginalHint": "The untouched file, exactly as it was uploaded.",
     "delete": "Delete gallery",
     "deleteBlurb": "Removes the gallery and its passkeys. This can't be undone.",
-    "deleteBlocked": "A gallery with photos can't be deleted from the Studio yet. That arrives together with storage cleanup.",
-    "deleteConfirm": "Yes, delete it"
+    "deleteBlurbOne": "Removes the gallery, its photo with its files in storage, and its passkeys. This can't be undone.",
+    "deleteBlurbMany": "Removes the gallery, its {n} photos with their files in storage, and its passkeys. This can't be undone.",
+    "deleteConfirm": "Yes, delete it",
+    "deleteConfirmOne": "Yes, delete it and its photo",
+    "deleteConfirmMany": "Yes, delete it and its {n} photos"
   },
   "access": {
     "mode": "Who can open it",
@@ -187,7 +201,9 @@
     "codeInUse": "This gallery already has that passkey.",
     "tooManyCodes": "A gallery can have 10 working passkeys. Turn one off first.",
     "labelLength": "That name is too long, 80 characters at most.",
-    "hasPhotos": "This gallery has photos, so it can't be deleted here yet.",
+    "hasPhotos": "Deleting a gallery with its photos needs the latest database update: run supabase/migrations/20261116170000_studio_delete_and_backup.sql.",
+    "busy": "Some of its photos are still being processed. Try again in a minute.",
+    "needsUpdate": "This needs the latest database update: run supabase/migrations/20261116170000_studio_delete_and_backup.sql.",
     "noTiers": "Offer at least one size."
   },
   "error": {
@@ -301,6 +317,16 @@
     "never": "not started yet",
     "hint": "To upload, start it on your computer:",
     "storage": "Stored",
+    "cleanup": "To remove",
+    "cleanupWaitingOne": "Files of 1 deleted photo, waiting for the worker",
+    "cleanupWaitingMany": "Files of {n} deleted photos, waiting for the worker",
+    "cleanupFailedOne": "Files of 1 deleted photo could not be removed",
+    "cleanupFailedMany": "Files of {n} deleted photos could not be removed",
+    "cleanupRetry": "Try again",
+    "copy": "Database copy",
+    "copyNone": "None yet. The worker makes one a day.",
+    "copyAt": "{when}, {size}",
+    "copyFailed": "The last try failed: {error}",
     "status": {
       "uploading": "Sending",
       "processing": "Processing",

@@ -7,7 +7,8 @@
     "build": "node scripts/warm-supabase.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "worker": "node --env-file=.env.local scripts/studio-worker.mjs"
+    "worker": "node --env-file=.env.local scripts/studio-worker.mjs",
+    "db-restore": "node --env-file=.env.local scripts/db-restore.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -98,7 +98,18 @@
       "empty": "Hali surat yo'q",
       "cover": "Muqova",
       "setCover": "Muqova qilish",
-      "coverHint": "Muqova birinchi bo'lib va galereya plitkasida ko'rsatiladi."
+      "coverHint": "Muqova birinchi bo'lib va galereya plitkasida ko'rsatiladi.",
+      "select": "Tanlash",
+      "selectAll": "Hammasini tanlash",
+      "selectNone": "Tanlovni bekor qilish",
+      "done": "Tayyor",
+      "selected": "{n} ta tanlandi",
+      "selectHint": "Tanlash uchun suratlarni bosing. Shift bilan bosilsa, oraliq tanlanadi.",
+      "delete": "O'chirish",
+      "deleteConfirmOne": "Ha, 1 ta suratni o'chirish",
+      "deleteConfirmMany": "Ha, {n} ta suratni o'chirish",
+      "deletedOne": "1 ta surat o'chirildi. Uning fayllarini xotiradan ishlovchi dastur o'chiradi.",
+      "deletedMany": "{n} ta surat o'chirildi. Ularning fayllarini xotiradan ishlovchi dastur o'chiradi."
     }
   },
   "settings": {
@@ -135,8 +146,11 @@
     "tierOriginalHint": "O'zgartirilmagan fayl, yuklangan holicha.",
     "delete": "Galereyani o'chirish",
     "deleteBlurb": "Galereya va uning kodlarini o'chiradi. Buni qaytarib bo'lmaydi.",
-    "deleteBlocked": "Suratlari bor galereyani hozircha studiyadan o'chirib bo'lmaydi. Bu xotirani tozalash bilan birga qo'shiladi.",
-    "deleteConfirm": "Ha, o'chirish"
+    "deleteBlurbOne": "Galereyani, uning suratini xotiradagi fayllari bilan birga va kodlarini o'chiradi. Buni qaytarib bo'lmaydi.",
+    "deleteBlurbMany": "Galereyani, uning {n} ta suratini xotiradagi fayllari bilan birga va kodlarini o'chiradi. Buni qaytarib bo'lmaydi.",
+    "deleteConfirm": "Ha, o'chirish",
+    "deleteConfirmOne": "Ha, surati bilan o'chirish",
+    "deleteConfirmMany": "Ha, {n} ta surati bilan o'chirish"
   },
   "access": {
     "mode": "Kim ocha oladi",
@@ -187,7 +201,9 @@
     "codeInUse": "Bu galereyada bunday kod allaqachon bor.",
     "tooManyCodes": "Galereyada 10 ta ishlaydigan kod bo'lishi mumkin. Avval birini o'chirib qo'ying.",
     "labelLength": "Nom juda uzun, ko'pi bilan 80 ta belgi.",
-    "hasPhotos": "Galereyada suratlar bor, shuning uchun uni bu yerda hozircha o'chirib bo'lmaydi.",
+    "hasPhotos": "Galereyani suratlari bilan o'chirish uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261116170000_studio_delete_and_backup.sql faylini ishga tushiring.",
+    "busy": "Ba'zi suratlari hali qayta ishlanmoqda. Bir daqiqadan keyin qayta urinib ko'ring.",
+    "needsUpdate": "Buning uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261116170000_studio_delete_and_backup.sql faylini ishga tushiring.",
     "noTiers": "Kamida bitta o'lchamni qoldiring."
   },
   "error": {
@@ -301,6 +317,16 @@
     "never": "hali ishga tushmagan",
     "hint": "Yuklash uchun uni kompyuteringizda ishga tushiring:",
     "storage": "Xotirada",
+    "cleanup": "O'chirilishi kerak",
+    "cleanupWaitingOne": "O'chirilgan 1 ta suratning fayllari ishlovchi dasturni kutmoqda",
+    "cleanupWaitingMany": "O'chirilgan {n} ta suratning fayllari ishlovchi dasturni kutmoqda",
+    "cleanupFailedOne": "O'chirilgan 1 ta suratning fayllarini o'chirib bo'lmadi",
+    "cleanupFailedMany": "O'chirilgan {n} ta suratning fayllarini o'chirib bo'lmadi",
+    "cleanupRetry": "Qayta urinish",
+    "copy": "Baza nusxasi",
+    "copyNone": "Hali yo'q. Ishlovchi dastur uni kuniga bir marta qiladi.",
+    "copyAt": "{when}, {size}",
+    "copyFailed": "Oxirgi urinish muvaffaqiyatsiz: {error}",
     "status": {
       "uploading": "Yuborilmoqda",
       "processing": "Ishlanmoqda",

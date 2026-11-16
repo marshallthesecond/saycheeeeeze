@@ -26,6 +26,14 @@
 //      order, marks the drop finished with, and refreshes the cache of the
 //      site in NEXT_PUBLIC_SITE_URL. A Studio open on any other site (a dev
 //      preview, pnpm dev) sees the mark and refreshes its own.
+//   6. Removes from storage the files of photos and galleries deleted in the
+//      Studio (delete_files jobs): first refreshes the site, then removes
+//      the originals no photo still uses and the derivative folders.
+//   7. Once a day, after 03:00, saves a copy of the database to this
+//      computer (WORKER_BACKUP_DIR), keeping the last 30.
+//
+//   pnpm worker --backup        a copy of the database now, then stops
+//   pnpm db-restore <copy>      compare a copy with the database; --apply puts it back
 //
 // Files waiting here live in WORKER_SPOOL_DIR (default: a .saycheeeeeze-worker
 // folder in your home folder), never in the project, and are deleted once
@@ -45,9 +53,13 @@
 //   WORKER_SPOOL_DIR            optional, where files wait
 //   WORKER_JOBS                 optional, photos built at once, default 2 (1 to 4)
 //   WORKER_ALLOWED_ORIGINS      optional, extra sites allowed to send files, comma-separated
+//   WORKER_BACKUP_DIR           optional, where database copies go (default: saycheeeeeze-backups in your home folder)
+//   WORKER_BACKUP_KEEP          optional, how many copies to keep, default 30
+//   WORKER_BACKUP_HOUR          optional, the copy of the day is made from this hour on, default 3
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, open, readFile, readdir, rename, rm, stat, truncate, writeFile } from "node:fs/promises";
+import { gzipSync } from "node:zlib";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -57,7 +69,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { encodeLadder, ladderRev, permanent, prefixFor } from "./lib/ladder-core.mjs";
 
-const VERSION = "2";
+const VERSION = "3";
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -110,7 +122,16 @@ const CLEAN_EVERY_MS = 30 * 60_000;
 // Each failed try of a job waits longer before the next one.
 const RETRY_IN_SECONDS = [60, 300, 900];
 
-const KINDS = ["process_upload", "finish_batch"];
+const KINDS = ["process_upload", "finish_batch", "delete_files"];
+
+const BACKUP_DIR = path.resolve(env.WORKER_BACKUP_DIR ?? path.join(os.homedir(), "saycheeeeeze-backups"));
+const BACKUP_KEEP = whole(env.WORKER_BACKUP_KEEP, 30, 1, 365);
+const BACKUP_HOUR = whole(env.WORKER_BACKUP_HOUR, 3, 0, 23);
+const BACKUP_CHECK_MS = 10 * 60_000;
+const BACKUP_FILE = /^saycheeeeeze-db-\d{4}-\d{2}-\d{2}(-\d{4})?\.json\.gz$/;
+// Rows per request. Supabase answers at most its "max rows" (1000 unless
+// changed); the total is asked for, so a lower limit only means more requests.
+const BACKUP_PAGE = 1000;
 
 // Sites allowed to send files here. The ticket is what really decides; this
 // keeps other web pages from even asking.
@@ -131,6 +152,7 @@ const PREVIEW_ORIGIN = /^https:\/\/saycheeeeeze(-[a-z0-9-]+)?\.vercel\.app$/;
 
 const argv = process.argv.slice(2);
 const CHECK = argv.includes("--check");
+const BACKUP_NOW = argv.includes("--backup");
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -142,6 +164,12 @@ function workerName(raw) {
     .replace(/^[^A-Za-z0-9]+/, "")
     .slice(0, 63);
   return clean || "worker";
+}
+
+/** A whole number from the environment, within limits, or the default. */
+function whole(raw, fallback, min, max) {
+  const n = Math.floor(Number(raw));
+  return raw === undefined || raw === "" || !Number.isFinite(n) ? fallback : Math.min(max, Math.max(min, n));
 }
 
 function originOf(url) {
@@ -372,6 +400,48 @@ async function deleteFile(storagePath) {
     signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
   });
   if (!res.ok) throw await httpError(`DELETE ${storagePath}`, res);
+}
+
+/**
+ * Removes a file, or a folder and everything in it (a path ending in "/").
+ * Already gone (404) counts as removed. Answers true when it was there.
+ */
+async function removeFromStorage(storagePath) {
+  const label = `DELETE ${storagePath}`;
+  return withRetries(async () => {
+    let res;
+    try {
+      res = await fetch(storageUrl(storagePath), {
+        method: "DELETE",
+        headers: { AccessKey: STORAGE_KEY },
+        signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (err?.name === "TimeoutError") throw reasoned("storage", `${label} timed out`);
+      throw reasoned("storage", `${label} network error: ${describeNetworkError(err)}`);
+    }
+    if (res.status === 404) return false;
+    if (!res.ok) throw await httpError(label, res);
+    return true;
+  });
+}
+
+// What a delete_files job may remove. The database only ever queues these
+// shapes; checked again here because removing is the one thing that cannot
+// be taken back.
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const DERIVATIVE_FOLDER = new RegExp(`^(d|clients/_d)/${UUID}/(${UUID}/)?$`);
+
+function isOriginalPath(p) {
+  return (
+    typeof p === "string" &&
+    p.length >= 3 &&
+    p.length <= 1024 &&
+    /^[^/]+(\/[^/]+)+$/.test(p) &&
+    !/(^|\/)\.{1,2}(\/|$)/.test(p) &&
+    !/^(d|clients\/_d)\//.test(p) &&
+    !/[\u0000-\u001f\u007f\\]/.test(p)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -723,13 +793,19 @@ async function processUpload(job) {
     return;
   }
 
-  await query("mark processing", () =>
+  const marked = await query("mark processing", () =>
     db
       .from("uploads")
       .update({ status: "processing", attempts: u.attempts + 1 })
       .eq("id", id)
-      .in("status", ["queued", "processing"]),
+      .in("status", ["queued", "processing"])
+      .select("id"),
   );
+  // Cancelled or deleted with its gallery since it was read: nothing to build.
+  if (!marked?.length) {
+    await rm(fullPath(id), { force: true });
+    return;
+  }
 
   const started = Date.now();
   let src;
@@ -896,6 +972,55 @@ async function refreshSite(slug) {
   });
 }
 
+/**
+ * Removes the files of deleted photos (studio_delete_photos) or of a deleted
+ * gallery (studio_delete_gallery). Their rows are already gone.
+ */
+async function deleteFiles(job) {
+  const p = job.payload ?? {};
+  const dirs = (Array.isArray(p.dirs) ? p.dirs : []).filter((d) => DERIVATIVE_FOLDER.test(d));
+  const paths = (Array.isArray(p.paths) ? p.paths : []).filter(isOriginalPath);
+  const odd = (p.dirs?.length ?? 0) + (p.paths?.length ?? 0) - dirs.length - paths.length;
+  if (odd > 0) warn(`left ${odd} path(s) of ${p.slug ?? "a gallery"} alone: they do not look like its files`);
+
+  // The site first: the rows are gone, so once it is refreshed no page
+  // points at these files any more. If it cannot be told, nothing is
+  // removed and the job is tried again later.
+  if (typeof p.slug === "string" && p.slug) await refreshSite(p.slug);
+
+  // A name freed by the delete may have been taken by a new upload since:
+  // an original some row still uses (or is about to) stays.
+  const inUse = new Set();
+  for (let i = 0; i < paths.length; i += 100) {
+    const chunk = paths.slice(i, i + 100);
+    const [photos, uploads] = await Promise.all([
+      query("read photos", () => db.from("photos").select("storage_path").in("storage_path", chunk)),
+      query("read uploads", () =>
+        db
+          .from("uploads")
+          .select("storage_path")
+          .in("storage_path", chunk)
+          .in("status", ["waiting", "uploading", "queued", "processing"]),
+      ),
+    ]);
+    for (const r of [...(photos ?? []), ...(uploads ?? [])]) inUse.add(r.storage_path);
+  }
+  const originals = paths.filter((x) => !inUse.has(x));
+
+  let found = 0;
+  await pool([...dirs, ...originals], 4, async (target) => {
+    if (await removeFromStorage(target)) found++;
+  });
+
+  const n = Number(p.photos) || 0;
+  log(
+    `removed   ${n} photo${n === 1 ? "" : "s"} of ${p.slug ?? p.gallery_id}: ` +
+      `${originals.length} original${originals.length === 1 ? "" : "s"}, ${dirs.length} folder${dirs.length === 1 ? "" : "s"}` +
+      `${found < dirs.length + originals.length ? ` (${dirs.length + originals.length - found} already gone)` : ""}` +
+      `${inUse.size ? `, ${inUse.size} kept (in use again)` : ""}`,
+  );
+}
+
 async function runJob(job) {
   running++;
   const beat = setInterval(() => {
@@ -904,6 +1029,7 @@ async function runJob(job) {
   try {
     if (job.kind === "process_upload") await processUpload(job);
     else if (job.kind === "finish_batch") await finishBatch(job);
+    else if (job.kind === "delete_files") await deleteFiles(job);
     else throw permanent(new Error(`this worker does not run ${job.kind} jobs`));
     await rpc("worker_finish_job", { p_job_id: job.id, p_name: NAME, p_ok: true });
   } catch (err) {
@@ -965,6 +1091,175 @@ async function jobLoop() {
       continue;
     }
     await runJob(job);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The database copy
+// ---------------------------------------------------------------------------
+
+/** 2026-11-16, or 2026-11-16-1530 with the time: this computer's clock. */
+function localStamp(d, withTime = false) {
+  const two = (n) => String(n).padStart(2, "0");
+  const day = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+  return withTime ? `${day}-${two(d.getHours())}${two(d.getMinutes())}` : day;
+}
+
+const backupPath = (stamp) => path.join(BACKUP_DIR, `saycheeeeeze-db-${stamp}.json.gz`);
+
+/** Every row of one table, in primary-key order. */
+async function readTable(t) {
+  const rows = [];
+  const seen = new Set();
+  let total = null;
+  for (let from = 0; ; ) {
+    const page = await withRetries(async () => {
+      let qb = db.from(t.table_name).select("*", from === 0 ? { count: "exact" } : undefined);
+      for (const k of t.primary_key) qb = qb.order(k, { ascending: true });
+      const { data, error, count } = await qb.range(from, from + BACKUP_PAGE - 1);
+      if (error) {
+        const err = reasoned("database", `${t.table_name}: ${error.message}`);
+        if (error.code && /^(42|PGRST)/.test(error.code)) err.permanent = true;
+        throw err;
+      }
+      if (from === 0) total = count;
+      return data ?? [];
+    });
+    for (const r of page) {
+      // A row that moved between two pages while reading is kept once.
+      const key = t.primary_key.length ? JSON.stringify(t.primary_key.map((k) => r[k])) : null;
+      if (key !== null) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      rows.push(r);
+    }
+    from += page.length;
+    if (page.length === 0 || (total !== null && from >= total)) break;
+  }
+  return rows;
+}
+
+let warnedNoBackup = false;
+
+/** Notes on this worker's row how the last copy went, for the Studio. */
+async function recordBackup(fields) {
+  const { error } = await db.from("workers").update(fields).eq("name", NAME);
+  if (error && !warnedNoBackup) {
+    warn(`could not note the database copy for the Studio (${sanitize(error.message)})`);
+    warnedNoBackup = true;
+  }
+}
+
+/**
+ * Writes a copy of every table to BACKUP_DIR, then keeps the newest
+ * BACKUP_KEEP. A table that cannot be read is noted in the copy and in the
+ * error; the others are still saved.
+ */
+async function makeBackup({ withTime = false } = {}) {
+  const started = Date.now();
+  const at = new Date();
+  let tables;
+  try {
+    tables = await rpc("worker_backup_tables", {});
+  } catch (err) {
+    if (err.code === "PGRST202") {
+      throw reasoned("database", "worker_backup_tables is not in the database: run 20261116170000_studio_delete_and_backup.sql", true);
+    }
+    throw err;
+  }
+  const users = await rpc("worker_backup_users", {});
+
+  const copy = {
+    format: "saycheeeeeze-db-copy",
+    version: 1,
+    made_at: at.toISOString(),
+    worker: NAME,
+    database: (() => {
+      try {
+        return new URL(SUPABASE_URL).host;
+      } catch {
+        return null;
+      }
+    })(),
+    users,
+    tables: [],
+  };
+  const problems = [];
+  let rowCount = 0;
+  for (const t of tables) {
+    const entry = {
+      name: t.table_name,
+      columns: t.columns,
+      primary_key: t.primary_key,
+      generated: t.generated,
+      depends_on: t.depends_on,
+      auth_user_columns: t.auth_user_columns,
+      rows: null,
+    };
+    try {
+      entry.rows = await readTable(t);
+      rowCount += entry.rows.length;
+    } catch (err) {
+      entry.error = sanitize(err.message);
+      problems.push(`${t.table_name} (${entry.error})`);
+    }
+    copy.tables.push(entry);
+  }
+
+  const body = gzipSync(Buffer.from(JSON.stringify(copy)));
+  await mkdir(BACKUP_DIR, { recursive: true });
+  const file = backupPath(localStamp(at, withTime));
+  await writeFile(`${file}.part`, body);
+  await rename(`${file}.part`, file);
+  const pruned = await pruneBackups();
+
+  const saved = copy.tables.filter((t) => t.rows).length;
+  const error = problems.length ? `${problems.length} table(s) not copied: ${problems.join("; ")}`.slice(0, 500) : null;
+  await recordBackup({ backup_at: at.toISOString(), backup_bytes: body.length, backup_tables: saved, backup_error: error });
+  log(
+    `db copy   ${path.basename(file)}  ${saved} tables, ${rowCount} rows, ${human(body.length)}, ` +
+      `${((Date.now() - started) / 1000).toFixed(1)}s` +
+      `${pruned ? `, ${pruned} old cop${pruned === 1 ? "y" : "ies"} removed` : ""}`,
+  );
+  if (error) warn(`db copy   ${error}`);
+  return { file, bytes: body.length, tables: saved, rows: rowCount, error };
+}
+
+/** Keeps the newest BACKUP_KEEP copies. Only files named like a copy. */
+async function pruneBackups() {
+  const all = await readdir(BACKUP_DIR).catch(() => []);
+  const names = all.filter((n) => BACKUP_FILE.test(n)).sort();
+  const old = names.slice(0, Math.max(0, names.length - BACKUP_KEEP));
+  for (const n of old) await rm(path.join(BACKUP_DIR, n), { force: true });
+  // Half-written copies from a stop in the middle of one.
+  for (const n of all.filter((x) => BACKUP_FILE.test(x.replace(/\.part$/, "")) && x.endsWith(".part"))) {
+    const st = await stat(path.join(BACKUP_DIR, n)).catch(() => null);
+    if (st && Date.now() - st.mtimeMs > 3600_000) await rm(path.join(BACKUP_DIR, n), { force: true });
+  }
+  return old.length;
+}
+
+let backupFailedAt = 0;
+let backingUp = false;
+
+/** The copy of the day: once a day, from BACKUP_HOUR on, while the worker runs. */
+async function backupIfDue() {
+  const now = new Date();
+  if (stopping || backingUp || now.getHours() < BACKUP_HOUR) return;
+  if (await stat(backupPath(localStamp(now))).catch(() => null)) return;
+  // A failed copy is tried again an hour later, not every ten minutes.
+  if (Date.now() - backupFailedAt < 3600_000) return;
+  backingUp = true;
+  try {
+    await makeBackup();
+  } catch (err) {
+    backupFailedAt = Date.now();
+    const message = sanitize(err?.message ?? err);
+    warn(`db copy   failed: ${message}`);
+    await recordBackup({ backup_error: message.slice(0, 500) });
+  } finally {
+    backingUp = false;
   }
 }
 
@@ -1063,6 +1358,13 @@ async function check() {
   await rm(probe, { force: true });
   console.log("ok");
 
+  process.stdout.write(`  database copies in ${BACKUP_DIR} ... `);
+  await mkdir(BACKUP_DIR, { recursive: true });
+  const probe2 = path.join(BACKUP_DIR, ".write-test");
+  await writeFile(probe2, "ok");
+  await rm(probe2, { force: true });
+  console.log("ok");
+
   if (REVALIDATE_SECRET) console.log(`  site to refresh: ${SITE_URL}`);
   else console.log("  REVALIDATE_SECRET not set: the site's cache will not be refreshed after a drop");
   console.log("\nEverything the worker needs answers. Start it without --check.\n");
@@ -1093,6 +1395,13 @@ async function main() {
     return;
   }
 
+  if (BACKUP_NOW) {
+    const made = await makeBackup({ withTime: true });
+    console.log(`\nSaved ${made.file}\n  ${made.tables} tables, ${made.rows} rows, ${human(made.bytes)}\n`);
+    if (made.error) process.exitCode = 1;
+    return;
+  }
+
   await mkdir(SPOOL, { recursive: true });
   const server = await startServer();
 
@@ -1114,12 +1423,16 @@ async function main() {
   console.log(`  waiting files in    ${SPOOL}`);
   console.log(`  storage             ${STORAGE_ZONE} @ ${STORAGE_HOST}`);
   console.log(`  refreshes           ${REVALIDATE_SECRET ? SITE_URL : "nothing (REVALIDATE_SECRET not set)"}`);
+  console.log(`  database copy       daily from ${String(BACKUP_HOUR).padStart(2, "0")}:00 to ${BACKUP_DIR} (last ${BACKUP_KEEP} kept)`);
   if (requeued) console.log(`  ${requeued} job(s) left from last time are back in the queue`);
   console.log("\nLeave this window open while you upload. Ctrl-C stops it.\n");
 
   const beat = setInterval(heartbeat, HEARTBEAT_MS);
   cleanSpool().catch(() => {});
   const tidy = setInterval(() => cleanSpool().catch(() => {}), CLEAN_EVERY_MS);
+  // Not at the very start: uploads waiting since last time go first.
+  const firstCopy = setTimeout(() => backupIfDue().catch(() => {}), 30_000);
+  const copies = setInterval(() => backupIfDue().catch(() => {}), BACKUP_CHECK_MS);
   const loops = Array.from({ length: JOBS }, () => jobLoop());
 
   let stops = 0;
@@ -1133,6 +1446,8 @@ async function main() {
     stopping = true;
     clearInterval(beat);
     clearInterval(tidy);
+    clearTimeout(firstCopy);
+    clearInterval(copies);
     server.close();
     server.closeIdleConnections?.();
     wake();

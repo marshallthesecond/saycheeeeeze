@@ -463,3 +463,54 @@ export async function dropRefresh(session: StudioSession, batchId: string): Prom
   }
   return { state: "waiting" };
 }
+
+/** The worker's last database copy, as the Uploads page shows it. */
+export interface BackupStatus {
+  at: string | null;
+  bytes: number | null;
+  tables: number | null;
+  error: string | null;
+}
+
+/**
+ * The most recent copy any worker made. Null when the database does not have
+ * the columns yet (20261116170000 not run): the page then says nothing.
+ */
+export async function getBackupStatus(): Promise<BackupStatus | null> {
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase
+    .from("workers")
+    .select("backup_at, backup_bytes, backup_tables, backup_error")
+    .order("backup_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) return null;
+  const row = data?.[0];
+  return {
+    at: row?.backup_at ?? null,
+    bytes: row?.backup_bytes == null ? null : Number(row.backup_bytes),
+    tables: row?.backup_tables ?? null,
+    // An error after the last good copy, or with none at all.
+    error: row?.backup_error ?? null,
+  };
+}
+
+/** Files of deleted photos still in storage, for this account. */
+export interface StorageCleanup {
+  /** Photos whose files the worker has still to remove. */
+  waiting: number;
+  /** Photos whose files it gave up on, and why. */
+  failed: number;
+  error: string | null;
+}
+
+export async function getStorageCleanup(): Promise<StorageCleanup | null> {
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_storage_cleanup");
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  return {
+    waiting: Number(d.waiting) || 0,
+    failed: Number(d.failed) || 0,
+    error: typeof d.error === "string" ? d.error : null,
+  };
+}

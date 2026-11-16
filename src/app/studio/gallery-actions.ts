@@ -16,6 +16,7 @@ import type { DownloadTier, GalleryKind } from "@/src/lib/ladder";
 import { STUDIO_HOME, studioGalleryPath } from "@/src/lib/studio/config";
 import { endOfStudioDay } from "@/src/lib/studio/gallery";
 import { publicPath } from "@/src/lib/studio/galleries";
+import { alsoRefreshLiveSite } from "@/src/lib/studio/live-site";
 import { PASSKEY_MAX, PASSKEY_MIN, generatePasskey } from "@/src/lib/studio/passkey";
 import { requireStudio } from "@/src/lib/studio/session";
 import { categoryProblem, isValidSlug, slugify } from "@/src/lib/studio/slug";
@@ -44,6 +45,11 @@ export interface CreateState extends FormState {
 
 export interface PasskeyState extends FormState {
   created?: { code: string; label: string };
+}
+
+export interface DeletePhotosState extends FormState {
+  /** How many photos went. */
+  deleted?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +81,8 @@ const REASONS: Record<string, string> = {
   too_many_codes: "tooManyCodes",
   label_length: "labelLength",
   has_photos: "hasPhotos",
+  busy: "busy",
+  photos: "invalid",
   not_found: "notFound",
   not_member: "notFound",
   not_client: "notFound",
@@ -145,11 +153,14 @@ async function ownGallery(galleryId: string): Promise<Own | null> {
  * change, expire them so the next visitor gets the new state, not the old one
  * once more: an album that was just unpublished must be gone on the next load.
  * A client gallery's own page is never cached, so it needs nothing.
+ *
+ * And the live site too, when the Studio runs somewhere else (a preview).
  */
-function expireSiteCaches(slug: string): void {
+async function expireSiteCaches(slug: string): Promise<void> {
   updateTag("albums");
   updateTag(`album:${slug.toLowerCase()}`);
   updateTag("client-galleries");
+  await alsoRefreshLiveSite(slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +317,7 @@ async function applyPatch(
   // No error and no row: Row Level Security filtered it out.
   if (!data || data.length === 0) return { error: "notFound", values };
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   refresh();
   return { ok: true };
 }
@@ -330,7 +341,7 @@ export async function setCover(form: FormData): Promise<void> {
     return;
   }
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   refresh();
 }
 
@@ -398,6 +409,44 @@ export async function deleteGallery(_prev: FormState, form: FormData): Promise<F
     return { error: reasonOf(error) };
   }
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   redirect(STUDIO_HOME);
+}
+
+// ---------------------------------------------------------------------------
+// Deleting photos
+// ---------------------------------------------------------------------------
+
+/**
+ * Takes the chosen photos out of the gallery. Their rows go at once; the
+ * worker removes their files from storage (studio_delete_photos queues it).
+ */
+export async function deletePhotos(_prev: DeletePhotosState, form: FormData): Promise<DeletePhotosState> {
+  const own = await ownGallery(str(form, "galleryId"));
+  if (!own) return { error: "notFound" };
+
+  const ids = [...new Set(form.getAll("photo").map(String))].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0 || ids.length > 500) return { error: "invalid" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_delete_photos", { p_gallery_id: own.id, p_photo_ids: ids });
+  if (error) {
+    console.error(`studio_delete_photos failed for "${own.slug}": ${error.message}`);
+    // PGRST202: the step-6 migration is not in the database yet.
+    return { error: error.code === "PGRST202" ? "needsUpdate" : reasonOf(error) };
+  }
+
+  await expireSiteCaches(own.slug);
+  refresh();
+  const deleted = (data as { deleted?: unknown } | null)?.deleted;
+  return { ok: true, deleted: typeof deleted === "number" ? deleted : ids.length };
+}
+
+/** The Uploads page's Try again, for files the worker could not remove. */
+export async function retryCleanup(): Promise<void> {
+  await requireStudio();
+  const supabase = await studioSupabase();
+  const { error } = await supabase.rpc("studio_retry_cleanup");
+  if (error) console.error(`studio_retry_cleanup failed: ${error.message}`);
+  refresh();
 }

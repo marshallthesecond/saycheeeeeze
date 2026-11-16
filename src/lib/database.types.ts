@@ -670,6 +670,7 @@ export type Database = {
           file_count: number
           finished_at: string | null
           gallery_id: string
+          had_cover: boolean | null
           id: string
           ready_count: number
           settled_at: string | null
@@ -687,6 +688,7 @@ export type Database = {
           file_count: number
           finished_at?: string | null
           gallery_id: string
+          had_cover?: boolean | null
           id?: string
           ready_count?: number
           settled_at?: string | null
@@ -704,6 +706,7 @@ export type Database = {
           file_count?: number
           finished_at?: string | null
           gallery_id?: string
+          had_cover?: boolean | null
           id?: string
           ready_count?: number
           settled_at?: string | null
@@ -818,6 +821,10 @@ export type Database = {
       workers: {
         Row: {
           accepting_uploads: boolean
+          backup_at: string | null
+          backup_bytes: number | null
+          backup_error: string | null
+          backup_tables: number | null
           last_seen_at: string
           name: string
           started_at: string
@@ -826,6 +833,10 @@ export type Database = {
         }
         Insert: {
           accepting_uploads?: boolean
+          backup_at?: string | null
+          backup_bytes?: number | null
+          backup_error?: string | null
+          backup_tables?: number | null
           last_seen_at?: string
           name: string
           started_at?: string
@@ -834,6 +845,10 @@ export type Database = {
         }
         Update: {
           accepting_uploads?: boolean
+          backup_at?: string | null
+          backup_bytes?: number | null
+          backup_error?: string | null
+          backup_tables?: number | null
           last_seen_at?: string
           name?: string
           started_at?: string
@@ -888,9 +903,17 @@ export type Database = {
         Args: { p_gallery_id: string }
         Returns: undefined
       }
+      studio_delete_photos: {
+        Args: { p_gallery_id: string; p_photo_ids: string[] }
+        Returns: Json
+      }
       studio_renew_upload_tickets: {
         Args: { p_batch_id: string }
         Returns: Json
+      }
+      studio_retry_cleanup: {
+        Args: never
+        Returns: number
       }
       studio_retry_upload: {
         Args: { p_upload_id: string }
@@ -900,6 +923,10 @@ export type Database = {
         Args: { p_gallery_id: string; p_photo_id?: string }
         Returns: undefined
       }
+      studio_storage_cleanup: {
+        Args: never
+        Returns: Json
+      }
       unlock_gallery: {
         Args: { p_code: string; p_ip: string; p_slug: string }
         Returns: string
@@ -907,6 +934,22 @@ export type Database = {
       upload_door: {
         Args: never
         Returns: { name: string; upload_url: string }[]
+      }
+      worker_backup_tables: {
+        Args: never
+        Returns: {
+          approx_rows: number
+          auth_user_columns: string[]
+          columns: string[]
+          depends_on: string[]
+          generated: string[]
+          primary_key: string[]
+          table_name: string
+        }[]
+      }
+      worker_backup_users: {
+        Args: never
+        Returns: { created_at: string; email: string; id: string }[]
       }
       worker_claim_job: {
         Args: { p_kinds: string[]; p_name: string }

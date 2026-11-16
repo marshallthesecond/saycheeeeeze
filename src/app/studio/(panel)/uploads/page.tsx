@@ -1,20 +1,27 @@
-// /studio/uploads: the worker, the storage used, and every recent drop of
+// /studio/uploads: the worker, the storage used, the last database copy,
+// files of deleted photos still to be removed, and every recent drop of
 // files with its failed files and a Retry for each.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
+import { PendingButton } from "@/src/components/studio/FormFeedback";
 import RetryUpload from "@/src/components/studio/RetryUpload";
+import { retryCleanup } from "@/src/app/studio/gallery-actions";
 import { studioGalleryPath } from "@/src/lib/studio/config";
 import { formatBytes, formatWhen } from "@/src/lib/studio/format";
 import { getStudioDictionary, translator } from "@/src/lib/studio/i18n";
 import { getStudioLocale } from "@/src/lib/studio/locale";
 import { requireStudio } from "@/src/lib/studio/session";
 import {
+  getBackupStatus,
+  getStorageCleanup,
   getWorkerStatus,
   listFailedUploads,
   listUploadBatches,
+  type BackupStatus,
   type FailedUpload,
+  type StorageCleanup,
   type UploadBatchView,
   type WorkerStatus,
 } from "@/src/lib/studio/uploads";
@@ -34,9 +41,17 @@ export default async function UploadsPage() {
   let batches: UploadBatchView[] = [];
   let failed: FailedUpload[] = [];
   let worker: WorkerStatus | null = null;
+  let backup: BackupStatus | null = null;
+  let cleanup: StorageCleanup | null = null;
   let unavailable = false;
   try {
-    [batches, worker] = await Promise.all([listUploadBatches(session, { limit: 30 }), getWorkerStatus()]);
+    // The copy and the clean-up are null on a database without step 6.
+    [batches, worker, backup, cleanup] = await Promise.all([
+      listUploadBatches(session, { limit: 30 }),
+      getWorkerStatus(),
+      getBackupStatus(),
+      getStorageCleanup(),
+    ]);
     failed = await listFailedUploads(
       session,
       batches.filter((b) => b.failed > 0).map((b) => b.id),
@@ -91,6 +106,49 @@ export default async function UploadsPage() {
             </dd>
             <dt className="text-muted-foreground">{t("uploads.storage")}</dt>
             <dd className="tabular-nums">{bytes(session.account.storageUsedBytes)}</dd>
+            {cleanup && (cleanup.waiting > 0 || cleanup.failed > 0) && (
+              <>
+                <dt className="text-muted-foreground">{t("uploads.cleanup")}</dt>
+                <dd className="min-w-0">
+                  {cleanup.waiting > 0 && (
+                    <span className="block">
+                      {t(cleanup.waiting === 1 ? "uploads.cleanupWaitingOne" : "uploads.cleanupWaitingMany", {
+                        n: cleanup.waiting,
+                      })}
+                    </span>
+                  )}
+                  {cleanup.failed > 0 && (
+                    <form action={retryCleanup} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                      <span className="text-destructive" title={cleanup.error ?? undefined}>
+                        {t(cleanup.failed === 1 ? "uploads.cleanupFailedOne" : "uploads.cleanupFailedMany", {
+                          n: cleanup.failed,
+                        })}
+                      </span>
+                      <PendingButton className="whitespace-nowrap text-[13px] font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-60">
+                        {t("uploads.cleanupRetry")}
+                      </PendingButton>
+                    </form>
+                  )}
+                </dd>
+              </>
+            )}
+            {backup && (
+              <>
+                <dt className="text-muted-foreground">{t("uploads.copy")}</dt>
+                <dd className="min-w-0">
+                  <span className="block tabular-nums">
+                    {backup.at
+                      ? t("uploads.copyAt", { when: formatWhen(backup.at, locale), size: bytes(backup.bytes ?? 0) })
+                      : t("uploads.copyNone")}
+                  </span>
+                  {backup.error && (
+                    <span className="mt-0.5 block break-words text-[13px] text-destructive">
+                      {t("uploads.copyFailed", { error: backup.error })}
+                    </span>
+                  )}
+                </dd>
+              </>
+            )}
           </dl>
 
           {batches.length === 0 ? (
