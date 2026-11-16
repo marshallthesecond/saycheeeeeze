@@ -104,6 +104,26 @@ export default async function UploadsPage() {
                 </span>
               )}
             </dd>
+            {worker?.online && worker.remote !== undefined && (
+              <>
+                <dt className="text-muted-foreground">{t("uploads.otherDevices")}</dt>
+                <dd className="min-w-0">
+                  {worker.remote ? (
+                    t("uploads.otherDevicesOn")
+                  ) : (
+                    <>
+                      {t("uploads.otherDevicesOff")}
+                      <span className="mt-1 block text-[13px] text-muted-foreground">
+                        {t("uploads.otherDevicesHint")}{" "}
+                        <code className="break-all rounded bg-foreground/6 px-1.5 py-0.5">
+                          winget install --id Cloudflare.cloudflared
+                        </code>
+                      </span>
+                    </>
+                  )}
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">{t("uploads.storage")}</dt>
             <dd className="tabular-nums">{bytes(session.account.storageUsedBytes)}</dd>
             {cleanup && (cleanup.waiting > 0 || cleanup.failed > 0) && (

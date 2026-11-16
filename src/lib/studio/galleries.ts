@@ -8,18 +8,9 @@
 
 import "server-only";
 
-import {
-  derivativePrefix,
-  parseVariants,
-  type GalleryKind,
-  type LadderSources,
-} from "@/src/lib/ladder";
-import {
-  nextExpiry,
-  privateHost,
-  privateZoneConfigured,
-  signDirectoryQuery,
-} from "@/src/lib/bunny-sign";
+import { type GalleryKind, type LadderSources } from "@/src/lib/ladder";
+import { nextExpiry } from "@/src/lib/bunny-sign";
+import { photoLadder } from "@/src/lib/photo-files";
 import type { StudioSession } from "./session";
 import { studioSupabase } from "./supabase";
 
@@ -40,8 +31,6 @@ export interface StudioGallery {
   href: string;
 }
 
-const PUBLIC_CDN = (process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE ?? "").replace(/\/$/, "");
-
 export interface CoverRow {
   id: string;
   gallery_id: string;
@@ -50,36 +39,19 @@ export interface CoverRow {
   thumbhash: string | null;
   variants: unknown;
   ladder_rev: number | null;
+  files_at: string | null;
 }
 
-export const COVER_COLUMNS = "id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev";
+export const COVER_COLUMNS = "id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev, files_at";
 
 /**
- * The cover's optimized versions, from the public zone for an album and from
- * the private zone, signed, for a client gallery.
- *
- * Keyed on the gallery's KIND, never its visibility, for the reason given at
- * derivativePrefix(): that is where the files physically are.
+ * A photo's optimized versions for the Studio: from the public zone when its
+ * files are in a public folder, signed from the private zone when they are
+ * under clients/. Where the files ARE (photos.files_at), which since step 7
+ * need not match the gallery the row is in now.
  */
 export function coverLadder(kind: GalleryKind, row: CoverRow, expiresAt: number): LadderSources | undefined {
-  const variants = parseVariants(row.variants);
-  if (!row.checksum8 || variants.length === 0) return undefined;
-
-  const prefix = derivativePrefix(kind, row.gallery_id, row.id, row.checksum8, row.ladder_rev ?? 1);
-  const widths = variants.map((v) => v.w);
-
-  if (kind === "client") {
-    if (!privateZoneConfigured()) return undefined;
-    return {
-      base: `${privateHost()}/${prefix}`,
-      widths,
-      // One token for the gallery's whole derivative folder, as on its own page.
-      query: signDirectoryQuery(`clients/_d/${row.gallery_id}/`, expiresAt),
-    };
-  }
-
-  if (!PUBLIC_CDN) return undefined;
-  return { base: `${PUBLIC_CDN}/${prefix}`, widths, query: "" };
+  return photoLadder(row, kind, expiresAt);
 }
 
 /** A gallery's page on the public site, without the language prefix. */

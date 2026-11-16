@@ -332,6 +332,7 @@ interface Row {
   slug: string;
   bunny_folder: string | null;
   cover_path: string | null;
+  client_folder?: string | null;
 }
 
 async function main() {
@@ -360,17 +361,22 @@ async function main() {
   const columns = new Set(Object.keys(sample?.[0] ?? {}));
   const hasCol = (c: string) => columns.size === 0 || columns.has(c);
 
+  // client_folder (20261116230000): a client gallery made into a Portfolio
+  // album in the Studio keeps its photos in that clients/ folder while new
+  // uploads go to its album folder. Both folders are the same gallery.
   const { data: existing, error: exErr } = await db
     .from("galleries")
-    .select("id, slug, bunny_folder, cover_path");
+    .select(hasCol("client_folder") ? "id, slug, bunny_folder, cover_path, client_folder" : "id, slug, bunny_folder, cover_path");
   if (exErr) throw exErr;
   const rows = (existing ?? []) as unknown as Row[];
 
-  const norm = (f: string | null) => (f ? f.replace(/^\/+|\/+$/g, "") : null);
+  const norm = (f: string | null | undefined) => (f ? f.replace(/^\/+|\/+$/g, "") : null);
   const byFolder = new Map<string, Row>();
   for (const r of rows) {
     const f = norm(r.bunny_folder);
     if (f) byFolder.set(f, r);
+    const c = norm(r.client_folder);
+    if (c) byFolder.set(c, r);
   }
 
   // -- what goes ------------------------------------------------------------
@@ -380,6 +386,8 @@ async function main() {
   const missing = rows.filter((r) => {
     const f = norm(r.bunny_folder);
     if (f === null) return false; // handled as an orphan below
+    const c = norm(r.client_folder);
+    if (c && zone.has(c)) return false; // its photos are in its private folder
     return inScope(f) && !zone.has(f);
   });
 
@@ -415,7 +423,29 @@ async function main() {
     return out;
   }
 
+  // Since step 7 a gallery can show photos that live in other folders
+  // (published from a client gallery, moved from another album), and a
+  // client gallery made public keeps its photos in its old folder. Neither
+  // is "its folder is gone": keep it, and say so.
+  async function holdsPhotosElsewhere(candidates: Row[]): Promise<Set<string>> {
+    const out = new Set<string>();
+    for (const r of candidates) {
+      if (norm(r.client_folder)) {
+        out.add(r.id);
+        continue;
+      }
+      const f = norm(r.bunny_folder) ?? "";
+      const { data, error } = await db.from("photos").select("storage_path").eq("gallery_id", r.id);
+      // Not knowing is not a reason to delete.
+      if (error) throw error;
+      const paths = ((data ?? []) as unknown as { storage_path: string }[]).map((p) => p.storage_path);
+      if (paths.some((p) => !p.startsWith(`${f}/`))) out.add(r.id);
+    }
+    return out;
+  }
+
   const waitingIds = await studioMadeAndEmpty(missing.map((r) => r.id));
+  for (const id of await holdsPhotosElsewhere(missing.filter((r) => !waitingIds.has(r.id)))) waitingIds.add(id);
   const waiting = missing.filter((r) => waitingIds.has(r.id));
   const doomed = missing.filter((r) => !waitingIds.has(r.id));
 
@@ -481,7 +511,7 @@ async function main() {
   for (const w of waiting) {
     console.log(
       `  ~ ${w.slug.padEnd(24)}         ${w.bunny_folder}  ` +
-        `(made in the Studio, no files yet: kept)`,
+        `(made in the Studio, waiting for files or holding photos from other folders: kept)`,
     );
   }
   for (const o of orphans) {
@@ -581,8 +611,24 @@ async function main() {
       ((priorRows ?? []) as unknown as Prior[]).map((p) => [p.storage_path, p]),
     );
 
+    // A file another gallery's row already shows, and this gallery has no
+    // row for, was moved out of here or published and then deleted here in
+    // the Studio: not added back.
+    const elsewhere = new Set<string>();
+    const paths = files.map((f) => f.path);
+    for (let i = 0; i < paths.length; i += 200) {
+      const { data: other, error: otherErr } = await db
+        .from("photos")
+        .select("storage_path")
+        .neq("gallery_id", gallery.id)
+        .in("storage_path", paths.slice(i, i + 200));
+      if (otherErr) throw otherErr;
+      for (const o of (other ?? []) as unknown as { storage_path: string }[]) elsewhere.add(o.storage_path);
+    }
+    const kept = files.filter((f) => prior.has(f.path) || !elsewhere.has(f.path));
+
     // Only genuinely new paths cost a network round trip.
-    const needProbe = files.filter((f) => {
+    const needProbe = kept.filter((f) => {
       const p = prior.get(f.path);
       return !p || p.width === null || p.height === null;
     });
@@ -591,7 +637,7 @@ async function main() {
     totalProbed += needProbe.length;
 
     const label = titleize(folder.split("/").pop()!);
-    const photoRows = files.map((f, i) => {
+    const photoRows = kept.map((f, i) => {
       const p = prior.get(f.path);
       const d = dims.get(f.path);
       const width = d?.width ?? p?.width ?? null;
@@ -610,7 +656,7 @@ async function main() {
       return {
         gallery_id: gallery.id,
         storage_path: f.path,
-        alt: `${label} — photo ${i + 1} of ${files.length}`,
+        alt: `${label} — photo ${i + 1} of ${kept.length}`,
         width,
         height,
         bytes: f.length,
@@ -618,16 +664,20 @@ async function main() {
       };
     });
 
-    const { error: upErr } = await db
-      .from("photos")
-      .upsert(photoRows, { onConflict: "gallery_id,storage_path" });
+    const { error: upErr } = photoRows.length
+      ? await db.from("photos").upsert(photoRows, { onConflict: "gallery_id,storage_path" })
+      : { error: null };
     if (upErr) {
       console.error(`  ! ${gallery.slug}: ${upErr.message}`);
       continue;
     }
 
-    const livePaths = new Set(files.map((f) => f.path));
-    const stale = [...prior.keys()].filter((p) => !livePaths.has(p));
+    const livePaths = new Set(kept.map((f) => f.path));
+    // Only rows for files in THIS folder can be stale here. A row pointing
+    // into another folder (a published or moved photo) is that folder's
+    // business, and its file is not in this listing by design.
+    const inThisFolder = (p: string) => p.startsWith(`${folder}/`) && !p.slice(folder.length + 1).includes("/");
+    const stale = [...prior.keys()].filter((p) => inThisFolder(p) && !livePaths.has(p));
     if (stale.length) {
       await db
         .from("photos")
@@ -636,16 +686,20 @@ async function main() {
         .in("storage_path", stale);
     }
 
-    // Cover follows the folder: set it when unset or now dangling.
-    if (!gallery.cover_path || !livePaths.has(gallery.cover_path)) {
+    // Cover follows the folder: set it when unset or now dangling. A cover
+    // that is one of the gallery's photos from another folder is neither.
+    const elsewhereRows = [...prior.keys()].filter((p) => !inThisFolder(p));
+    const valid = (p: string) => livePaths.has(p) || elsewhereRows.includes(p);
+    if (kept.length && (!gallery.cover_path || !valid(gallery.cover_path))) {
       await db
         .from("galleries")
-        .update({ cover_path: files[0].path })
+        .update({ cover_path: kept[0].path })
         .eq("id", gallery.id);
     }
 
     console.log(
-      `  ${gallery.slug.padEnd(24)} ${String(files.length).padStart(4)} photos` +
+      `  ${gallery.slug.padEnd(24)} ${String(kept.length).padStart(4)} photos` +
+        (kept.length < files.length ? `  (${files.length - kept.length} shown by another gallery)` : "") +
         (stale.length ? `  -${stale.length}` : "") +
         (needProbe.length ? `  probed ${needProbe.length}` : ""),
     );

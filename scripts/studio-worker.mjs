@@ -31,6 +31,12 @@
 //      the originals no photo still uses and the derivative folders.
 //   7. Once a day, after 03:00, saves a copy of the database to this
 //      computer (WORKER_BACKUP_DIR), keeping the last 30.
+//   8. Phones and other computers: when cloudflared is installed, starts a
+//      Cloudflare quick tunnel (free, no account) to this worker and gives
+//      the Studio its https address. The address changes each start; the
+//      worker tells the database, so nobody types it. A browser on this
+//      computer still sends straight here. Install once on Windows:
+//        winget install --id Cloudflare.cloudflared
 //
 //   pnpm worker --backup        a copy of the database now, then stops
 //   pnpm db-restore <copy>      compare a copy with the database; --apply puts it back
@@ -49,7 +55,8 @@
 //   LADDER_REV                  same meaning as in build-ladder.mjs (default 1)
 //   WORKER_NAME                 optional, default this computer's name
 //   WORKER_PORT                 optional, default 7811
-//   WORKER_PUBLIC_URL           optional, where browsers reach it (default http://127.0.0.1:<port>)
+//   WORKER_PUBLIC_URL           optional, where browsers reach it (default: the tunnel, else http://127.0.0.1:<port>)
+//   WORKER_TUNNEL               optional, "off" to not start cloudflared (default: start it when installed)
 //   WORKER_SPOOL_DIR            optional, where files wait
 //   WORKER_JOBS                 optional, photos built at once, default 2 (1 to 4)
 //   WORKER_ALLOWED_ORIGINS      optional, extra sites allowed to send files, comma-separated
@@ -57,6 +64,7 @@
 //   WORKER_BACKUP_KEEP          optional, how many copies to keep, default 30
 //   WORKER_BACKUP_HOUR          optional, the copy of the day is made from this hour on, default 3
 
+import { spawn } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { mkdir, open, readFile, readdir, rename, rm, stat, truncate, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
@@ -69,7 +77,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { encodeLadder, ladderRev, permanent, prefixFor } from "./lib/ladder-core.mjs";
 
-const VERSION = "3";
+const VERSION = "4";
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -98,7 +106,15 @@ const LADDER_REV = ladderRev();
 const PORT = Number(env.WORKER_PORT ?? 7811);
 // This computer only. A tunnel for other devices is step 7.
 const HOST = env.WORKER_HOST ?? "127.0.0.1";
-const PUBLIC_URL = (env.WORKER_PUBLIC_URL ?? `http://127.0.0.1:${PORT}`).replace(/\/+$/, "");
+const LOCAL_URL = `http://127.0.0.1:${PORT}`;
+const FIXED_URL = env.WORKER_PUBLIC_URL ? env.WORKER_PUBLIC_URL.replace(/\/+$/, "") : null;
+const TUNNEL = !FIXED_URL && (env.WORKER_TUNNEL ?? "").toLowerCase() !== "off";
+// cloudflared, or a stand-in in the tests.
+const TUNNEL_COMMAND = env.WORKER_TUNNEL_COMMAND || "cloudflared";
+/** The tunnel's https address once it answers, else null. */
+let tunnelUrl = null;
+/** Where browsers are told to send files: a fixed address, the tunnel, or this computer. */
+const doorUrl = () => FIXED_URL ?? tunnelUrl ?? LOCAL_URL;
 const NAME = workerName(env.WORKER_NAME ?? os.hostname());
 const SPOOL = path.resolve(env.WORKER_SPOOL_DIR ?? path.join(os.homedir(), ".saycheeeeeze-worker", "spool"));
 const JOBS = Math.min(4, Math.max(1, Math.floor(Number(env.WORKER_JOBS ?? 2)) || 2));
@@ -324,6 +340,7 @@ async function query(label, build) {
     const { data, error } = await build();
     if (error) {
       const err = reasoned("database", `${label}: ${error.message}`);
+      err.code = error.code;
       if (error.code && /^(P0|22|23|42)/.test(error.code)) err.permanent = true;
       throw err;
     }
@@ -718,7 +735,9 @@ function startServer() {
 
       const url = new URL(req.url ?? "/", "http://worker");
       if (url.pathname === "/health" && req.method === "GET") {
-        return send(res, 200, { ok: true, name: NAME, version: VERSION, accepting: !stopping });
+        // port: a browser that reached this through the tunnel tries this
+        // computer directly next time, if it is the one the worker runs on.
+        return send(res, 200, { ok: true, name: NAME, version: VERSION, accepting: !stopping, port: PORT });
       }
 
       const match = url.pathname.match(/^\/uploads\/([0-9a-fA-F-]{36})$/);
@@ -1007,16 +1026,33 @@ async function deleteFiles(job) {
   }
   const originals = paths.filter((x) => !inUse.has(x));
 
+  // And a folder some photo row still points into stays: since step 7 rows
+  // in other galleries can share files, and a gallery's folder can hold the
+  // files of photos that moved out of it.
+  const folders = [];
+  for (const dir of dirs) {
+    const rows = await query("read photos", () =>
+      db.from("photos").select("id").like("files_at", `${dir.replace(/[\\%_]/g, "\\$&")}%`).limit(1),
+    ).catch((err) => {
+      // A database without files_at (before 20261116230000): the rows cannot
+      // be asked, and the folders were queued by a function that knew.
+      if (err.code === "42703") return [];
+      throw err;
+    });
+    if (rows?.length) inUse.add(dir);
+    else folders.push(dir);
+  }
+
   let found = 0;
-  await pool([...dirs, ...originals], 4, async (target) => {
+  await pool([...folders, ...originals], 4, async (target) => {
     if (await removeFromStorage(target)) found++;
   });
 
   const n = Number(p.photos) || 0;
   log(
     `removed   ${n} photo${n === 1 ? "" : "s"} of ${p.slug ?? p.gallery_id}: ` +
-      `${originals.length} original${originals.length === 1 ? "" : "s"}, ${dirs.length} folder${dirs.length === 1 ? "" : "s"}` +
-      `${found < dirs.length + originals.length ? ` (${dirs.length + originals.length - found} already gone)` : ""}` +
+      `${originals.length} original${originals.length === 1 ? "" : "s"}, ${folders.length} folder${folders.length === 1 ? "" : "s"}` +
+      `${found < folders.length + originals.length ? ` (${folders.length + originals.length - found} already gone)` : ""}` +
       `${inUse.size ? `, ${inUse.size} kept (in use again)` : ""}`,
   );
 }
@@ -1264,6 +1300,94 @@ async function backupIfDue() {
 }
 
 // ---------------------------------------------------------------------------
+// The tunnel: phones and other computers
+// ---------------------------------------------------------------------------
+
+let tunnel = null;
+let tunnelRestarts = 0;
+let tunnelTimer = null;
+
+/**
+ * Starts cloudflared's quick tunnel to this worker and, once Cloudflare says
+ * the connection is up, gives the database its address. If it stops, the
+ * door goes back to this computer only and it is started again, waiting
+ * longer each time (5 s up to 2 min).
+ */
+function startTunnel() {
+  if (stopping) return;
+  let seenUrl = null;
+  let up = false;
+  let child;
+  try {
+    child = spawn(TUNNEL_COMMAND, ["tunnel", "--no-autoupdate", "--url", LOCAL_URL], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  } catch (err) {
+    return tunnelMissing(err);
+  }
+  tunnel = child;
+  let buffer = "";
+  const read = (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const url = line.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i)?.[0];
+      if (url && !seenUrl) seenUrl = url.toLowerCase();
+      // "Registered tunnel connection connIndex=0 ..." : reachable now.
+      if (!up && seenUrl && /registered tunnel connection/i.test(line)) {
+        up = true;
+        tunnelUrl = seenUrl;
+        tunnelRestarts = 0;
+        log(`tunnel    other devices send to ${tunnelUrl}`);
+        heartbeat();
+      }
+    }
+  };
+  child.stdout.on("data", read);
+  child.stderr.on("data", read);
+  child.once("error", (err) => {
+    if (err.code === "ENOENT") tunnelMissing(err);
+    else warn(`tunnel    could not start (${sanitize(err.message)})`);
+  });
+  child.once("exit", (code) => {
+    if (tunnel === child) tunnel = null;
+    const had = tunnelUrl;
+    tunnelUrl = null;
+    if (stopping) return;
+    if (child.spawnfailed) return;
+    if (had) heartbeat();
+    const wait = Math.min(120, 5 * 2 ** Math.min(tunnelRestarts, 5));
+    tunnelRestarts++;
+    warn(`tunnel    stopped${code === null ? "" : ` (exit ${code})`}; other devices cannot send until it is back. Trying again in ${wait} s`);
+    tunnelTimer = setTimeout(startTunnel, wait * 1000);
+  });
+}
+
+function tunnelMissing(err) {
+  if (tunnel) tunnel.spawnfailed = true;
+  tunnel = null;
+  if (err?.code === "ENOENT" || /ENOENT/.test(String(err?.message))) {
+    console.log(
+      "  other devices       off: cloudflared is not installed. To upload from your phone, run once\n" +
+        "                      winget install --id Cloudflare.cloudflared\n" +
+        "                      and start the worker again.",
+    );
+  } else {
+    warn(`tunnel    could not start (${sanitize(err?.message ?? err)})`);
+  }
+}
+
+function stopTunnel() {
+  clearTimeout(tunnelTimer);
+  const t = tunnel;
+  tunnel = null;
+  tunnelUrl = null;
+  if (t && t.exitCode === null) t.kill();
+}
+
+// ---------------------------------------------------------------------------
 // Staying in touch, tidying up
 // ---------------------------------------------------------------------------
 
@@ -1274,7 +1398,7 @@ async function heartbeat() {
     await rpc("worker_heartbeat", {
       p_name: NAME,
       p_version: VERSION,
-      p_upload_url: PUBLIC_URL,
+      p_upload_url: doorUrl(),
       p_accepting: !stopping,
     });
     if (offline) log("the database answers again");
@@ -1408,7 +1532,7 @@ async function main() {
   await rpc("worker_heartbeat", {
     p_name: NAME,
     p_version: VERSION,
-    p_upload_url: PUBLIC_URL,
+    p_upload_url: doorUrl(),
     p_accepting: true,
   }).catch((err) => {
     throw new Error(
@@ -1419,7 +1543,8 @@ async function main() {
   const requeued = await rpc("worker_start", { p_name: NAME });
 
   console.log(`\nStudio worker ${NAME} (v${VERSION}, ladder v${LADDER_REV})`);
-  console.log(`  receiving files at  ${PUBLIC_URL}`);
+  console.log(`  receiving files at  ${FIXED_URL ?? LOCAL_URL}`);
+  if (TUNNEL) console.log("  other devices       starting a tunnel ...");
   console.log(`  waiting files in    ${SPOOL}`);
   console.log(`  storage             ${STORAGE_ZONE} @ ${STORAGE_HOST}`);
   console.log(`  refreshes           ${REVALIDATE_SECRET ? SITE_URL : "nothing (REVALIDATE_SECRET not set)"}`);
@@ -1434,6 +1559,7 @@ async function main() {
   const firstCopy = setTimeout(() => backupIfDue().catch(() => {}), 30_000);
   const copies = setInterval(() => backupIfDue().catch(() => {}), BACKUP_CHECK_MS);
   const loops = Array.from({ length: JOBS }, () => jobLoop());
+  if (TUNNEL) startTunnel();
 
   let stops = 0;
   const stop = async () => {
@@ -1448,6 +1574,7 @@ async function main() {
     clearInterval(tidy);
     clearTimeout(firstCopy);
     clearInterval(copies);
+    stopTunnel();
     server.close();
     server.closeIdleConnections?.();
     wake();

@@ -270,6 +270,7 @@ export type Database = {
           accent_color: string
           account_id: string
           bunny_folder: string | null
+          client_folder: string | null
           client_note: string | null
           cover_path: string | null
           created_at: string
@@ -298,6 +299,7 @@ export type Database = {
           accent_color?: string
           account_id?: string
           bunny_folder?: string | null
+          client_folder?: string | null
           client_note?: string | null
           cover_path?: string | null
           created_at?: string
@@ -326,6 +328,7 @@ export type Database = {
           accent_color?: string
           account_id?: string
           bunny_folder?: string | null
+          client_folder?: string | null
           client_note?: string | null
           cover_path?: string | null
           created_at?: string
@@ -558,12 +561,15 @@ export type Database = {
           bytes: number | null
           checksum8: string | null
           claimed_at: string | null
+          client_mark: string | null
+          client_marked_at: string | null
           created_at: string
           delivery_bytes: number | null
           share_bytes: number | null
           source_bytes: number | null
           error: string | null
           file_name: string | null
+          files_at: string
           gallery_id: string
           height: number | null
           id: string
@@ -585,12 +591,15 @@ export type Database = {
           bytes?: number | null
           checksum8?: string | null
           claimed_at?: string | null
+          client_mark?: string | null
+          client_marked_at?: string | null
           created_at?: string
           delivery_bytes?: number | null
           share_bytes?: number | null
           source_bytes?: number | null
           error?: string | null
           file_name?: never
+          files_at?: string
           gallery_id: string
           height?: number | null
           id?: string
@@ -612,12 +621,15 @@ export type Database = {
           bytes?: number | null
           checksum8?: string | null
           claimed_at?: string | null
+          client_mark?: string | null
+          client_marked_at?: string | null
           created_at?: string
           delivery_bytes?: number | null
           share_bytes?: number | null
           source_bytes?: number | null
           error?: string | null
           file_name?: never
+          files_at?: string
           gallery_id?: string
           height?: number | null
           id?: string
@@ -827,6 +839,7 @@ export type Database = {
           backup_tables: number | null
           last_seen_at: string
           name: string
+          remote: boolean | null
           started_at: string
           upload_url: string | null
           version: string
@@ -907,6 +920,14 @@ export type Database = {
         Args: { p_gallery_id: string; p_photo_ids: string[] }
         Returns: Json
       }
+      studio_move_photos: {
+        Args: { p_from: string; p_photo_ids: string[]; p_to: string }
+        Returns: Json
+      }
+      studio_publish_photos: {
+        Args: { p_from: string; p_photo_ids: string[]; p_to: string }
+        Returns: Json
+      }
       studio_renew_upload_tickets: {
         Args: { p_batch_id: string }
         Returns: Json
@@ -922,6 +943,10 @@ export type Database = {
       studio_set_cover: {
         Args: { p_gallery_id: string; p_photo_id?: string }
         Returns: undefined
+      }
+      studio_set_gallery_public: {
+        Args: { p_category?: string; p_gallery_id: string; p_public: boolean }
+        Returns: Json
       }
       studio_storage_cleanup: {
         Args: never

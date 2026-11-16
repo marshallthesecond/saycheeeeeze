@@ -475,13 +475,36 @@ function kindOf(photo) {
  * — which resolves from the row — will never look.
  */
 function derivativePrefix(photo, checksum8) {
-  return prefixFor(
-    kindOf(photo),
-    photo.gallery_id,
-    photo.id,
-    checksum8,
-    LADDER_REV,
-  );
+  return filesPrefix(photo, checksum8, LADDER_REV);
+}
+
+const FILES_AT = /^(d|clients\/_d)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Since step 7 (20261116230000) the row says where its files are
+ * (photos.files_at): a photo moved to another album, or published from a
+ * client gallery, keeps them where they were first written, and the app
+ * reads them from there. So that is where a rebuild goes. Rows read from a
+ * database without the column fall back to the kind-keyed path above.
+ */
+function filesPrefix(photo, checksum8, rev) {
+  if (photo.files_at) {
+    if (!FILES_AT.test(photo.files_at)) {
+      throw permanent(new Error(`files_at has an unexpected shape (${JSON.stringify(photo.files_at)}) — refusing to write there`));
+    }
+    return `${photo.files_at}/${checksum8}/v${rev}`;
+  }
+  return prefixFor(kindOf(photo), photo.gallery_id, photo.id, checksum8, rev);
+}
+
+/** Whether photos.files_at exists here, asked once. */
+let filesAtColumn;
+async function photoColumns(base) {
+  if (filesAtColumn === undefined) {
+    const { error } = await db.from("photos").select("files_at").limit(1);
+    filesAtColumn = !error;
+  }
+  return filesAtColumn ? `${base}, files_at` : base;
 }
 
 /** Live progress for anything big enough that silence looks like a hang. */
@@ -570,7 +593,7 @@ async function selectQueue() {
   // GenericStringError.
   let q = db
     .from("photos")
-    .select("id, gallery_id, storage_path, status, checksum8, variants, galleries!inner(slug, kind)")
+    .select(await photoColumns("id, gallery_id, storage_path, status, checksum8, variants, galleries!inner(slug, kind)"))
     .order("created_at", { ascending: true });
 
   // --force ignores status entirely and rebuilds whatever matches, which is
@@ -701,7 +724,7 @@ async function addShareTier() {
   // ONE string literal — see the note on selectQueue().
   let q = db
     .from("photos")
-    .select("id, gallery_id, storage_path, checksum8, ladder_rev, galleries!inner(slug, kind)")
+    .select(await photoColumns("id, gallery_id, storage_path, checksum8, ladder_rev, galleries!inner(slug, kind)"))
     .eq("status", "ready")
     .order("created_at", { ascending: true });
 
@@ -766,13 +789,7 @@ async function addShareTier() {
         .jpeg(SHARE_JPEG)
         .toBuffer();
 
-      const prefix = prefixFor(
-        kindOf(photo),
-        photo.gallery_id,
-        photo.id,
-        checksum8,
-        photo.ladder_rev ?? 1,
-      );
+      const prefix = filesPrefix(photo, checksum8, photo.ladder_rev ?? 1);
 
       await upload(`${prefix}/share.jpg`, share, "image/jpeg");
 

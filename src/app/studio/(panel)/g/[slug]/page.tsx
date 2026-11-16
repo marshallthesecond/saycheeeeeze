@@ -1,11 +1,11 @@
 // A gallery's Photos tab: uploading into it, what is in it, which photo is
-// the cover, and deleting some.
+// the cover, what the client chose, and deleting, publishing or moving some.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import StudioPhotoGrid from "@/src/components/studio/StudioPhotoGrid";
 import UploadPanel from "@/src/components/studio/UploadPanel";
-import { getStudioGallery, listStudioPhotos } from "@/src/lib/studio/gallery";
+import { albumTargets, getStudioGallery, listStudioPhotos } from "@/src/lib/studio/gallery";
 import { requireStudio } from "@/src/lib/studio/session";
 import { getWorkerStatus, unfinishedUploads } from "@/src/lib/studio/uploads";
 
@@ -23,10 +23,11 @@ export default async function GalleryPhotosPage({ params }: Props) {
   const session = await requireStudio();
   // Uploading is optional on this page: if the database has not had the
   // uploads migration yet, the photos still show and the panel says nothing.
-  const [photos, pending, worker] = await Promise.all([
+  const [photos, pending, worker, targets] = await Promise.all([
     listStudioPhotos(gallery),
     unfinishedUploads(session, gallery.id).catch(() => []),
     getWorkerStatus().catch(() => null),
+    albumTargets(session, gallery.id).catch(() => ({ albums: [], categories: [] })),
   ]);
 
   const panel = (
@@ -44,7 +45,14 @@ export default async function GalleryPhotosPage({ params }: Props) {
   return (
     <>
       {panel}
-      <StudioPhotoGrid galleryId={gallery.id} photos={photos} />
+      <StudioPhotoGrid
+        galleryId={gallery.id}
+        galleryTitle={gallery.title}
+        kind={gallery.kind}
+        photos={photos}
+        albums={targets.albums}
+        categories={targets.categories}
+      />
     </>
   );
 }

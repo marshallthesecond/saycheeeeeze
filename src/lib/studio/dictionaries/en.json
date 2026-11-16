@@ -109,8 +109,40 @@
       "deleteConfirmOne": "Yes, delete 1 photo",
       "deleteConfirmMany": "Yes, delete {n} photos",
       "deletedOne": "1 photo deleted. The worker removes its files from storage.",
-      "deletedMany": "{n} photos deleted. The worker removes their files from storage."
-    }
+      "deletedMany": "{n} photos deleted. The worker removes their files from storage.",
+      "marksLabel": "Client's choices",
+      "mark": {
+        "all": "All",
+        "publish": "Publish",
+        "keep": "Keep",
+        "delete": "Delete",
+        "none": "No mark"
+      },
+      "publish": "Publish to album",
+      "move": "Move to album",
+      "to": "To",
+      "newAlbum": "New album",
+      "albums": "Albums",
+      "albumTitle": "Album title",
+      "category": "Category",
+      "publishN": "Publish {n}",
+      "moveN": "Move {n}",
+      "publishHint": "The photos stay in this gallery too. Nothing is copied, so it takes a second.",
+      "publishedOne": "1 photo published to {album}",
+      "publishedMany": "{n} photos published to {album}",
+      "movedOne": "1 photo moved to {album}",
+      "movedMany": "{n} photos moved to {album}",
+      "alreadyThere": "{n} already there",
+      "openAlbum": "Open",
+      "inAlbum": "In {album}"
+    },
+    "makePublic": "Add to Portfolio",
+    "makePublicConfirm": "Add as album",
+    "makePublicHint": "It becomes a public album under this category. Nothing is copied, and the client's link opens the album.",
+    "makePrivate": "Make private again",
+    "makePrivateConfirm": "Yes, make private",
+    "makePrivateHint": "It leaves the Portfolio and is a client gallery again, with its passkeys.",
+    "wasPrivate": "Was a client gallery. Its passkeys are kept for if you make it private again."
   },
   "settings": {
     "details": "Details",
@@ -203,8 +235,12 @@
     "labelLength": "That name is too long, 80 characters at most.",
     "hasPhotos": "Deleting a gallery with its photos needs the latest database update: run supabase/migrations/20261116170000_studio_delete_and_backup.sql.",
     "busy": "Some of its photos are still being processed. Try again in a minute.",
-    "needsUpdate": "This needs the latest database update: run supabase/migrations/20261116170000_studio_delete_and_backup.sql.",
-    "noTiers": "Offer at least one size."
+    "needsUpdate": "This needs the latest database update: run supabase/migrations/20261116230000_studio_publish_and_move.sql.",
+    "noTiers": "Offer at least one size.",
+    "sameGallery": "Those photos are already in this gallery.",
+    "targetPrivate": "Photos can go only to a public album, not to a client gallery.",
+    "alreadyPublic": "This gallery is already on the Portfolio.",
+    "notPrivateOrigin": "This album wasn't a client gallery, so it can't be made private."
   },
   "error": {
     "title": "Something went wrong",
@@ -303,7 +339,8 @@
       "no_match": "None of these are the files that stopped. Choose the same files, with the same names.",
       "not_failed": "That file isn't failed any more.",
       "cannot_retry": "Trying again won't fix that file.",
-      "failed": "That didn't work. Try again."
+      "failed": "That didn't work. Try again.",
+      "door_local_only": "This phone can't reach the worker: it has no link for other devices yet. Install cloudflared on the computer and restart pnpm worker."
     }
   },
   "uploads": {
@@ -343,6 +380,10 @@
     "retry": "Retry",
     "retried": "Back in the queue",
     "resend": "Add it again on the gallery's page",
-    "unavailable": "Uploads can't be shown yet: the database is missing the uploads update (20261116090000_studio_uploads.sql)."
+    "unavailable": "Uploads can't be shown yet: the database is missing the uploads update (20261116090000_studio_uploads.sql).",
+    "otherDevices": "Other devices",
+    "otherDevicesOn": "On, phones and other computers can upload",
+    "otherDevicesOff": "Off, only this computer can upload",
+    "otherDevicesHint": "To upload from a phone, install cloudflared once and restart the worker:"
   }
 }

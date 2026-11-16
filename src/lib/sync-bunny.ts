@@ -168,9 +168,28 @@ export async function syncGallery(slug: string): Promise<SyncResult> {
     (existingRows ?? []).map((r) => [r.storage_path, r]),
   );
 
+  // Since step 7 a photo can be shown by another gallery: moved there, or
+  // published there from this client gallery and since deleted here in the
+  // Studio. Such a file is not added back to this gallery.
+  const elsewhere = new Set<string>();
+  const listed = files.map((f) => `${folder}/${f.ObjectName}`);
+  for (let i = 0; i < listed.length; i += 200) {
+    const { data: other, error: otherError } = await db
+      .from("photos")
+      .select("storage_path")
+      .neq("gallery_id", gallery.id)
+      .in("storage_path", listed.slice(i, i + 200));
+    if (otherError) throw new Error(`Supabase: ${otherError.message}`);
+    for (const o of other ?? []) elsewhere.add(o.storage_path);
+  }
+  const kept = files.filter((f) => {
+    const p = `${folder}/${f.ObjectName}`;
+    return existing.has(p) || !elsewhere.has(p);
+  });
+
   const rows = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  for (let i = 0; i < kept.length; i++) {
+    const file = kept[i];
     const storagePath = `${folder}/${file.ObjectName}`;
     const prior = existing.get(storagePath);
 
@@ -191,7 +210,7 @@ export async function syncGallery(slug: string): Promise<SyncResult> {
     rows.push({
       gallery_id: gallery.id,
       storage_path: storagePath,
-      alt: `${gallery.title} — photo ${i + 1} of ${files.length}, ${gallery.location} ${gallery.year}`,
+      alt: `${gallery.title} — photo ${i + 1} of ${kept.length}, ${gallery.location} ${gallery.year}`,
       width,
       height,
       bytes: file.Length,
@@ -212,8 +231,12 @@ export async function syncGallery(slug: string): Promise<SyncResult> {
 
   // Mirror deletions: a file removed from Bunny should not linger as a row
   // pointing at a 404.
+  // Only rows for files directly in this folder can be stale. A row pointing
+  // into another folder (published or moved here) is not in this listing by
+  // design and stays.
   const livePaths = new Set(rows.map((r) => r.storage_path));
-  const stale = [...existing.keys()].filter((p) => !livePaths.has(p));
+  const inThisFolder = (p: string) => p.startsWith(`${folder}/`) && !p.slice(folder.length + 1).includes("/");
+  const stale = [...existing.keys()].filter((p) => inThisFolder(p) && !livePaths.has(p));
 
   if (stale.length > 0) {
     const { error } = await db

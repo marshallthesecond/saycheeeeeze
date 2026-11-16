@@ -109,8 +109,40 @@
       "deleteConfirmOne": "Ha, 1 ta suratni o'chirish",
       "deleteConfirmMany": "Ha, {n} ta suratni o'chirish",
       "deletedOne": "1 ta surat o'chirildi. Uning fayllarini xotiradan ishlovchi dastur o'chiradi.",
-      "deletedMany": "{n} ta surat o'chirildi. Ularning fayllarini xotiradan ishlovchi dastur o'chiradi."
-    }
+      "deletedMany": "{n} ta surat o'chirildi. Ularning fayllarini xotiradan ishlovchi dastur o'chiradi.",
+      "marksLabel": "Mijozning tanlovi",
+      "mark": {
+        "all": "Hammasi",
+        "publish": "Chop etish",
+        "keep": "Qoldirish",
+        "delete": "O'chirish",
+        "none": "Belgisiz"
+      },
+      "publish": "Albomga chop etish",
+      "move": "Albomga ko'chirish",
+      "to": "Qayerga",
+      "newAlbum": "Yangi albom",
+      "albums": "Albomlar",
+      "albumTitle": "Albom nomi",
+      "category": "Turkum",
+      "publishN": "Chop etish: {n}",
+      "moveN": "Ko'chirish: {n}",
+      "publishHint": "Suratlar shu galereyada ham qoladi. Hech narsa nusxalanmaydi, bir soniya oladi.",
+      "publishedOne": "1 ta surat \"{album}\" albomiga chop etildi",
+      "publishedMany": "{n} ta surat \"{album}\" albomiga chop etildi",
+      "movedOne": "1 ta surat \"{album}\" albomiga ko'chirildi",
+      "movedMany": "{n} ta surat \"{album}\" albomiga ko'chirildi",
+      "alreadyThere": "{n} tasi u yerda bor edi",
+      "openAlbum": "Ochish",
+      "inAlbum": "\"{album}\" albomida"
+    },
+    "makePublic": "Portfolioga qo'shish",
+    "makePublicConfirm": "Albom qilish",
+    "makePublicHint": "Galereya shu turkumdagi ochiq albomga aylanadi. Hech narsa nusxalanmaydi, mijozning havolasi albomni ochadi.",
+    "makePrivate": "Yana yopiq qilish",
+    "makePrivateConfirm": "Ha, yopiq qilish",
+    "makePrivateHint": "Albom portfoliodan chiqadi va kalitlari bilan yana mijoz galereyasiga aylanadi.",
+    "wasPrivate": "Mijoz galereyasi edi. Uni yana yopiq qilsangiz, kalitlari saqlab qo'yilgan."
   },
   "settings": {
     "details": "Ma'lumotlar",
@@ -203,8 +235,12 @@
     "labelLength": "Nom juda uzun, ko'pi bilan 80 ta belgi.",
     "hasPhotos": "Galereyani suratlari bilan o'chirish uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261116170000_studio_delete_and_backup.sql faylini ishga tushiring.",
     "busy": "Ba'zi suratlari hali qayta ishlanmoqda. Bir daqiqadan keyin qayta urinib ko'ring.",
-    "needsUpdate": "Buning uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261116170000_studio_delete_and_backup.sql faylini ishga tushiring.",
-    "noTiers": "Kamida bitta o'lchamni qoldiring."
+    "needsUpdate": "Buning uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261116230000_studio_publish_and_move.sql faylini ishga tushiring.",
+    "noTiers": "Kamida bitta o'lchamni qoldiring.",
+    "sameGallery": "Bu suratlar allaqachon shu galereyada.",
+    "targetPrivate": "Suratlarni faqat ochiq albomga yuborish mumkin, mijoz galereyasiga emas.",
+    "alreadyPublic": "Bu galereya allaqachon portfolioda.",
+    "notPrivateOrigin": "Bu albom mijoz galereyasi bo'lmagan, uni yopiq qilib bo'lmaydi."
   },
   "error": {
     "title": "Nimadir xato ketdi",
@@ -303,7 +339,8 @@
       "no_match": "Bu fayllar orasida to'xtab qolganlari yo'q. Xuddi shu nomdagi fayllarni tanlang.",
       "not_failed": "Bu fayl endi xato holatida emas.",
       "cannot_retry": "Bu faylni qayta urinish bilan tuzatib bo'lmaydi.",
-      "failed": "Amalga oshmadi, hech narsa o'zgarmadi. Qayta urinib ko'ring."
+      "failed": "Amalga oshmadi, hech narsa o'zgarmadi. Qayta urinib ko'ring.",
+      "door_local_only": "Telefon ishlovchiga ulana olmayapti: unda hali boshqa qurilmalar uchun havola yo'q. Kompyuterga cloudflared o'rnating va pnpm worker'ni qayta ishga tushiring."
     }
   },
   "uploads": {
@@ -343,6 +380,10 @@
     "retry": "Qayta urinish",
     "retried": "Yana navbatda",
     "resend": "Uni galereya sahifasida qayta qo'shing",
-    "unavailable": "Yuklashlarni hali ko'rsatib bo'lmaydi: bazada yuklashlar uchun yangilanish yo'q (20261116090000_studio_uploads.sql)."
+    "unavailable": "Yuklashlarni hali ko'rsatib bo'lmaydi: bazada yuklashlar uchun yangilanish yo'q (20261116090000_studio_uploads.sql).",
+    "otherDevices": "Boshqa qurilmalar",
+    "otherDevicesOn": "Yoqilgan, telefon va boshqa kompyuterlardan yuklash mumkin",
+    "otherDevicesOff": "O'chirilgan, faqat shu kompyuterdan yuklash mumkin",
+    "otherDevicesHint": "Telefondan yuklash uchun cloudflared'ni bir marta o'rnating va ishlovchini qayta ishga tushiring:"
   }
 }

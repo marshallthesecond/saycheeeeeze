@@ -275,7 +275,7 @@ export default function UploadPanel({
             {t(`upload.errors.${snap.notice}`) === `upload.errors.${snap.notice}`
               ? t("upload.errors.failed")
               : t(`upload.errors.${snap.notice}`)}
-            {snap.notice === "door_unreachable" && (
+            {(snap.notice === "door_unreachable" || snap.notice === "door_local_only") && (
               <>
                 {" "}
                 <button type="button" onClick={() => uploads.tryAgain()} className="font-medium underline underline-offset-4">

@@ -95,6 +95,11 @@ export interface WorkerStatus {
   online: boolean;
   name: string | null;
   lastSeenAt: string | null;
+  /**
+   * Reachable from phones and other computers (a tunnel is up). Undefined on
+   * a database without workers.remote (before 20261116230000).
+   */
+  remote?: boolean;
 }
 
 /** A refusal, as a short reason the Studio turns into a sentence. */
@@ -402,10 +407,18 @@ export async function getWorkerStatus(): Promise<WorkerStatus> {
     (w) => w.accepting_uploads && now - new Date(w.last_seen_at).getTime() < ONLINE_MS,
   );
   const latest = online ?? data?.[0];
+
+  // Separately, so a database without the column still answers the rest.
+  let remote: boolean | undefined;
+  if (latest?.name) {
+    const r = await supabase.from("workers").select("remote").eq("name", latest.name).limit(1);
+    if (!r.error) remote = Boolean(r.data?.[0]?.remote);
+  }
   return {
     online: Boolean(online),
     name: latest?.name ?? null,
     lastSeenAt: latest?.last_seen_at ?? null,
+    remote,
   };
 }
 

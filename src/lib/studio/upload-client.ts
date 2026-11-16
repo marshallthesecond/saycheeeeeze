@@ -90,6 +90,56 @@ const POLL_MS = 2500;
 /** The server stops making a drop wait after 90 s; this is only a backstop. */
 const REFRESH_GIVE_UP_MS = 3 * 60_000;
 const EMIT_MS = 120;
+// ------------------------------------------------------------ which door
+
+/** http://127.0.0.1:7811 and the like: the worker on this very computer. */
+function isLoopback(url: string | null): boolean {
+  return Boolean(url && /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url));
+}
+
+/** A phone or tablet: never the computer the worker runs on. */
+function isHandheld(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const data = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (typeof data?.mobile === "boolean" && data.mobile) return true;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+async function healthOf(url: string, ms: number): Promise<{ name?: string; port?: number } | null> {
+  try {
+    const res = await fetch(`${url}/health`, { cache: "no-store", signal: AbortSignal.timeout(ms) });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Per tab: the address the worker gave -> the one to send to. */
+const chosenDoors = new Map<string, string>();
+
+/**
+ * The worker gives one address: its tunnel when it has one, so phones can
+ * reach it. A browser on the laptop itself still sends straight to the laptop
+ * (no trip through Cloudflare and back): it asks the tunnel which port the
+ * worker listens on and whether that worker answers on this computer.
+ */
+async function pickDoor(url: string | null): Promise<string | null> {
+  if (!url || isLoopback(url)) return url;
+  const known = chosenDoors.get(url);
+  if (known) return known;
+  let pick = url;
+  if (!isHandheld()) {
+    const far = await healthOf(url, 6000);
+    if (far?.port && far.name) {
+      const local = `http://127.0.0.1:${far.port}`;
+      const near = await healthOf(local, 1500);
+      if (near?.name === far.name) pick = local;
+    }
+  }
+  chosenDoors.set(url, pick);
+  return pick;
+}
+
 /** Network failures in a row on one file before the door counts as unreachable. */
 const MAX_FAILURES = 5;
 
@@ -288,7 +338,7 @@ export class GalleryUploads {
       return;
     }
 
-    const door = (body.door as { url?: string } | undefined)?.url ?? null;
+    const door = await pickDoor((body.door as { url?: string } | undefined)?.url ?? null);
     const batchId = String(body.batchId);
     this.door = door;
     const tickets = (body.uploads as { id: string; name: string; size: number; token: string }[]) ?? [];
@@ -308,8 +358,27 @@ export class GalleryUploads {
       this.queue.push(item.key);
     }
     this.worker = { online: true, name: (body.door as { worker?: string } | undefined)?.worker ?? null };
+    if (this.onlyFromTheLaptop()) {
+      this.pauseWaiting();
+      this.changed(true);
+      return;
+    }
     this.changed(true);
     this.pump();
+  }
+
+  /**
+   * On a phone, a worker without a tunnel cannot be reached: its address is
+   * the laptop's own. Say so instead of trying five times.
+   */
+  private onlyFromTheLaptop(): boolean {
+    return isHandheld() && isLoopback(this.door);
+  }
+
+  private pauseWaiting() {
+    for (const item of this.items) if (item.state === "waiting") item.state = "paused";
+    this.queue = [];
+    this.notice = "door_local_only";
   }
 
   // ------------------------------------------------------------ sending
@@ -466,7 +535,7 @@ export class GalleryUploads {
   private async renew(batchId: string): Promise<boolean> {
     const answer = await this.action(batchId, { action: "renew" });
     if (!answer) return false;
-    this.door = (answer.door as { url?: string } | undefined)?.url ?? this.door;
+    this.door = (await pickDoor((answer.door as { url?: string } | undefined)?.url ?? null)) ?? this.door;
     for (const t of (answer.uploads as { id: string; token: string; bytesReceived?: number }[]) ?? []) {
       const item = this.byId(t.id);
       if (!item) continue;
@@ -584,7 +653,7 @@ export class GalleryUploads {
     if (!answer) return;
     if (answer.status === "waiting") {
       const ticket = answer.ticket as { token: string };
-      this.door = (answer.door as { url?: string }).url ?? this.door;
+      this.door = (await pickDoor((answer.door as { url?: string }).url ?? null)) ?? this.door;
       this.tokens.set(item.key, ticket.token);
       if (this.files.has(item.key)) {
         this.set(item, { state: "waiting", sent: 0, error: null });
@@ -625,10 +694,22 @@ export class GalleryUploads {
     this.watch();
   }
 
-  /** Picks the sending back up after the door was unreachable. */
-  tryAgain() {
+  /**
+   * Picks the sending back up after the door was unreachable. Asks for the
+   * address again first: a restarted worker's tunnel has a new one.
+   */
+  async tryAgain() {
     this.notice = null;
-    for (const item of this.items.filter((i) => i.state === "paused")) {
+    const paused = this.items.filter((i) => i.state === "paused");
+    for (const batchId of new Set(paused.map((i) => i.batchId).filter((b): b is string => Boolean(b)))) {
+      await this.renew(batchId);
+    }
+    if (this.onlyFromTheLaptop()) {
+      this.notice = "door_local_only";
+      this.changed(true);
+      return;
+    }
+    for (const item of paused) {
       item.state = "waiting";
       this.queue.push(item.key);
     }
@@ -654,6 +735,12 @@ export class GalleryUploads {
     this.notice = null;
     for (const batchId of new Set(matched.map((i) => i.batchId!))) {
       if (!(await this.renew(batchId))) return;
+    }
+    if (this.onlyFromTheLaptop()) {
+      for (const item of matched) item.state = "paused";
+      this.notice = "door_local_only";
+      this.changed(true);
+      return;
     }
     for (const item of matched) {
       item.state = "waiting";

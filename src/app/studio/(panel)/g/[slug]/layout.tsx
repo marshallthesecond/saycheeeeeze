@@ -6,12 +6,14 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, CircleAlert, ExternalLink, EyeOff, Lock, LockOpen } from "lucide-react";
 import GalleryTabs from "@/src/components/studio/GalleryTabs";
 import { PendingButton } from "@/src/components/studio/FormFeedback";
+import PortfolioSwitch from "@/src/components/studio/PortfolioSwitch";
 import { BUTTON_PRIMARY, BUTTON_QUIET } from "@/src/components/studio/fields";
 import { setPublished } from "@/src/app/studio/gallery-actions";
 import { STUDIO_HOME, studioGalleryPath } from "@/src/lib/studio/config";
-import { getStudioGallery, listPasskeys } from "@/src/lib/studio/gallery";
+import { albumTargets, getStudioGallery, listPasskeys } from "@/src/lib/studio/gallery";
 import { getStudioDictionary, translator } from "@/src/lib/studio/i18n";
 import { getStudioLocale } from "@/src/lib/studio/locale";
+import { requireStudio } from "@/src/lib/studio/session";
 
 const BADGE =
   "inline-flex items-center gap-1 rounded-md bg-foreground/8 px-2 py-1 text-xs font-medium leading-none text-foreground";
@@ -34,6 +36,11 @@ export default async function GalleryLayout({
   // key cut: worth saying before the link goes out.
   const passkeys = client && gallery.isPrivate ? await listPasskeys(gallery.id) : [];
   const unopenable = client && gallery.isPrivate && !passkeys.some((p) => p.status === "active");
+
+  // The categories a client gallery can go under when it is made public.
+  const categories = client
+    ? (await albumTargets(await requireStudio(), gallery.id).catch(() => ({ categories: [] as string[] }))).categories
+    : [];
 
   const photos =
     gallery.photoCount === 0
@@ -79,9 +86,13 @@ export default async function GalleryLayout({
               )}
             </p>
           )}
+          {gallery.privateOrigin && <p className="mt-2 text-sm text-muted-foreground">{t("gallery.wasPrivate")}</p>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {(client || gallery.privateOrigin) && (
+            <PortfolioSwitch galleryId={gallery.id} to={client ? "public" : "private"} categories={categories} />
+          )}
           {gallery.isPublished && (
             <a href={gallery.href} target="_blank" rel="noopener" className={BUTTON_QUIET}>
               {t("galleries.view")}
