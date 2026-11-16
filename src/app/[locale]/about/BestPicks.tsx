@@ -1,35 +1,29 @@
 "use client";
 
-// The "Best picks" grid on the About page — Marshall's sketch of 2026-11-02.
+// The "Best picks" grid on the Home page — Marshall's sketch of 2026-11-02,
+// with smaller photographs under the feature since 2026-11-17.
 //
-// Feature tile, a staggered pair of columns beside it, masonry below, a
-// caption under every photograph and a "Load more" pill. The geometry lives in
-// best-picks.ts; this file only renders it.
+// Feature tile, a staggered pair of columns beside it, then one row of small
+// photographs (six across on a computer, three rows of three on a phone), a
+// caption under every photograph and a "Full portfolio" pill. The geometry
+// lives in best-picks.ts; this file only renders it. No "Load more": the
+// portfolio is one tap away and is where the rest of the work lives.
 //
 // INSTAGRAM-TIGHT, on request: 2px between columns, no side padding, no
 // rounded corners. The captions are what separate one row from the next, so
 // there is no vertical gap either — the space under each photograph is its
-// caption.
+// caption. The small ones are all cropped to 4:5 so they line up as rows.
 //
-// TWO LAYOUTS IN THE DOM, toggled by breakpoint, rather than one layout that
-// re-flows. The masonry has to know how many columns it has in order to decide
-// which column each photograph goes in, and CSS cannot tell it; measuring
-// after mount would make the server render one layout and the browser another.
-// Every image is loading="lazy", and a lazy image under display:none has no
-// box, never intersects the viewport and is never fetched — so the hidden
-// layout costs DOM, not bandwidth. Verified in Chromium when this was built.
+// TWO LAYOUTS IN THE DOM, toggled by breakpoint. Every image is
+// loading="lazy", and a lazy image under display:none has no box, never
+// intersects the viewport and is never fetched — so the hidden layout costs
+// DOM, not bandwidth. Verified in Chromium when this was built.
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 import Link from "next/link";
 import type { AlbumPhoto } from "@/src/lib/albums";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
-import {
-  FALLBACK_RATIO,
-  INITIAL_VISIBLE,
-  LOAD_STEP,
-  masonry,
-  planDesktop,
-} from "./best-picks";
+import { DESKTOP_ROW, PHONE_COLUMNS, PHONE_ROWS, planDesktop } from "./best-picks";
 
 export interface PickItem {
   /** Position in BEST_PICKS — what the lightbox is opened at. */
@@ -45,120 +39,88 @@ export interface PickItem {
 }
 
 interface Props {
-  /** Empty string: no visible heading (the Home page's tab bar names it). */
-  heading: string;
   items: PickItem[];
-  loadMoreLabel: string;
   fullPortfolioLabel: string;
   portfolioHref: string;
   onOpen: (index: number) => void;
-  /** `sizes` overrides for a grid narrower than the viewport — the Home
-   *  page's middle column. The defaults assume the full page width. */
-  featureSizes?: string;
-  tileSizes?: string;
+  featureSizes: string;
+  /** For the small photographs on a phone and on a computer. */
+  phoneTileSizes: string;
+  desktopTileSizes: string;
   className?: string;
 }
 
-/** Above 1600px the grid stops growing; the sizes below follow that cap. */
-const FEATURE_SIZES = "(min-width: 1600px) 800px, (min-width: 640px) 50vw, 100vw";
-const TILE_SIZES = "(min-width: 1600px) 400px, (min-width: 640px) 25vw, 50vw";
-
 export default function BestPicks({
-  heading,
   items,
-  loadMoreLabel,
   fullPortfolioLabel,
   portfolioHref,
   onOpen,
-  featureSizes = FEATURE_SIZES,
-  tileSizes = TILE_SIZES,
-  className = "relative z-10 mt-8 sm:mt-10",
+  featureSizes,
+  phoneTileSizes,
+  desktopTileSizes,
+  className = "",
 }: Props) {
-  const [visible, setVisible] = useState(INITIAL_VISIBLE);
-
-  // Planned from the WHOLE list, then trimmed — not planned from the visible
-  // slice. The four beside the feature are picked by shape, so planning only
-  // what is visible would let a newly loaded landscape frame claim a short
-  // slot and shuffle the block above the button the moment it was pressed.
-  // This way "Load more" only ever appends below.
   const desktop = useMemo(() => planDesktop(items), [items]);
-
-  const blockCount = 1 + desktop.staggered.filter(Boolean).length;
-  const desktopCols = useMemo(
-    () => masonry(desktop.rest.slice(0, Math.max(0, visible - blockCount)), 4),
-    [desktop, visible, blockCount],
-  );
-  const phoneCols = useMemo(() => masonry(items.slice(1, visible), 2), [items, visible]);
-
   if (items.length === 0) return null;
 
-  const hasMore = visible < items.length;
   const [a, b, c, d] = desktop.staggered;
   const stagger = Boolean(a && b && c && d);
+  const phoneSmall = items.slice(1, 1 + PHONE_COLUMNS * PHONE_ROWS);
+  const desktopSmall = desktop.rest.slice(0, DESKTOP_ROW);
 
   return (
     <section className={className}>
-      {heading && (
-        <h2 className="px-4 sm:px-8 mb-3 text-2xl sm:text-3xl font-extrabold tracking-tight">
-          {heading}
-        </h2>
-      )}
-
-      <div className="mx-auto max-w-[1600px]">
-        {/* Phone — feature full width, then two columns of masonry. */}
-        <div className="sm:hidden">
-          <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} />
-          <Columns cols={phoneCols} onOpen={onOpen} sizes={tileSizes} />
-        </div>
-
-        {/* 640px and up — the sketch. */}
-        <div className="hidden sm:block">
-          {stagger ? (
-            // Three equal rows, and the feature spans all of them. The rows
-            // take their height from the feature — the only cell with an
-            // intrinsic height, a square photograph plus its caption — so the
-            // short and tall cells beside it divide that height into thirds
-            // and their bottoms land exactly on the feature's.
-            <div className="grid grid-cols-4 grid-rows-3 gap-x-0.5">
-              <Tile
-                item={items[0]}
-                mode="feature"
-                sizes={featureSizes}
-                onOpen={onOpen}
-                className="col-start-1 col-span-2 row-start-1 row-span-3"
-              />
-              <Tile item={a!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-3 row-start-1 row-span-1" />
-              <Tile item={b!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-3 row-start-2 row-span-2" />
-              <Tile item={c!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-4 row-start-1 row-span-2" />
-              <Tile item={d!} mode="fill" sizes={tileSizes} onOpen={onOpen} className="col-start-4 row-start-3 row-span-1" />
-            </div>
-          ) : (
-            // Under five photographs there is no block to build: the feature
-            // takes the left half and the rest fall into the masonry below.
-            <div className="grid grid-cols-4 gap-x-0.5">
-              <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} className="col-span-2" />
-            </div>
-          )}
-          <Columns cols={desktopCols} onOpen={onOpen} sizes={tileSizes} />
+      {/* Phone — feature full width, then three rows of three. */}
+      <div className="sm:hidden">
+        <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} />
+        <div className="grid grid-cols-3 gap-x-0.5">
+          {phoneSmall.map((item) => (
+            <Tile key={item.index} item={item} mode="small" sizes={phoneTileSizes} onOpen={onOpen} />
+          ))}
         </div>
       </div>
 
-      <div className="mt-4 sm:mt-6 flex justify-center px-4">
-        {hasMore ? (
-          <button
-            type="button"
-            onClick={() => setVisible((v) => v + LOAD_STEP)}
-            className={PILL}
-          >
-            {loadMoreLabel}
-          </button>
+      {/* 640px and up — the sketch, and a row of six under it. */}
+      <div className="hidden sm:block">
+        {stagger ? (
+          // Three equal rows, and the feature spans all of them. The rows
+          // take their height from the feature — the only cell with an
+          // intrinsic height, a square photograph plus its caption — so the
+          // short and tall cells beside it divide that height into thirds
+          // and their bottoms land exactly on the feature's.
+          <div className="grid grid-cols-4 grid-rows-3 gap-x-0.5">
+            <Tile
+              item={items[0]}
+              mode="feature"
+              sizes={featureSizes}
+              onOpen={onOpen}
+              className="col-start-1 col-span-2 row-start-1 row-span-3"
+            />
+            <Tile item={a!} mode="fill" sizes={desktopTileSizes} onOpen={onOpen} className="col-start-3 row-start-1 row-span-1" />
+            <Tile item={b!} mode="fill" sizes={desktopTileSizes} onOpen={onOpen} className="col-start-3 row-start-2 row-span-2" />
+            <Tile item={c!} mode="fill" sizes={desktopTileSizes} onOpen={onOpen} className="col-start-4 row-start-1 row-span-2" />
+            <Tile item={d!} mode="fill" sizes={desktopTileSizes} onOpen={onOpen} className="col-start-4 row-start-3 row-span-1" />
+          </div>
         ) : (
-          // Nothing left to load, so the pill goes where more of the work is
-          // rather than disappearing — a button that vanishes reads as broken.
-          <Link href={portfolioHref} className={PILL}>
-            {fullPortfolioLabel}
-          </Link>
+          // Under five photographs there is no block to build: the feature
+          // takes the left half and the rest go in the row below.
+          <div className="grid grid-cols-4 gap-x-0.5">
+            <Tile item={items[0]} mode="feature" sizes={featureSizes} onOpen={onOpen} className="col-span-2" />
+          </div>
         )}
+        {desktopSmall.length > 0 && (
+          <div className="grid grid-cols-6 gap-x-0.5">
+            {desktopSmall.map((item) => (
+              <Tile key={item.index} item={item} mode="small" sizes={desktopTileSizes} onOpen={onOpen} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex justify-center px-4 sm:mt-5">
+        <Link href={portfolioHref} className={PILL}>
+          {fullPortfolioLabel}
+        </Link>
       </div>
     </section>
   );
@@ -169,21 +131,6 @@ const PILL =
   "text-[11px] font-bold uppercase tracking-[0.16em] text-foreground " +
   "transition hover:bg-foreground/16 active:scale-[0.98]";
 
-function Columns({ cols, onOpen, sizes = TILE_SIZES }: { cols: PickItem[][]; onOpen: (i: number) => void; sizes?: string }) {
-  if (cols.every((c) => c.length === 0)) return null;
-  return (
-    <div className="flex items-start gap-x-0.5">
-      {cols.map((col, n) => (
-        <div key={n} className="flex min-w-0 flex-1 flex-col">
-          {col.map((item) => (
-            <Tile key={item.index} item={item} mode="natural" sizes={sizes} onOpen={onOpen} />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * One photograph and its caption.
  *
@@ -191,7 +138,7 @@ function Columns({ cols, onOpen, sizes = TILE_SIZES }: { cols: PickItem[][]; onO
  *            the rows beside it are sized from.
  *   fill     the photo takes whatever height its grid cell has left after the
  *            caption, cropped to fit — the stagger's short and tall slots.
- *   natural  the photo at its own aspect ratio, uncropped — the masonry.
+ *   small    4:5, cropped, smaller caption: the rows under the feature.
  */
 function Tile({
   item,
@@ -201,7 +148,7 @@ function Tile({
   className = "",
 }: {
   item: PickItem;
-  mode: "feature" | "fill" | "natural";
+  mode: "feature" | "fill" | "small";
   sizes: string;
   onOpen: (i: number) => void;
   className?: string;
@@ -209,10 +156,8 @@ function Tile({
   const { photo } = item;
   const big = mode === "feature";
 
-  const frameStyle: CSSProperties = {
-    ...blurStyle(photo.thumbhash),
-    ...(mode === "natural" ? { aspectRatio: String(item.ratio || FALLBACK_RATIO) } : null),
-  };
+  const small = mode === "small";
+  const frameStyle: CSSProperties | undefined = blurStyle(photo.thumbhash);
 
   return (
     <button
@@ -226,7 +171,7 @@ function Tile({
       <span
         className={
           "relative block w-full overflow-hidden bg-foreground/5 " +
-          (big ? "aspect-square" : mode === "fill" ? "min-h-0 flex-1" : "")
+          (big ? "aspect-square" : mode === "fill" ? "min-h-0 flex-1" : "aspect-[4/5]")
         }
         style={frameStyle}
       >
@@ -258,7 +203,11 @@ function Tile({
         )}
       </span>
 
-      <span className={`block shrink-0 ${big ? "px-3 sm:px-3 pt-2 pb-4 sm:pb-5" : "px-1.5 sm:px-2 pt-1.5 pb-3 sm:pb-4"}`}>
+      <span
+        className={`block shrink-0 ${
+          big ? "px-3 pt-2 pb-4 sm:pb-5" : small ? "px-1 pt-1 pb-2.5 sm:px-1.5 sm:pb-3" : "px-1.5 pt-1.5 pb-3 sm:px-2 sm:pb-4"
+        }`}
+      >
         <span className="flex items-baseline justify-between gap-2">
           <span className={`truncate font-semibold text-foreground/90 ${big ? "text-xs sm:text-[13px]" : "text-[10px] sm:text-[11px]"}`}>
             {item.category}

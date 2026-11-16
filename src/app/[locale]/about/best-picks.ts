@@ -1,29 +1,27 @@
 // Where each "Best picks" photograph goes in the grid — pure arithmetic, no
 // React, so it can be tested on its own and the component stays a renderer.
 //
-// THE SHAPE, from Marshall's sketch (2026-11-02):
+// THE SHAPE, from Marshall's sketch (2026-11-02), with the row under it made
+// smaller on 2026-11-17:
 //
 //   ┌─────────────┬──────┬──────┐
 //   │             │ A    │ C    │   A, D  short slots — landscape frames
 //   │   FEATURE   ├──────┤      │   B, C  tall slots  — portrait frames
 //   │   2 × 2     │ B    ├──────┤
 //   │             │      │ D    │   The offset between the two right-hand
-//   ├──────┬──────┼──────┼──────┤   columns is the point of the sketch: it is
-//   │ rest │ rest │ rest │ rest │   what makes it read as a brick wall rather
-//   │      │      └──────┤      │   than a table.
-//   └──────┘             └──────┘   Below: masonry, natural aspect ratios.
+//   ├───┬───┬───┬─┴─┬───┬┴──┬───┤   columns is the point of the sketch: it is
+//   │   │   │   │   │   │   │       what makes it read as a brick wall rather
+//   └───┴───┴───┴───┴───┴───┘       than a table. Under it, one row of six.
 //
-// On a phone the feature runs full width and everything after it is a
-// two-column masonry: four columns at 375px is 92px a photo, and a caption
-// under a 92px photo is not readable by anyone.
+// On a phone the feature runs full width and three rows of three follow.
 //
 // WHY THE FOUR BESIDE THE FEATURE ARE CHOSEN BY SHAPE, not taken in order: a
 // short slot is roughly 3:2 and a tall one roughly 4:5. Put a portrait in a
 // short slot and object-cover keeps a band across someone's chest; put a
 // landscape in a tall slot and it keeps a sliver of the middle. So landscape
 // frames go to A and D, portrait frames to B and C, each in list order, and
-// anything that does not fit falls through to the masonry in list order. The
-// feature is always the first entry — that one is a decision, not a fit.
+// anything that does not fit falls through to the row below in list order.
+// The feature is always the first entry — that one is a decision, not a fit.
 
 /** Wider than this is treated as landscape. 1.15 rather than 1, so a 5:4 or
  *  a square counts as portrait-ish and is not squashed into a 3:2 slot. */
@@ -32,14 +30,6 @@ const LANDSCAPE_MIN = 1.15;
 /** Assumed when a photograph has no dimensions on record. 4:5 is the most
  *  common shape in this portfolio and crops the least badly either way. */
 export const FALLBACK_RATIO = 0.8;
-
-/**
- * The caption's height as a fraction of a column's width, for balancing the
- * masonry. Approximate on purpose: the captions are about 36px tall and the
- * columns 180–400px wide, and the only thing this number has to get right is
- * which column is currently shortest.
- */
-const CAPTION_UNITS = 0.14;
 
 export interface Shaped {
   /** width / height */
@@ -61,7 +51,7 @@ const isLandscape = (x: Shaped) => x.ratio >= LANDSCAPE_MIN;
  *
  * Fewer than five photographs cannot make the staggered block — there would
  * be holes beside the feature — so below that the feature stands alone and the
- * rest go straight to the masonry. The block is all or nothing.
+ * rest go straight to the row below. The block is all or nothing.
  */
 export function planDesktop<T extends Shaped>(items: readonly T[]): Plan<T> {
   if (items.length === 0) return { feature: null, staggered: [null, null, null, null], rest: [] };
@@ -92,32 +82,13 @@ export function planDesktop<T extends Shaped>(items: readonly T[]): Plan<T> {
   return { feature, staggered, rest };
 }
 
-/**
- * Shortest-column-first masonry.
- *
- * Deterministic and computed from the aspect ratios already on record, so the
- * server and the browser lay the grid out identically — no measuring after
- * mount, no hydration mismatch, no jump. And because it places items strictly
- * in order, "Load more" only ever appends: nothing already on screen changes
- * column when more arrive.
- */
-export function masonry<T extends Shaped>(items: readonly T[], columns: number): T[][] {
-  const cols: T[][] = Array.from({ length: Math.max(1, columns) }, () => []);
-  const heights = new Array<number>(cols.length).fill(0);
-  for (const item of items) {
-    let shortest = 0;
-    for (let c = 1; c < cols.length; c++) if (heights[c] < heights[shortest] - 1e-9) shortest = c;
-    cols[shortest].push(item);
-    heights[shortest] += 1 / (item.ratio > 0 ? item.ratio : FALLBACK_RATIO) + CAPTION_UNITS;
-  }
-  return cols;
-}
-
-/** How many show before "Load more" — exactly the sketch: the feature, the
- *  four beside it and one row of four. */
-export const INITIAL_VISIBLE = 9;
-/** Two masonry rows' worth per press. */
-export const LOAD_STEP = 8;
+/** Small photographs on a phone: three rows of three under the feature. */
+export const PHONE_COLUMNS = 3;
+export const PHONE_ROWS = 3;
+/** On a computer: one row of six under the feature and the four beside it. */
+export const DESKTOP_ROW = 6;
+/** What fills both layouts: 1 + 9 on a phone, 1 + 4 + 6 on a computer. */
+export const PICKS_WANTED = Math.max(1 + PHONE_COLUMNS * PHONE_ROWS, 1 + 4 + DESKTOP_ROW);
 
 // Dates
 

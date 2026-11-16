@@ -1,13 +1,15 @@
 "use client";
 
-// The cards in the right-hand column of Home (and in About's booking card):
-// albums, the private-gallery door, and the session types with their prices.
+// The session types with their prices, for About's booking card and Home's
+// Services sheet, and the card styles About uses. (The albums card and the
+// private-gallery card went with Home's right-hand column on 2026-11-17;
+// Home's tiles open the same sheets.)
 
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
+import type { AlbumPhoto } from "@/src/lib/albums";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 
@@ -52,59 +54,6 @@ function Thumb({
         <Image src={src} alt={alt} fill sizes={sizes} unoptimized className="object-cover" />
       )}
     </span>
-  );
-}
-
-export function GalleriesCard({ albums, limit = 4 }: { albums: AlbumData[]; limit?: number }) {
-  const { t, locale } = useT();
-  if (albums.length === 0) return null;
-  return (
-    <section aria-labelledby="rail-galleries" className={`${CARD} flex flex-col gap-3`}>
-      <h2 id="rail-galleries" className={CARD_TITLE}>{t("about.galleries")}</h2>
-      <ul className="flex flex-col gap-2.5">
-        {albums.slice(0, limit).map((a) => (
-          <li key={a.slug}>
-            <Link
-              href={`/${locale}/albums/${a.slug}`}
-              className="group flex items-center gap-3 rounded-lg -m-1 p-1 transition hover:bg-foreground/5"
-            >
-              <Thumb src={a.cover} ladder={a.coverLadder} thumbhash={a.coverThumbhash} alt="" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-foreground">{a.title}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {t("portfolio.photoCount", { n: a.photoCount })}
-                </span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {albums.length > limit && (
-        <Link
-          href={`/${locale}/portfolio`}
-          className="text-[13px] font-semibold text-accent-warm hover:underline underline-offset-2"
-        >
-          {t("home.allAlbums", { n: albums.length })} →
-        </Link>
-      )}
-    </section>
-  );
-}
-
-export function PrivateGalleryCard({ onOpen }: { onOpen: () => void }) {
-  const { t } = useT();
-  return (
-    <section aria-labelledby="rail-private" className={`${CARD} flex flex-col gap-2.5`}>
-      <h2 id="rail-private" className={CARD_TITLE}>{t("home.privateTitle")}</h2>
-      <p className="text-[13px] leading-snug text-muted-foreground">{t("home.privateBody")}</p>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="h-10 rounded-lg border border-input text-[13px] font-semibold text-foreground transition hover:bg-foreground/6 active:scale-[0.99]"
-      >
-        {t("home.enterPasskey")}
-      </button>
-    </section>
   );
 }
 

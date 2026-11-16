@@ -1,10 +1,11 @@
 "use client";
 
-// The About page (rebuilt 2026-11-10, trimmed 2026-11-13) — three columns
-// like Home:
+// The About page (rebuilt 2026-11-10, trimmed 2026-11-13) — three columns:
 //
 //   left    the portfolio, condensed (PortfolioPanel)
-//   middle  the profile card, then "My story" once it is written
+//   middle  the photographer, from the portrait to Book (ProfilePanel, moved
+//           here from Home on 2026-11-17 in place of the card with a cover
+//           photo), then "My story" once it is written
 //   right   booking: session types, Book, Telegram
 //
 // A section appears only when it has something true to say. "My story" stays
@@ -17,25 +18,17 @@
 // Below 1280px it is one column: profile, booking, portfolio.
 
 import { useCallback, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import Lightbox from "@/src/components/common/Lightbox";
 import StickyHeader from "@/src/components/common/StickyHeader";
-import ProfilePhotos from "@/src/components/common/ProfilePhotos";
-import BioTypewriter from "@/src/components/common/BioTypewriter";
-import SocialLinks from "@/src/components/common/SocialLinks";
 import PortfolioPanel from "@/src/components/profile/PortfolioPanel";
+import ProfilePanel from "@/src/components/profile/ProfilePanel";
 import { CARD, CARD_TITLE, SessionsList } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-import { pfps } from "@/src/lib/pfps";
 import { PROFILE } from "@/src/lib/profile";
 import { testimonials } from "@/src/lib/testimonials";
-import { bunnyUrl } from "@/src/lib/bunny-url";
-import { fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
-import type { AlbumPhoto } from "@/src/lib/albums";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import type { WorkPhoto, WorkPreview } from "@/src/lib/work-preview";
-import { ABOUT_COVER } from "./photos";
 
 const STICKY =
   "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto [scrollbar-width:thin]";
@@ -43,15 +36,15 @@ const STICKY =
 const SECTION_TITLE = "text-xl font-bold tracking-tight";
 
 export default function AboutContent({
-  photoIndex,
   work,
   albumsCount,
+  photosCount,
   sessions,
 }: {
-  /** storage path → photo: the cover. */
-  photoIndex: Record<string, AlbumPhoto>;
   work: WorkPreview;
   albumsCount: number;
+  /** How many photographs the portfolio holds, for the details list. */
+  photosCount: number;
   sessions: SessionSummary[];
 }) {
   const { t, locale } = useT();
@@ -66,8 +59,6 @@ export default function AboutContent({
 
   const story = t("aboutPage.story").trim();
   const hasStory = story.length > 0 && story !== "aboutPage.story";
-
-  const cover = photoIndex[ABOUT_COVER] ?? { src: bunnyUrl(ABOUT_COVER) };
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-clip">
@@ -88,69 +79,7 @@ export default function AboutContent({
 
         {/* Middle — who. */}
         <main className="order-1 flex min-w-0 flex-col gap-4 xl:order-none">
-          <section aria-label={t("profile.name")} className="overflow-hidden rounded-2xl bg-card">
-            <div className="relative h-28 bg-foreground/6 sm:h-33">
-              {hasLadder(cover.ladder) ? (
-                <picture>
-                  <source type="image/avif" sizes="(min-width: 1280px) 60vw, 100vw" srcSet={srcSet(cover.ladder, "avif")} />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={fallbackSrc(cover.ladder)}
-                    srcSet={srcSet(cover.ladder, "webp")}
-                    sizes="(min-width: 1280px) 60vw, 100vw"
-                    alt=""
-                    decoding="async"
-                    fetchPriority="high"
-                    className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
-                  />
-                </picture>
-              ) : (
-                <Image src={cover.src} alt="" fill sizes="100vw" unoptimized priority className="object-cover object-[center_35%]" />
-              )}
-            </div>
-
-            <div className="-mt-13 flex flex-col items-center px-5 pb-5 text-center sm:px-10">
-              <ProfilePhotos
-                images={pfps}
-                interval={4000}
-                alt={t("profile.portraitAlt")}
-                progress={false}
-                frameClassName="size-26 rounded-full border-4! border-card!"
-                sizes="104px"
-              />
-              <h1 className="mt-3 text-[28px] font-extrabold leading-tight tracking-[-0.02em] sm:text-[34px]">
-                {t("aboutPage.greeting")}
-              </h1>
-              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                {t("aboutPage.metaLine")}
-              </p>
-              <BioTypewriter size="body" className="mt-3 max-w-150 text-center" />
-            </div>
-
-            <div className="flex flex-col gap-3 border-t border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-              <SocialLinks
-                links={PROFILE.socials}
-                maxPx={11.5}
-                spread={false}
-                label={t("profile.links")}
-                className="flex-1"
-              />
-              <div className="flex shrink-0 gap-2">
-                <Link
-                  href={`/${locale}/portfolio`}
-                  className="flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-lg border border-input px-4 text-[13px] font-semibold text-foreground transition hover:bg-foreground/6 sm:flex-none"
-                >
-                  {t("aboutPage.seeMyWork")}
-                </Link>
-                <Link
-                  href={`/${locale}/book`}
-                  className="flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition hover:bg-primary-hover sm:flex-none"
-                >
-                  {t("about.bookSession")}
-                </Link>
-              </div>
-            </div>
-          </section>
+          <ProfilePanel albumsCount={albumsCount} photosCount={photosCount} />
 
           {hasStory && (
             <section aria-labelledby="story-h" className={`${CARD} sm:p-6`}>

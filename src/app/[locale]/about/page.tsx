@@ -37,7 +37,7 @@ export default async function AboutPage({
   const locale: Locale = isLocale(raw) ? (raw as Locale) : "ru";
 
   // Resolved server-side so the client gets real dimensions, ThumbHashes and
-  // derivative URLs in the first render payload.
+  // derivative URLs in the first render payload (the session thumbnails).
   const [albums, portfolio, photoIndex] = await Promise.all([
     getAllAlbums(),
     getPortfolioPhotos(),
@@ -51,9 +51,9 @@ export default async function AboutPage({
 
   return (
     <AboutContent
-      photoIndex={photoIndex}
       work={workPreview(portfolio, ABOUT_PER_VIEW)}
       albumsCount={albums.length}
+      photosCount={portfolio.filter((p) => !p.hidden).length}
       sessions={sessions}
     />
   );
