@@ -638,7 +638,7 @@ export const servicesData: ServiceData[] = [
     // for last, where a truncated snippet can afford to lose it.
     //
     // NO PRICES IN HERE on purpose, however tempting: the numbers live in
-    // standardTiers(), the price list is six inches away on the page, and a
+    // `packages` below, the price list is six inches away on the page, and a
     // stale price in a Google snippet is worse than no price at all.
     description: {
       en: 'Portrait photography in Tashkent: a studio session or an unhurried photowalk through the city — your call. Solo, a couple, a friend group or the whole family, and a LinkedIn headshot when you need one. We shoot at whatever pace feels comfortable.',
@@ -727,7 +727,39 @@ export const servicesData: ServiceData[] = [
         uz: 'Kichkina bolalar bilan — kunduzgi uyquga moslab vaqt oling va yegulik oling',
       },
     ],
-    packages: standardTiers('portraits', { of: 'portraits' }),
+    // Portraits' own prices (Marshall, 2026-11-17): 400 000 / 600 000 /
+    // 900 000, with the outfits each package allows. Lengths, portrait counts
+    // and delivery are still the standard ones; brand-product, models and the
+    // generic /book ladder keep standardTiers(). The ids are written into
+    // bookings rows and old links to the retired portrait services land on
+    // them (booking-catalog.ts): never rename one.
+    packages: [
+      {
+        id: 'portraits-1h',
+        durationMinutes: 60,
+        photos: { min: 25, max: 40, of: 'portraits' },
+        delivery: { days: 1 },
+        priceUzs: 400000,
+        perks: [{ en: '1 outfit', ru: '1 образ', uz: '1 ta libos' }],
+      },
+      {
+        id: 'portraits-90m',
+        durationMinutes: 90,
+        photos: { min: 40, max: 60, of: 'portraits' },
+        delivery: { days: 2 },
+        priceUzs: 600000,
+        highlight: true,
+        perks: [{ en: '2 outfits', ru: '2 образа', uz: '2 ta libos' }],
+      },
+      {
+        id: 'portraits-150m',
+        durationMinutes: 150,
+        photos: { min: 80, max: 120, of: 'portraits' },
+        delivery: { days: 3 },
+        priceUzs: 900000,
+        perks: [{ en: '3 outfits', ru: '3 образа', uz: '3 ta libos' }],
+      },
+    ],
     faqs: [
       { question: {
         en: 'Studio or outdoors — which should I pick?',
