@@ -45,6 +45,7 @@ export default function SocialLinks({
   maxPx = 12,
   minPx = 8,
   spread = true,
+  wrapNarrow = false,
   label,
   className = "",
 }: {
@@ -55,6 +56,9 @@ export default function SocialLinks({
   minPx?: number;
   /** Spread across the full width (true) or packed to the start. */
   spread?: boolean;
+  /** Below 768px, wrap onto a second line at 10px instead of shrinking the
+   *  row until it scrolls (the compact About panel, 2026-11-17). */
+  wrapNarrow?: boolean;
   /** Accessible name for the row. */
   label?: string;
   className?: string;
@@ -67,7 +71,10 @@ export default function SocialLinks({
   return (
     <nav aria-label={label} className={`min-w-0 ${className}`} style={{ containerType: "inline-size" }}>
       <ul
-        className="flex flex-nowrap items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={
+          "flex flex-nowrap items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" +
+          (wrapNarrow ? " max-md:flex-wrap max-md:overflow-visible max-md:text-[10px]! max-md:leading-none max-md:[row-gap:6px]!" : "")
+        }
         style={{
           fontSize: `clamp(${minPx}px, calc(100cqi / ${ems.toFixed(3)}), ${maxPx}px)`,
           gap: `${GAP_EM}em`,

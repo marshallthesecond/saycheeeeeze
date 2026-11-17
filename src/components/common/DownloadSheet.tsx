@@ -174,7 +174,7 @@ export default function DownloadSheet({
           <button
             onClick={onClose}
             aria-label={tx("common.close", "Close")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
+            className="btn-glass flex h-9 w-9 items-center justify-center text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -301,7 +301,7 @@ export default function DownloadSheet({
           <button
             type="button"
             onClick={() => onConfirm({ tier, asZip: zipOnly ? true : asZip, remember })}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover"
+            className="btn-glass-primary flex min-h-12 w-full items-center justify-center gap-2 text-sm font-semibold"
           >
             <Download className="h-4 w-4" />
             {total === undefined

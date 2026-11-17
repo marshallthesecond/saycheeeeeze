@@ -182,7 +182,7 @@ export default function PortfolioContent({
             <p className="text-sm text-muted-foreground">{t("portfolio.emptyFilter")}</p>
             <button
               onClick={() => setFilter("All")}
-              className="rounded-full px-5 min-h-11 bg-foreground/[0.07] hover:bg-foreground/12 text-xs font-bold transition active:scale-95"
+              className="btn-glass px-5 min-h-11 text-xs font-bold"
             >
               {t("portfolio.showAllPhotos")}
             </button>
@@ -264,7 +264,7 @@ export default function PortfolioContent({
             {t("portfolio.ctaBody")}
           </p>
         </div>
-        <Link href={`/${locale}/book`} className="shrink-0 bg-primary text-primary-foreground text-xs font-bold px-5 py-2.5 rounded-full hover:bg-primary-hover transition">
+        <Link href={`/${locale}/book`} className="btn-glass-primary shrink-0 text-xs font-bold px-5 py-2.5">
           {t("service.bookSession")} →
         </Link>
       </section>

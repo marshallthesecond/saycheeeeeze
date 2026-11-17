@@ -32,14 +32,14 @@ export default function PortfolioError({
       <div className="flex flex-col gap-2 w-full max-w-xs">
         <button
           onClick={reset}
-          className="flex items-center justify-center gap-2 w-full rounded-full min-h-12 bg-primary text-primary-foreground text-sm font-bold transition hover:bg-primary-hover active:scale-[0.98]"
+          className="btn-glass-primary flex items-center justify-center gap-2 w-full min-h-12 text-sm font-bold"
         >
           <RotateCw className="w-4 h-4" />
           {t("common.tryAgain")}
         </button>
         <Link
           href={`/${locale}`}
-          className="w-full rounded-full min-h-12 flex items-center justify-center bg-foreground/[0.07] hover:bg-foreground/12 text-sm font-semibold transition"
+          className="btn-glass w-full min-h-12 flex items-center justify-center text-sm font-semibold"
         >
           {t("common.backHome")}
         </Link>

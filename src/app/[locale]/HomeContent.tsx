@@ -42,7 +42,7 @@ const FEATURE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 2), (min-width: 640p
 const PHONE_TILE_SIZES = "34vw";
 const DESKTOP_TILE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 6), 17vw`;
 const STICKY =
-  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto [scrollbar-width:thin]";
+  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-x-hidden xl:overflow-y-auto [scrollbar-width:thin]";
 
 /** A portfolio photograph that fills a Best picks slot nobody chose yet. */
 export interface ExtraPick {

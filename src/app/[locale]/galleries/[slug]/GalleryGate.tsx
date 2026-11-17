@@ -183,7 +183,7 @@ export default function GalleryGate({
               aria-invalid={status === "error"}
               placeholder={tx("gate.placeholder", "Your code")}
               disabled={status === "locked-out"}
-              className="w-full rounded-full border border-input bg-foreground/5 px-5 text-center font-mono tracking-[0.2em] text-foreground placeholder:tracking-normal placeholder:font-sans placeholder:text-muted-foreground focus:border-ring focus:outline-none disabled:opacity-50"
+              className="w-full rounded-[10px] border border-input bg-foreground/5 px-5 text-center font-mono tracking-[0.2em] text-foreground placeholder:tracking-normal placeholder:font-sans placeholder:text-muted-foreground focus:border-ring focus:outline-none disabled:opacity-50"
               style={{ minHeight: "3rem" }}
             />
 
@@ -192,7 +192,7 @@ export default function GalleryGate({
               disabled={
                 !code.trim() || status === "checking" || status === "locked-out"
               }
-              className="flex min-h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.98] disabled:opacity-40"
+              className="btn-glass-primary flex min-h-12 w-full items-center justify-center text-sm font-bold"
             >
               {status === "checking"
                 ? tx("gate.checking", "Checking…")
@@ -233,7 +233,7 @@ export default function GalleryGate({
             href={`https://t.me/${CONTACT.telegram}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground/[0.07] text-sm font-semibold transition hover:bg-foreground/12"
+            className="btn-glass flex min-h-12 w-full items-center justify-center gap-2 text-sm font-semibold"
           >
             <Send className="h-4 w-4" />
             {tx("gate.telegram", "Message me on Telegram")}
@@ -243,7 +243,7 @@ export default function GalleryGate({
             href={`mailto:${CONTACT.email}?subject=${encodeURIComponent(
               mailSubject,
             )}&body=${encodeURIComponent(askForAccess)}`}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground/[0.07] text-sm font-semibold transition hover:bg-foreground/12"
+            className="btn-glass flex min-h-12 w-full items-center justify-center gap-2 text-sm font-semibold"
           >
             <Mail className="h-4 w-4" />
             {tx("gate.email", "Email me")}

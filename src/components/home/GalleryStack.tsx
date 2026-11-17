@@ -126,10 +126,14 @@ const GLASS_CARD: CSSProperties = {
   boxShadow: "inset 0 1px 0 0 var(--glass-edge), inset 0 -1px 0 0 oklch(0 0 0 / 0.05), var(--glass-shadow)",
 };
 
+/**
+ * Side by side when both fit (a phone, most tablets), each on its own full-
+ * width line when they do not (the 300px column, longer languages). Never
+ * cut, never wider than the column.
+ */
 const GLASS_BUTTON =
-  "sc-glass isolate inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[12px] font-medium text-foreground transition active:scale-95";
-const GLASS_ICON =
-  "sc-glass isolate hidden size-8 items-center justify-center rounded-xl text-foreground transition active:scale-95 disabled:opacity-40 sm:flex";
+  "btn-glass inline-flex h-10 flex-[1_1_auto] items-center justify-center gap-1.5 whitespace-nowrap px-3.5 text-[13px] font-semibold xl:h-9 xl:basis-full";
+const GLASS_ICON = "btn-glass hidden size-8 items-center justify-center sm:flex";
 
 export default function GalleryStack({
   albums,
@@ -278,6 +282,9 @@ export default function GalleryStack({
           {t("about.galleries")}
         </h2>
         <div className="flex items-center gap-1.5">
+          <span className="text-[13px] tabular-nums text-muted-foreground sm:hidden" aria-live="polite">
+            {index + 1} / {n}
+          </span>
           <button
             type="button"
             onClick={() => glideTo(Math.round(at.current) - 1)}
@@ -498,7 +505,7 @@ export default function GalleryStack({
         </div>
       </div>
 
-      <div className="flex justify-center gap-2 px-4">
+      <div className="flex flex-wrap gap-2 px-4 xl:px-1">
         <button type="button" onClick={onPrivate} className={GLASS_BUTTON}>
           <Lock aria-hidden className="size-3.5" />
           {t("home.privateGalleries")}
