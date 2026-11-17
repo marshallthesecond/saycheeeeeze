@@ -5,7 +5,7 @@
 import { revalidateTag } from "next/cache";
 import { timingSafeEqual } from "node:crypto";
 
-import { syncGallery, syncAllGalleries, type SyncResult } from "@/src/lib/sync-bunny";
+import { syncGallery, syncAllGalleries } from "@/src/lib/sync-bunny";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,10 +34,16 @@ function authorized(req: Request): boolean {
 // this traffic there is no herd to worry about either way.
 const PROFILE = "max";
 
-function revalidate(results: SyncResult[]): void {
-  revalidateTag("albums", PROFILE);
-  for (const r of results) revalidateTag(`album:${r.slug.toLowerCase()}`, PROFILE);
-  revalidateTag("client-galleries", PROFILE); 
+// `now`: expire at once instead, so the next visitor waits for fresh pages
+// rather than being served the old ones first. The Studio's worker asks for
+// this after a drop of photos, when the photographer is about to look.
+const NOW = { expire: 0 };
+
+function revalidate(slugs: string[], now = false): void {
+  const profile = now ? NOW : PROFILE;
+  revalidateTag("albums", profile);
+  for (const slug of slugs) revalidateTag(`album:${slug.toLowerCase()}`, profile);
+  revalidateTag("client-galleries", profile);
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -47,12 +53,18 @@ export async function POST(req: Request): Promise<Response> {
 
   const params = new URL(req.url).searchParams;
 
-  if (params.get("only") === "revalidate") {
-    revalidate([]);
-    return Response.json({ ok: true, revalidated: ["albums", "client-galleries"] });
-  }
-
   const gallery = params.get("gallery");
+
+  // Caches only, no listing of Bunny. With gallery=<slug>, that album's page
+  // too (the worker sends this after a drop).
+  if (params.get("only") === "revalidate") {
+    const slugs = gallery && gallery !== "all" && /^[A-Za-z0-9-]{1,80}$/.test(gallery) ? [gallery] : [];
+    revalidate(slugs, params.get("now") === "1");
+    return Response.json({
+      ok: true,
+      revalidated: ["albums", ...slugs.map((s) => `album:${s.toLowerCase()}`), "client-galleries"],
+    });
+  }
 
   try {
     // One gallery at a time: syncing everything can outrun the function timeout on a first run
@@ -61,7 +73,7 @@ export async function POST(req: Request): Promise<Response> {
         ? await syncAllGalleries()
         : [await syncGallery(gallery)];
 
-    revalidate(results);
+    revalidate(results.map((r) => r.slug));
     return Response.json({ ok: true, results });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

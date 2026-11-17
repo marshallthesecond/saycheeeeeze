@@ -19,9 +19,11 @@
  * portrait never gets cropped into a 3:2 box. Everything else follows in the
  * order written here. See best-picks.ts for the layout itself.
  *
- * NINE fills the first screen exactly, as in the sketch: the feature, the four
- * beside it and one row of four. With fewer the second row has a gap; with
- * more, "Load more" appears and reveals eight at a time.
+ * ELEVEN fill the Home grid exactly (since 2026-11-17): on a computer the
+ * feature, the four beside it and a row of six; on a phone the feature and
+ * three rows of three (the first ten). With fewer, the Home page tops the list
+ * up from the portfolio, so add your own to choose every one of them. More
+ * than eleven are not shown: "Full portfolio" is where the rest is.
  *
  * THE CAPTION under each photo, left to right:
  *
@@ -85,16 +87,10 @@ export const SESSION_PHOTOS: Record<string, string> = {
   "brand-product": "Random/espressomachine.jpg",
 };
 
-/** The cover of the About page's profile card: a photograph of you at work.
- *  It was the background of the old "I put you in a frame" banner. */
-export const ABOUT_COVER = "Random/itsmelol.jpg";
-
 /** What the Home page resolves: best picks and session thumbnails. */
 export const HOME_PHOTO_PATHS: string[] = Array.from(
   new Set([...BEST_PICKS.map((p) => p.path), ...Object.values(SESSION_PHOTOS)]),
 );
 
-/** What the About page resolves: the cover and session thumbnails. */
-export const ABOUT_PHOTO_PATHS: string[] = Array.from(
-  new Set([ABOUT_COVER, ...Object.values(SESSION_PHOTOS)]),
-);
+/** What the About page resolves: session thumbnails. */
+export const ABOUT_PHOTO_PATHS: string[] = Array.from(new Set(Object.values(SESSION_PHOTOS)));

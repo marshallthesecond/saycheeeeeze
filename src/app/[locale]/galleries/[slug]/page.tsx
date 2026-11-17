@@ -9,9 +9,9 @@
 
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import { getClientGallery, getGalleryContent } from "@/src/lib/client-galleries";
+import { getAlbumMadeFromClientGallery, getClientGallery, getGalleryContent } from "@/src/lib/client-galleries";
 import { accessCookieName, verifyAccessCookie } from "@/src/lib/gallery-access";
 import ClientGalleryView from "./ClientGalleryView";
 import GalleryGate from "./GalleryGate";
@@ -51,10 +51,15 @@ export default async function ClientGalleryPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
 
   const gallery = await getClientGallery(slug);
-  if (!gallery) notFound();
+  if (!gallery) {
+    // Made public in the Studio: the link the client has opens the album.
+    const album = await getAlbumMadeFromClientGallery(slug);
+    if (album) redirect(`/${locale}/albums/${encodeURIComponent(album)}`);
+    notFound();
+  }
 
   if (hasExpired(gallery.expiresAt)) {
     return <GalleryGate slug={gallery.slug} title={gallery.title} state="expired" />;

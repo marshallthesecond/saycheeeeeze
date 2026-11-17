@@ -16,6 +16,7 @@ import type { DownloadTier, GalleryKind } from "@/src/lib/ladder";
 import { STUDIO_HOME, studioGalleryPath } from "@/src/lib/studio/config";
 import { endOfStudioDay } from "@/src/lib/studio/gallery";
 import { publicPath } from "@/src/lib/studio/galleries";
+import { alsoRefreshLiveSite } from "@/src/lib/studio/live-site";
 import { PASSKEY_MAX, PASSKEY_MIN, generatePasskey } from "@/src/lib/studio/passkey";
 import { requireStudio } from "@/src/lib/studio/session";
 import { categoryProblem, isValidSlug, slugify } from "@/src/lib/studio/slug";
@@ -44,6 +45,20 @@ export interface CreateState extends FormState {
 
 export interface PasskeyState extends FormState {
   created?: { code: string; label: string };
+}
+
+export interface DeletePhotosState extends FormState {
+  /** How many photos went. */
+  deleted?: number;
+}
+
+export interface SendPhotosState extends FormState {
+  /** Published (from a client gallery) or moved (from an album). */
+  done?: number;
+  /** Already in the album: left as they were. */
+  skipped?: number;
+  /** Where they went, for the link in the message. */
+  to?: { title: string; href: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +90,14 @@ const REASONS: Record<string, string> = {
   too_many_codes: "tooManyCodes",
   label_length: "labelLength",
   has_photos: "hasPhotos",
+  busy: "busy",
+  photos: "invalid",
+  same_gallery: "sameGallery",
+  target_private: "targetPrivate",
+  from_private: "invalid",
+  from_public: "invalid",
+  already_public: "alreadyPublic",
+  not_private_origin: "notPrivateOrigin",
   not_found: "notFound",
   not_member: "notFound",
   not_client: "notFound",
@@ -145,11 +168,14 @@ async function ownGallery(galleryId: string): Promise<Own | null> {
  * change, expire them so the next visitor gets the new state, not the old one
  * once more: an album that was just unpublished must be gone on the next load.
  * A client gallery's own page is never cached, so it needs nothing.
+ *
+ * And the live site too, when the Studio runs somewhere else (a preview).
  */
-function expireSiteCaches(slug: string): void {
+async function expireSiteCaches(slug: string): Promise<void> {
   updateTag("albums");
   updateTag(`album:${slug.toLowerCase()}`);
   updateTag("client-galleries");
+  await alsoRefreshLiveSite(slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +332,7 @@ async function applyPatch(
   // No error and no row: Row Level Security filtered it out.
   if (!data || data.length === 0) return { error: "notFound", values };
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   refresh();
   return { ok: true };
 }
@@ -330,7 +356,7 @@ export async function setCover(form: FormData): Promise<void> {
     return;
   }
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   refresh();
 }
 
@@ -398,6 +424,161 @@ export async function deleteGallery(_prev: FormState, form: FormData): Promise<F
     return { error: reasonOf(error) };
   }
 
-  expireSiteCaches(own.slug);
+  await expireSiteCaches(own.slug);
   redirect(STUDIO_HOME);
+}
+
+// ---------------------------------------------------------------------------
+// Deleting photos
+// ---------------------------------------------------------------------------
+
+/**
+ * Takes the chosen photos out of the gallery. Their rows go at once; the
+ * worker removes their files from storage (studio_delete_photos queues it).
+ */
+export async function deletePhotos(_prev: DeletePhotosState, form: FormData): Promise<DeletePhotosState> {
+  const own = await ownGallery(str(form, "galleryId"));
+  if (!own) return { error: "notFound" };
+
+  const ids = [...new Set(form.getAll("photo").map(String))].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0 || ids.length > 500) return { error: "invalid" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_delete_photos", { p_gallery_id: own.id, p_photo_ids: ids });
+  if (error) {
+    console.error(`studio_delete_photos failed for "${own.slug}": ${error.message}`);
+    // PGRST202: the step-6 migration is not in the database yet.
+    return { error: error.code === "PGRST202" ? "needsUpdate" : reasonOf(error) };
+  }
+
+  await expireSiteCaches(own.slug);
+  refresh();
+  const deleted = (data as { deleted?: unknown } | null)?.deleted;
+  return { ok: true, deleted: typeof deleted === "number" ? deleted : ids.length };
+}
+
+/** The Uploads page's Try again, for files the worker could not remove. */
+export async function retryCleanup(): Promise<void> {
+  await requireStudio();
+  const supabase = await studioSupabase();
+  const { error } = await supabase.rpc("studio_retry_cleanup");
+  if (error) console.error(`studio_retry_cleanup failed: ${error.message}`);
+  refresh();
+}
+
+// ---------------------------------------------------------------------------
+// Publishing and moving photos (step 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * The chosen photos into an album: from a client gallery they are published
+ * (they stay there too), from an album they move. Rows only: no file is
+ * copied, so it takes as long as one database call.
+ *
+ * to = an album's id, or "new" with title and category for a new album,
+ * made published so the photos are on the site at once.
+ */
+export async function sendPhotos(_prev: SendPhotosState, form: FormData): Promise<SendPhotosState> {
+  const session = await requireStudio();
+  const own = await ownGallery(str(form, "galleryId"));
+  if (!own) return { error: "notFound" };
+
+  const ids = [...new Set(form.getAll("photo").map(String))].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length === 0 || ids.length > 500) return { error: "invalid" };
+
+  const supabase = await studioSupabase();
+  const to = str(form, "to");
+  let target: { id: string; slug: string; title: string } | null = null;
+
+  if (to === "new") {
+    const title = str(form, "title");
+    const category = str(form, "category");
+    if (!title || title.length > 200) return { error: "titleLength" };
+    const problem = categoryProblem(category);
+    if (problem) return { error: problem === "reserved" ? "categoryReserved" : "categoryFormat" };
+
+    // The address from the title; -2, -3 when it is taken.
+    const base = slugify(title);
+    if (!isValidSlug(base)) return { error: "slugFormat" };
+    for (let n = 1; n <= 9 && !target; n++) {
+      const slug = n === 1 ? base : `${base}-${n}`;
+      const { data, error } = await supabase.rpc("studio_create_gallery", {
+        p_account_id: session.account.id,
+        p_kind: "album",
+        p_title: title,
+        p_slug: slug,
+        p_category: category,
+        p_date_label: "",
+        p_location: "",
+      });
+      if (!error && data) target = { id: String(data), slug, title };
+      else if (!/studio:(slug_taken|folder_taken)/.test(error?.message ?? "")) {
+        console.error(`studio_create_gallery failed: ${error?.message}`);
+        return { error: reasonOf(error) };
+      }
+    }
+    if (!target) return { error: "slugTaken" };
+    const { error: pubError } = await supabase.from("galleries").update({ is_published: true }).eq("id", target.id);
+    if (pubError) console.error(`could not publish the new album "${target.slug}": ${pubError.message}`);
+  } else {
+    if (!/^[0-9a-f-]{36}$/i.test(to)) return { error: "invalid" };
+    const { data } = await supabase
+      .from("galleries")
+      .select("id, slug, title, kind")
+      .eq("id", to)
+      .eq("account_id", session.account.id)
+      .limit(1);
+    const row = data?.[0];
+    if (!row) return { error: "notFound" };
+    if (row.kind !== "album") return { error: "targetPrivate" };
+    target = { id: row.id, slug: row.slug, title: row.title };
+  }
+
+  const fn = own.kind === "client" ? "studio_publish_photos" : "studio_move_photos";
+  const { data, error } = await supabase.rpc(fn, { p_from: own.id, p_photo_ids: ids, p_to: target.id });
+  if (error) {
+    console.error(`${fn} failed from "${own.slug}" to "${target.slug}": ${error.message}`);
+    return { error: error.code === "PGRST202" ? "needsUpdate" : reasonOf(error) };
+  }
+
+  await expireSiteCaches(own.slug);
+  await expireSiteCaches(target.slug);
+  refresh();
+  const answer = (data ?? {}) as { added?: number; moved?: number; skipped?: number };
+  return {
+    ok: true,
+    done: Number(answer.added ?? answer.moved ?? 0),
+    skipped: Number(answer.skipped ?? 0),
+    to: { title: target.title, href: studioGalleryPath(target.slug) },
+  };
+}
+
+/**
+ * A client gallery onto the Portfolio as an album (to=public, with a
+ * category), or back to private (to=private). Instant: rows only.
+ */
+export async function setGalleryPublic(_prev: FormState, form: FormData): Promise<FormState> {
+  const own = await ownGallery(str(form, "galleryId"));
+  if (!own) return { error: "notFound" };
+  const makePublic = str(form, "to") === "public";
+  const category = str(form, "category");
+  if (makePublic) {
+    const problem = categoryProblem(category);
+    if (problem) return { error: problem === "reserved" ? "categoryReserved" : "categoryFormat" };
+  }
+
+  const supabase = await studioSupabase();
+  const { error } = await supabase.rpc("studio_set_gallery_public", {
+    p_gallery_id: own.id,
+    p_public: makePublic,
+    p_category: makePublic ? category : undefined,
+  });
+  if (error) {
+    console.error(`studio_set_gallery_public failed for "${own.slug}": ${error.message}`);
+    return { error: error.code === "PGRST202" ? "needsUpdate" : reasonOf(error) };
+  }
+
+  await expireSiteCaches(own.slug);
+  refresh();
+  return { ok: true };
 }

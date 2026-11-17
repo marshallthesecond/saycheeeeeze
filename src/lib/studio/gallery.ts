@@ -42,6 +42,11 @@ export interface StudioGalleryDetail {
   photoCount: number;
   /** Its page on the public site, without the language prefix. */
   href: string;
+  /**
+   * An album that was a client gallery ("Make public"): it can be made
+   * private again, with its passkeys as they were.
+   */
+  privateOrigin: boolean;
 }
 
 // The studio is in Tashkent, which has no daylight saving. When photographers
@@ -97,6 +102,13 @@ export const getStudioGallery = cache(async (slug: string): Promise<StudioGaller
   const kind: GalleryKind = row.kind === "client" ? "client" : "album";
   const first = Array.isArray(row.photos) ? row.photos[0] : undefined;
 
+  // Separately, so a database before 20261116230000 still opens the gallery.
+  let privateOrigin = false;
+  if (kind === "album") {
+    const origin = await supabase.from("galleries").select("client_folder").eq("id", row.id).limit(1);
+    privateOrigin = !origin.error && Boolean(origin.data?.[0]?.client_folder);
+  }
+
   return {
     id: row.id,
     slug: row.slug,
@@ -119,6 +131,7 @@ export const getStudioGallery = cache(async (slug: string): Promise<StudioGaller
     folder: row.bunny_folder,
     photoCount: typeof first?.count === "number" ? first.count : 0,
     href: publicPath(kind, row.slug),
+    privateOrigin,
   };
 });
 
@@ -129,6 +142,16 @@ export interface StudioPhoto {
   thumbhash?: string;
   /** The one the gallery shows first: the chosen cover, or else the first photo. */
   isCover: boolean;
+  /** Client galleries: what the client chose for it, if anything. */
+  mark?: ClientMark;
+  /** Client galleries: the album it is already published in, if any. */
+  publishedIn?: string;
+}
+
+export type ClientMark = "publish" | "keep" | "delete";
+
+function markOf(value: unknown): ClientMark | undefined {
+  return value === "publish" || value === "keep" || value === "delete" ? value : undefined;
 }
 
 /** Every photograph in the gallery, in the order the site shows them. */
@@ -137,13 +160,14 @@ export async function listStudioPhotos(gallery: StudioGalleryDetail): Promise<St
 
   const { data, error } = await supabase
     .from("photos")
-    .select(`${COVER_COLUMNS}, file_name, sort_order`)
+    .select(`${COVER_COLUMNS}, file_name, sort_order, client_mark`)
     .eq("gallery_id", gallery.id)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
 
   if (error) throw new Error(`Studio: could not load the photos: ${error.message}`);
   const rows = data ?? [];
+  const published = gallery.kind === "client" ? await albumsHolding(rows.map((r) => r.storage_path)) : new Map();
 
   // One deadline for every signed thumbnail on the page.
   const expiresAt = nextExpiry();
@@ -156,7 +180,73 @@ export async function listStudioPhotos(gallery: StudioGalleryDetail): Promise<St
     ladder: coverLadder(gallery.kind, r, expiresAt),
     thumbhash: r.thumbhash ?? undefined,
     isCover: i === coverIndex,
+    mark: gallery.kind === "client" ? markOf(r.client_mark) : undefined,
+    publishedIn: published.get(r.storage_path),
   }));
+}
+
+/** File -> the title of an album of this account that shows it too. */
+async function albumsHolding(paths: string[]): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  if (paths.length === 0) return found;
+  const session = await requireStudio();
+  const supabase = await studioSupabase();
+  // In pieces: the list goes into the request's address.
+  for (let i = 0; i < paths.length; i += 150) {
+    const { data, error } = await supabase
+      .from("photos")
+      .select("storage_path, galleries!inner(title, kind, account_id)")
+      .in("storage_path", paths.slice(i, i + 150))
+      .eq("galleries.kind", "album")
+      .eq("galleries.account_id", session.account.id);
+    if (error) {
+      console.error(`Studio: could not tell which photos are published: ${error.message}`);
+      return found;
+    }
+    for (const r of data ?? []) {
+      const g = Array.isArray(r.galleries) ? r.galleries[0] : r.galleries;
+      if (g && !found.has(r.storage_path)) found.set(r.storage_path, g.title);
+    }
+  }
+  return found;
+}
+
+export interface AlbumTarget {
+  id: string;
+  title: string;
+  /** "Portraits": the top-level folder. */
+  category: string;
+}
+
+/**
+ * Where the chosen photos can go: every album of the account but this
+ * gallery, and the categories in use (for a new album).
+ */
+export async function albumTargets(
+  session: StudioSession,
+  exceptId: string,
+): Promise<{ albums: AlbumTarget[]; categories: string[] }> {
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase
+    .from("galleries")
+    .select("id, title, bunny_folder")
+    .eq("account_id", session.account.id)
+    .eq("kind", "album")
+    .order("title", { ascending: true });
+  if (error) throw new Error(`Studio: could not load the albums: ${error.message}`);
+
+  const prefix = session.account.storagePrefix.replace(/\/+$/, "");
+  const root = prefix ? `${prefix}/` : "";
+  const categoryOf = (folder: string | null) =>
+    folder && folder.startsWith(root) ? (folder.slice(root.length).split("/")[0] ?? "") : "";
+
+  const albums = (data ?? [])
+    .filter((r) => r.id !== exceptId)
+    .map((r) => ({ id: r.id, title: r.title, category: categoryOf(r.bunny_folder) }));
+  const categories = [...new Set((data ?? []).map((r) => categoryOf(r.bunny_folder)).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  return { albums, categories };
 }
 
 export type PasskeyStatus = "active" | "revoked" | "expired";

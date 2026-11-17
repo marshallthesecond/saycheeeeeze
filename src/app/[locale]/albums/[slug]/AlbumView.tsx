@@ -712,11 +712,12 @@ export default function AlbumView({
         <PhotoGrid
           photos={visiblePhotos}
           onPhotoClick={openLightbox}
-          // Client galleries get a line under each photograph (marks left,
-          // file name right), and a little more air between columns so two
-          // names never run into each other.
-          gap={onMark ? 6 : 2}
-          captions={Boolean(onMark)}
+          // A line under each photograph: the file name, and in a client
+          // gallery the marks to its left. A little more air between columns
+          // so two names never run into each other. (Public albums show the
+          // names too since 2026-11-16, Marshall's call.)
+          gap={6}
+          captions
           layout={layout}
           selectable
           selectionMode={selectionMode}

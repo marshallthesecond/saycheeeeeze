@@ -1,7 +1,8 @@
 "use client";
 
-// The cards in the right-hand column of Home (and in About's booking card):
-// albums, the private-gallery door, and the session types with their prices.
+// The cards in the right-hand column of Home (and in About's booking card and
+// Home's Services sheet): albums, the private-gallery door, and the session
+// types with their prices.
 
 import Link from "next/link";
 import Image from "next/image";
@@ -100,7 +101,7 @@ export function PrivateGalleryCard({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        className="h-10 rounded-lg border border-input text-[13px] font-semibold text-foreground transition hover:bg-foreground/6 active:scale-[0.99]"
+        className="sc-glass isolate h-10 rounded-xl text-[13px] font-semibold text-foreground transition hover:text-foreground active:scale-[0.99]"
       >
         {t("home.enterPasskey")}
       </button>

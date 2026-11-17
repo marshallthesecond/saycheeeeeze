@@ -5,9 +5,7 @@
 // a way a directory listing can't express.
 
 export const pfps = [
+  "/pfps/COPY.png",
   "/pfps/7.jpg",
   "/pfps/13.jpg",
-  "/pfps/14.jpg",
-  "/pfps/15.jpg",
-  "/pfps/16.jpg",
 ];

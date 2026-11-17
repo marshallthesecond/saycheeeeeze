@@ -6,6 +6,7 @@
 export const STUDIO_HOME = "/studio";
 export const STUDIO_LOGIN = "/studio/login";
 export const STUDIO_NEW_GALLERY = "/studio/new";
+export const STUDIO_UPLOADS = "/studio/uploads";
 
 /** A gallery's page in the Studio. `tab` is "settings" or "access". */
 export function studioGalleryPath(slug: string, tab?: "settings" | "access"): string {

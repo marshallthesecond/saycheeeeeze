@@ -1,38 +1,35 @@
 "use client";
 
-// The Home page (2026-11-10) — three columns, the LinkedIn-home idea in
-// Marshall's own design:
+// The Home page (rebuilt 2026-11-17). Three columns from 1280px:
 //
-//   left    who: the Viewfinder profile panel (ProfilePanel)
-//   middle  the work: Best picks (the "All work" tab and its category chips
-//           were removed on 2026-11-13 — /portfolio is where all of it lives)
-//   right   what else: albums, the private-gallery door, session types
+//   left    the albums as a stack to flick through (GalleryStack)
+//   middle  Best picks, then one album to look through (a different one each
+//           visit), then the Portraits session, pitched
+//   right   the private-gallery door and the session types
 //
-// From 1280px the side columns stay in place and scroll on their own; the
-// middle column scrolls the page. Below 1280px everything stacks: the profile
-// becomes a compact header and the three columns become three tabs
-// (Work · Galleries · Sessions), so a phone never scrolls past two columns of
-// albums to reach the photographs.
-//
-// Those phone tabs are a sticky bar under the header (2026-11-13): big,
-// with icons, the chosen one filled in the brand red, so they read as the way
-// around the page rather than as a caption. Choosing a tab while the bar is
-// stuck brings the top of the new tab into view.
+// Below 1280px one column in that order: the stack first, right under the
+// header, then the work, then the cards. The profile panel that used to be
+// the left column is the About page's main section; the page's h1 is kept
+// for search engines and screen readers but not shown. (For a few hours on
+// 2026-11-17 the left column held eight quick-access tiles; the stack took
+// their place.)
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Album, Aperture, Images, type LucideIcon } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import Lightbox from "@/src/components/common/Lightbox";
 import StickyHeader from "@/src/components/common/StickyHeader";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
-import ProfilePanel from "@/src/components/profile/ProfilePanel";
-import { GalleriesCard, PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
+import GalleryStack from "@/src/components/home/GalleryStack";
+import PlatformCard from "@/src/components/home/PlatformCard";
+import AlbumShelf, { type ShelfAlbum } from "@/src/components/home/AlbumShelf";
+import PortraitsPitch, { type PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
+import { PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { bunnyUrl } from "@/src/lib/bunny-url";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import BestPicks, { type PickItem } from "./about/BestPicks";
-import { FALLBACK_RATIO, formatPickDate } from "./about/best-picks";
+import { FALLBACK_RATIO, PICKS_WANTED, formatPickDate } from "./about/best-picks";
 import { BEST_PICKS, type WorksCategory } from "./about/photos";
 
 /**
@@ -42,28 +39,39 @@ import { BEST_PICKS, type WorksCategory } from "./about/photos";
  */
 const MIDDLE = "calc(100vw - 664px)";
 const FEATURE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 2), (min-width: 640px) 50vw, 100vw`;
-const TILE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 4), (min-width: 640px) 25vw, 50vw`;
+const PHONE_TILE_SIZES = "34vw";
+const DESKTOP_TILE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 6), 17vw`;
+const STICKY =
+  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto [scrollbar-width:thin]";
 
-type MobileTab = "work" | "galleries" | "sessions";
+/** A portfolio photograph that fills a Best picks slot nobody chose yet. */
+export interface ExtraPick {
+  photo: AlbumPhoto;
+  /** The portfolio's category label ("Portraits"). */
+  category: string;
+}
 
 export default function HomeContent({
   albums,
   photoIndex,
-  photosCount,
+  extraPicks,
   galleries,
   sessions,
+  shelf,
+  pitch,
 }: {
   albums: AlbumData[];
   /** storage path → photo, for the best picks. */
   photoIndex: Record<string, AlbumPhoto>;
-  /** How many photographs the portfolio holds, for the profile's details. */
-  photosCount: number;
+  extraPicks: ExtraPick[];
   galleries: GalleryListing[];
   sessions: SessionSummary[];
+  shelf: ShelfAlbum[];
+  pitch: PortraitsPitchData | null;
 }) {
   const { t, locale } = useT();
-  const [mobileTab, setMobileTab] = useState<MobileTab>("work");
-  const [picker, setPicker] = useState(false);
+  const [privateOpen, setPrivateOpen] = useState(false);
+  const closeSheet = useCallback(() => setPrivateOpen(false), []);
 
   const [lightbox, setLightbox] = useState<{ photos: AlbumPhoto[]; index: number } | null>(null);
   const close = useCallback(() => setLightbox(null), []);
@@ -73,7 +81,7 @@ export default function HomeContent({
     [],
   );
 
-  // Best picks, resolved exactly as the old About page did.
+  // Best picks: the hand-picked ones, then the portfolio's to fill the grid.
   const pickLabel = useCallback(
     (cat: WorksCategory) => {
       const key = `about.worksCat.${cat}`;
@@ -82,148 +90,88 @@ export default function HomeContent({
     },
     [t],
   );
-  const pickItems = useMemo<PickItem[]>(
-    () =>
-      BEST_PICKS.map((p, index) => {
-        const photo = photoIndex[p.path] ?? { src: bunnyUrl(p.path) };
-        const category = pickLabel(p.cat);
-        return {
-          index,
-          photo,
-          ratio: photo.width && photo.height ? photo.width / photo.height : FALLBACK_RATIO,
-          category,
-          date: formatPickDate(p.date, locale),
-          title: p.title,
-          alt: t("about.bestPickAlt", { subject: p.title || category }),
-        };
-      }),
-    [photoIndex, pickLabel, locale, t],
-  );
+  const pickItems = useMemo<PickItem[]>(() => {
+    const chosen: PickItem[] = BEST_PICKS.map((p, index) => {
+      const photo = photoIndex[p.path] ?? { src: bunnyUrl(p.path) };
+      const category = pickLabel(p.cat);
+      return {
+        index,
+        photo,
+        ratio: photo.width && photo.height ? photo.width / photo.height : FALLBACK_RATIO,
+        category,
+        date: formatPickDate(p.date, locale),
+        title: p.title,
+        alt: t("about.bestPickAlt", { subject: p.title || category }),
+      };
+    });
+    const extra: PickItem[] = extraPicks.map(({ photo, category }, i) => ({
+      index: chosen.length + i,
+      photo,
+      ratio: photo.width && photo.height ? photo.width / photo.height : FALLBACK_RATIO,
+      category,
+      date: "",
+      alt: t("about.bestPickAlt", { subject: category }),
+    }));
+    return [...chosen, ...extra].slice(0, PICKS_WANTED);
+  }, [photoIndex, extraPicks, pickLabel, locale, t]);
   const pickPhotos = useMemo(() => pickItems.map((it) => ({ ...it.photo, alt: it.alt })), [pickItems]);
-
-
-  const mobileTabs: { id: MobileTab; label: string; Icon: LucideIcon }[] = [
-    { id: "work", label: t("home.workTab"), Icon: Images },
-    { id: "galleries", label: t("home.galleriesTab"), Icon: Album },
-    { id: "sessions", label: t("home.sessionsTab"), Icon: Aperture },
-  ];
-
-  // The tabs and what they switch between share one box on a phone, so the
-  // sticky bar stays stuck for the whole length of the tab's content.
-  const tabbed = useRef<HTMLDivElement>(null);
-  const tabBar = useRef<HTMLDivElement>(null);
-  const chooseTab = (id: MobileTab) => {
-    setMobileTab(id);
-    const box = tabbed.current;
-    const bar = tabBar.current;
-    if (!box || !bar) return;
-    // The bar is stuck, so the reader is somewhere down the old tab: start
-    // the new one at its top rather than part-way down it.
-    if (box.getBoundingClientRect().top < parseFloat(getComputedStyle(bar).top)) {
-      requestAnimationFrame(() => box.scrollIntoView({ block: "start" }));
-    }
-  };
-  /** Hidden on a phone unless its tab is chosen; always shown from 1280px. */
-  const onMobile = (id: MobileTab) => (mobileTab === id ? "" : "max-xl:hidden");
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       <StickyHeader title="saycheeeeeze" fadeOver={120} variant="wordmark" />
 
+      <h1 className="sr-only">{`${t("profile.name")}, ${t("about.heroTitle")}`}</h1>
+
       <div
-        className="mx-auto grid max-w-[1920px] grid-cols-1 gap-4 px-0 pb-32 xl:grid-cols-[300px_minmax(0,1fr)_300px] xl:px-4"
-        style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}
+        className="mx-auto grid max-w-[1920px] grid-cols-1 gap-7 px-4 pb-32 xl:grid-cols-[300px_minmax(0,1fr)_300px] xl:gap-4"
+        style={{ paddingTop: "calc(3rem + env(safe-area-inset-top))" }}
       >
-        {/* Left — who. */}
-        <aside
-          aria-label={t("profile.name")}
-          className="px-4 xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto xl:px-0 [scrollbar-width:thin]"
-        >
-          <ProfilePanel albumsCount={albums.length} photosCount={photosCount} />
+        {/* Left — the albums. Edge to edge on a phone, so the shelves run off the screen. */}
+        <aside className={`-mx-4 xl:mx-0 ${STICKY}`}>
+          <GalleryStack albums={albums} onPrivate={() => setPrivateOpen(true)} />
+          <PlatformCard className="mx-4 mt-6 hidden xl:mx-0 xl:flex" />
         </aside>
 
-        {/* Phone and tablet: the middle and right columns become tabs, in one
-            box with the tab bar. From 1280px the box steps aside (contents) and
-            both are columns of the grid again. */}
-        <div
-          ref={tabbed}
-          className="flex min-w-0 flex-col gap-3 scroll-mt-[calc(2.5rem+env(safe-area-inset-top))] xl:contents"
-        >
-          {/* Stuck right under the header, which is 2.5rem tall. */}
-          <div
-            ref={tabBar}
-            className="sticky top-[calc(2.5rem+env(safe-area-inset-top))] z-30 bg-background/90 px-4 py-2 backdrop-blur-md xl:hidden"
-          >
-            <div
-              role="tablist"
-              aria-label={t("home.sections")}
-              className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm"
-            >
-              {mobileTabs.map(({ id, label, Icon }) => {
-                const on = mobileTab === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={on}
-                    onClick={() => chooseTab(id)}
-                    className={`flex h-14 min-w-0 flex-col items-center justify-center gap-1 whitespace-nowrap rounded-xl px-1 text-xs font-semibold transition active:scale-[0.98] sm:h-11 sm:flex-row sm:gap-2 sm:text-sm ${
-                      on
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "text-foreground hover:bg-foreground/6"
-                    }`}
-                  >
-                    <Icon aria-hidden className="size-5 shrink-0 sm:size-4" strokeWidth={on ? 2.25 : 1.75} />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
         {/* Middle — the work. */}
-        <main className={`flex min-w-0 flex-col gap-3 ${onMobile("work")}`}>
-          <h2 className="mx-4 flex h-12 items-center rounded-2xl bg-card px-4 text-[15px] font-bold tracking-tight xl:mx-0">
-            {t("about.bestPicks")}
-          </h2>
+        <main className="flex min-w-0 flex-col gap-8 sm:gap-10">
+          <section aria-labelledby="picks-h" className="flex flex-col gap-3">
+            <h2 id="picks-h" className="text-xl font-bold tracking-tight sm:text-2xl">
+              {t("about.bestPicks")}
+            </h2>
+            <BestPicks
+              items={pickItems}
+              fullPortfolioLabel={t("about.fullPortfolio")}
+              portfolioHref={`/${locale}/portfolio`}
+              onOpen={(i) => setLightbox({ photos: pickPhotos, index: i })}
+              featureSizes={FEATURE_SIZES}
+              phoneTileSizes={PHONE_TILE_SIZES}
+              desktopTileSizes={DESKTOP_TILE_SIZES}
+              className="-mx-4 sm:mx-0"
+            />
+          </section>
 
-          <BestPicks
-            heading=""
-            items={pickItems}
-            loadMoreLabel={t("about.loadMore")}
-            fullPortfolioLabel={t("about.fullPortfolio")}
-            portfolioHref={`/${locale}/portfolio`}
-            onOpen={(i) => setLightbox({ photos: pickPhotos, index: i })}
-            featureSizes={FEATURE_SIZES}
-            tileSizes={TILE_SIZES}
-            className="relative overflow-hidden xl:rounded-2xl"
-          />
+          {shelf.length > 0 && (
+            <AlbumShelf albums={shelf} onOpen={(photos, index) => setLightbox({ photos, index })} />
+          )}
+
+          {pitch && <PortraitsPitch pitch={pitch} />}
         </main>
 
         {/* Right — what else. */}
-        <aside
-          aria-label={t("home.galleriesTab")}
-          className={`flex flex-col gap-4 px-4 xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto xl:px-0 [scrollbar-width:thin] ${
-            mobileTab === "work" ? "max-xl:hidden" : ""
-          }`}
-        >
-          <div className={`flex flex-col gap-4 ${onMobile("galleries")}`}>
-            <GalleriesCard albums={albums} />
-            <PrivateGalleryCard onOpen={() => setPicker(true)} />
-          </div>
-          <div className={onMobile("sessions")}>
-            <SessionsList sessions={sessions} />
-          </div>
+        <aside aria-label={t("home.sessions")} className={`flex flex-col gap-4 ${STICKY}`}>
+          <PrivateGalleryCard onOpen={() => setPrivateOpen(true)} />
+          <SessionsList sessions={sessions} />
+          {/* On a phone the platform card closes the page. */}
+          <PlatformCard className="xl:hidden" />
         </aside>
-        </div>
       </div>
 
       <GalleryPickerSheet
-        open={picker}
-        onClose={() => setPicker(false)}
+        open={privateOpen}
+        onClose={closeSheet}
         mode="private"
         galleries={galleries}
+        albums={albums}
         locale={locale}
       />
 

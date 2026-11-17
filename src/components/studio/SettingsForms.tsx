@@ -150,19 +150,19 @@ export function DeleteForm({ gallery }: { gallery: StudioGalleryDetail }) {
   const { t } = useT();
   const [state, action, pending] = useActionState<FormState, FormData>(deleteGallery, {});
 
-  if (gallery.photoCount > 0) {
-    return (
-      <Section title={t("settings.delete")}>
-        <p className="max-w-prose text-sm text-muted-foreground">{t("settings.deleteBlocked")}</p>
-      </Section>
-    );
-  }
+  // With its photos, the count is said twice: in the sentence and on the
+  // button that does it. Their files are removed by the worker.
+  const n = gallery.photoCount;
+  const blurb =
+    n === 0 ? t("settings.deleteBlurb") : t(n === 1 ? "settings.deleteBlurbOne" : "settings.deleteBlurbMany", { n });
+  const confirm =
+    n === 0 ? t("settings.deleteConfirm") : t(n === 1 ? "settings.deleteConfirmOne" : "settings.deleteConfirmMany", { n });
 
   return (
-    <Section title={t("settings.delete")} blurb={t("settings.deleteBlurb")}>
+    <Section title={t("settings.delete")} blurb={blurb}>
       <form action={action} className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <input type="hidden" name="galleryId" value={gallery.id} />
-        <ConfirmButton label={t("settings.delete")} confirmLabel={t("settings.deleteConfirm")} className={BUTTON_DANGER} />
+        <ConfirmButton label={t("settings.delete")} confirmLabel={confirm} className={BUTTON_DANGER} />
         <FormMessage state={{ error: state.error }} pending={pending} />
       </form>
     </Section>

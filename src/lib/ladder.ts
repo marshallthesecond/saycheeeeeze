@@ -116,6 +116,15 @@ export function derivativePrefix(
 }
 
 /**
+ * The folder a photo's derivatives were first written to, as derivativePrefix
+ * names it but without the checksum and revision. What photos.files_at holds
+ * (20261116230000), and what to assume for a row read before it existed.
+ */
+export function derivativeDir(kind: GalleryKind, galleryId: string, photoId: string): string {
+  return `${kind === "client" ? "clients/_d" : "d"}/${galleryId}/${photoId}`;
+}
+
+/**
  * Everything needed to build one photo's URLs. `base` already points at the
  * right pull zone and `query` carries the signature ("" for an album), both
  * decided server-side so the browser never sees a token key.

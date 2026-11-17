@@ -47,41 +47,14 @@ import { cpus } from "node:os";
 import process from "node:process";
 
 import sharp from "sharp";
-import { rgbaToThumbHash } from "thumbhash";
 import { createClient } from "@supabase/supabase-js";
 
-// Grid tiles never display above ~720 CSS px; lightbox frames go to the
-// display width. So 3840 for a grid tile is waste and grid sizes alone leave
-// the lightbox mushy. No 2560 or 3840 on purpose — 2048 covers every device a
-// client actually opens their gallery on, and each width dropped is ~8% off
-// encode time, storage and bandwidth. Bump LADDER_REV if you change this list.
-const GRID_WIDTHS = [240, 480, 720];
-const FULL_WIDTHS = [1080, 1440, 2048];
-const ALL_WIDTHS = [...GRID_WIDTHS, ...FULL_WIDTHS];
+import { ALL_WIDTHS, SHARE_JPEG, encodeLadder, prefixFor } from "./lib/ladder-core.mjs";
 
-const ENCODERS = {
-  // AVIF is the primary. effort 4 is the knee of the curve — effort 6 costs
-  // roughly double the CPU for low single-digit percent extra compression.
-  avif: { quality: 50, effort: 4, chromaSubsampling: "4:2:0" },
-  // WebP is the only fallback worth shipping. AVIF covers Chrome, Firefox and
-  // Safari 16+; JPEG as a third source is dead weight.
-  webp: { quality: 78, effort: 5 },
-};
-
-// What the client downloads. Full resolution, visually indistinguishable from
-// the 37 MB PNG original, roughly a tenth the size — which is the difference
-// between a 300-photo gallery being an 11 GB download and a 1.5 GB one.
-const DELIVERY = { quality: 92, mozjpeg: true, chromaSubsampling: "4:2:0" };
-
-// The light download — "For sharing" in the client's chooser.
-//
-// From the master rather than the original, because this is the one output
-// whose whole purpose is to be small: the master is already at the widest rung
-// so this costs one extra encode and no extra decode of the full-size file.
-// q82 rather than q92 because it will be seen on a phone, recompressed by
-// whatever app it is posted to, and never printed — roughly 500 KB against
-// 4 MB.
-const SHARE_JPEG = { quality: 82, mozjpeg: true, chromaSubsampling: "4:2:0" };
+// The widths, the encoder settings and the files built for each photo live in
+// scripts/lib/ladder-core.mjs, shared with the Studio's upload worker
+// (scripts/studio-worker.mjs) so the two always build the same ladder. Bump
+// LADDER_REV after changing anything there.
 
 // Deliberately low. Bunny is in Falkenstein and this runs from Tashkent on a
 // domestic connection; four parallel uploads do not go four times faster, they
@@ -492,39 +465,46 @@ function kindOf(photo) {
 }
 
 /**
- * The prefix builder, with the revision passed in explicitly.
+ * The prefix builder, with the revision passed in explicitly (prefixFor, from
+ * scripts/lib/ladder-core.mjs).
  *
- * Separate from derivativePrefix() because the --add-share top-up writes
+ * derivativePrefix() is separate because the --add-share top-up writes
  * alongside files that already exist and must use the revision on the row, not
  * whatever LADDER_REV is in the environment today. Getting that wrong drops
  * share.jpg into an empty v2 directory beside a live v1 ladder, where the app
  * — which resolves from the row — will never look.
  */
-function prefixFor(kind, galleryId, photoId, checksum8, rev) {
-  // Fail closed. Defaulting an unknown kind to the public path would let a
-  // change to the query — a dropped join, a renamed column — silently publish
-  // client work instead of breaking loudly.
-  if (kind !== "album" && kind !== "client") {
-    throw permanent(
-      new Error(
-        `gallery kind missing or unrecognised (${JSON.stringify(kind)}) — ` +
-          "refusing to guess a derivative path",
-      ),
-    );
-  }
-
-  const root = kind === "client" ? "clients/_d" : "d";
-  return `${root}/${galleryId}/${photoId}/${checksum8}/v${rev}`;
+function derivativePrefix(photo, checksum8) {
+  return filesPrefix(photo, checksum8, LADDER_REV);
 }
 
-function derivativePrefix(photo, checksum8) {
-  return prefixFor(
-    kindOf(photo),
-    photo.gallery_id,
-    photo.id,
-    checksum8,
-    LADDER_REV,
-  );
+const FILES_AT = /^(d|clients\/_d)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Since step 7 (20261116230000) the row says where its files are
+ * (photos.files_at): a photo moved to another album, or published from a
+ * client gallery, keeps them where they were first written, and the app
+ * reads them from there. So that is where a rebuild goes. Rows read from a
+ * database without the column fall back to the kind-keyed path above.
+ */
+function filesPrefix(photo, checksum8, rev) {
+  if (photo.files_at) {
+    if (!FILES_AT.test(photo.files_at)) {
+      throw permanent(new Error(`files_at has an unexpected shape (${JSON.stringify(photo.files_at)}) — refusing to write there`));
+    }
+    return `${photo.files_at}/${checksum8}/v${rev}`;
+  }
+  return prefixFor(kindOf(photo), photo.gallery_id, photo.id, checksum8, rev);
+}
+
+/** Whether photos.files_at exists here, asked once. */
+let filesAtColumn;
+async function photoColumns(base) {
+  if (filesAtColumn === undefined) {
+    const { error } = await db.from("photos").select("files_at").limit(1);
+    filesAtColumn = !error;
+  }
+  return filesAtColumn ? `${base}, files_at` : base;
 }
 
 /** Live progress for anything big enough that silence looks like a hang. */
@@ -575,104 +555,31 @@ async function processPhoto(photo, src) {
   // Where the seconds actually go. A photo that takes three minutes is either
   // a slow link, a slow CPU or a slow uplink, and those have nothing in common
   // except the number on the end of the line — so report them apart.
-  const tEncodeStart = Date.now();
-  const checksum8 = createHash("sha256").update(src).digest("hex").slice(0, 8);
+  const r = await encodeLadder(src);
 
-  // .rotate() with NO argument bakes EXIF orientation into the pixels and then
-  // drops the tag. Skip it and a third of phone uploads come out sideways —
-  // and unlike a wrong colour profile, nobody notices until a client does.
-  const base = sharp(src, { failOn: "none" }).rotate();
-  const meta = await base.metadata();
-  const srcWidth = meta.width ?? 0;
-  const srcHeight = meta.height ?? 0;
-  if (!srcWidth || !srcHeight) throw new Error("could not read image dimensions");
-
-  // ThumbHash from a 100px RGBA raster. ~25 bytes, decodes client-side to a
-  // blurred preview with the right aspect and average colour. This is what
-  // replaced blur_data_url, which Bunny's resizer was returning at ~12 KB.
-  const { data: rgba, info } = await base
-    .clone()
-    .resize(100, 100, { fit: "inside" })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const thumbhash = Buffer.from(
-    rgbaToThumbHash(info.width, info.height, rgba),
-  ).toString("base64");
-
-  // Never upscale. A 900px original gets 240/480/720 and stops; if it is
-  // smaller than even the narrowest rung, emit its own width so the photo
-  // still has exactly one variant to render.
-  let targets = ALL_WIDTHS.filter((w) => w <= srcWidth);
-  if (targets.length === 0) targets = [srcWidth];
-
-  // Decode-once. Every rung is derived from a master already reduced to the
-  // widest target rather than from the 37 MB original, which avoids re-decoding
-  // a 24 MP PNG twelve times. The quality difference is not visible; the time
-  // difference very much is.
-  const master = await base
-    .clone()
-    .resize({ width: Math.max(...targets), withoutEnlargement: true })
-    .toColourspace("srgb")
-    .png({ compressionLevel: 0 })
-    .toBuffer();
-
-  const prefix = derivativePrefix(photo, checksum8);
-  const uploads = [];
-  const variants = [];
-
-  for (const w of targets) {
-    const step = sharp(master).resize({ width: w, withoutEnlargement: true });
-    const [avif, webp] = await Promise.all([
-      step.clone().avif(ENCODERS.avif).toBuffer(),
-      step.clone().webp(ENCODERS.webp).toBuffer(),
-    ]);
-    uploads.push(
-      { path: `${prefix}/${w}.avif`, body: avif, type: "image/avif" },
-      { path: `${prefix}/${w}.webp`, body: webp, type: "image/webp" },
-    );
-    variants.push({ w, a: avif.length, p: webp.length });
-  }
-
-  // The light download. One more encode off the master, which is already
-  // decoded and already at the widest rung — see SHARE_JPEG.
-  const share = await sharp(master).jpeg(SHARE_JPEG).toBuffer();
-  uploads.push({
-    path: `${prefix}/share.jpg`,
-    body: share,
-    type: "image/jpeg",
-  });
-
-  // The download deliverable. Full resolution, from the ORIGINAL rather than
-  // the master, because this is the one output where downscaling would be a
-  // real loss.
-  const delivery = await base.clone().jpeg(DELIVERY).toBuffer();
-  uploads.push({
-    path: `${prefix}/download.jpg`,
-    body: delivery,
-    type: "image/jpeg",
-  });
-
-  const msEncode = Date.now() - tEncodeStart;
+  const prefix = derivativePrefix(photo, r.checksum8);
+  const uploads = r.files.map((f) => ({
+    path: `${prefix}/${f.name}`,
+    body: f.body,
+    type: f.type,
+  }));
 
   const tUploadStart = Date.now();
   await pool(uploads, EFFECTIVE_UPLOADS, (u) => upload(u.path, u.body, u.type));
   const msUpload = Date.now() - tUploadStart;
 
-  const totalOut = uploads.reduce((n, u) => n + u.body.length, 0);
-
   return {
-    checksum8,
-    thumbhash,
-    variants,
-    delivery_bytes: delivery.length,
-    share_bytes: share.length,
-    width: srcWidth,
-    height: srcHeight,
+    checksum8: r.checksum8,
+    thumbhash: r.thumbhash,
+    variants: r.variants,
+    delivery_bytes: r.delivery_bytes,
+    share_bytes: r.share_bytes,
+    width: r.width,
+    height: r.height,
     srcBytes: src.length,
-    totalOut,
+    totalOut: r.totalOut,
     fileCount: uploads.length,
-    msEncode,
+    msEncode: r.msEncode,
     msUpload,
   };
 }
@@ -686,7 +593,7 @@ async function selectQueue() {
   // GenericStringError.
   let q = db
     .from("photos")
-    .select("id, gallery_id, storage_path, status, checksum8, variants, galleries!inner(slug, kind)")
+    .select(await photoColumns("id, gallery_id, storage_path, status, checksum8, variants, galleries!inner(slug, kind)"))
     .order("created_at", { ascending: true });
 
   // --force ignores status entirely and rebuilds whatever matches, which is
@@ -817,7 +724,7 @@ async function addShareTier() {
   // ONE string literal — see the note on selectQueue().
   let q = db
     .from("photos")
-    .select("id, gallery_id, storage_path, checksum8, ladder_rev, galleries!inner(slug, kind)")
+    .select(await photoColumns("id, gallery_id, storage_path, checksum8, ladder_rev, galleries!inner(slug, kind)"))
     .eq("status", "ready")
     .order("created_at", { ascending: true });
 
@@ -866,7 +773,8 @@ async function addShareTier() {
       // be baked in, or a third of phone uploads come out sideways.
       const base = sharp(src, { failOn: "none" }).rotate();
       const meta = await base.metadata();
-      const srcWidth = meta.width ?? 0;
+      // The upright width, as encodeLadder() uses (see ladder-core.mjs).
+      const srcWidth = meta.autoOrient?.width ?? meta.width ?? 0;
       if (!srcWidth) throw new Error("could not read image dimensions");
 
       // Same rung the master would have been built at, so this file is
@@ -881,13 +789,7 @@ async function addShareTier() {
         .jpeg(SHARE_JPEG)
         .toBuffer();
 
-      const prefix = prefixFor(
-        kindOf(photo),
-        photo.gallery_id,
-        photo.id,
-        checksum8,
-        photo.ladder_rev ?? 1,
-      );
+      const prefix = filesPrefix(photo, checksum8, photo.ladder_rev ?? 1);
 
       await upload(`${prefix}/share.jpg`, share, "image/jpeg");
 

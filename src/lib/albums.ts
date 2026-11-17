@@ -11,7 +11,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 
-import { bunnyUrl } from "./bunny-url";
 import type { PhotoMark } from "./photo-marks";
 import {
   getExcludeManifest,
@@ -20,12 +19,8 @@ import {
   type ExcludeManifest,
 } from "./bunny";
 import { supabaseRead, withRetry } from "./supabase";
-import {
-  derivativePrefix,
-  parseVariants,
-  type DownloadSizes,
-  type LadderSources,
-} from "./ladder";
+import { type DownloadSizes, type LadderSources } from "./ladder";
+import { isPrivatePath, originalUrl, photoLadder, publicPageExpiry } from "./photo-files";
 import type { Database } from "./database.types";
 
 // Public shapes — unchanged from the hardcoded version.
@@ -132,6 +127,7 @@ type PhotoRow = Pick<
   | "share_bytes"
   | "delivery_bytes"
   | "source_bytes"
+  | "files_at"
 >;
 
 /**
@@ -144,7 +140,7 @@ type PhotoRow = Pick<
  */
 type CoverRow = Pick<
   PhotoRow,
-  "id" | "gallery_id" | "storage_path" | "checksum8" | "thumbhash" | "variants" | "ladder_rev"
+  "id" | "gallery_id" | "storage_path" | "checksum8" | "thumbhash" | "variants" | "ladder_rev" | "files_at"
 >;
 
 /** Time-based backstop. On-demand revalidateTag is the real refresh path. */
@@ -152,44 +148,32 @@ const REVALIDATE_SECONDS = 3600;
 
 // Row → app shape
 
-const PUBLIC_CDN = (process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE ?? "").replace(/\/$/, "");
-
 /**
  * Album derivatives, when the worker has built them.
  *
- * No signing: albums are public by definition and live at d/… on the public
- * zone, so `query` is empty and every URL is a plain immutable static file —
- * which is the entire point of the ladder. Client galleries take the signed
- * path in client-galleries.ts instead.
- */
-/**
- * The four columns a ladder is built from, and nothing else.
+ * Plain public URLs for files in public folders, which is the entire point of
+ * the ladder: immutable static files. A photo published from a client gallery
+ * keeps its files under clients/ and gets a link signed for its own folder
+ * instead (src/lib/photo-files.ts), valid 30 to 60 days so a cached page and
+ * a browser's image cache keep working.
  *
- * Narrower than PhotoRow on purpose: the card-grid query below fetches ONLY
- * the cover rows and only these columns, so it has no `width`, no `alt`, no
- * `sort_order`. A full PhotoRow still satisfies this, so the album query's
- * call site is unchanged.
+ * Built from the row's files_at, not from the album: a photo moved here from
+ * another album still has its files in the first one's folder.
  */
-type LadderRow = Pick<PhotoRow, "id" | "checksum8" | "variants" | "ladder_rev">;
+type LadderRow = Pick<PhotoRow, "id" | "gallery_id" | "checksum8" | "variants" | "ladder_rev" | "files_at">;
 
-function ladderFor(p: LadderRow, galleryId: string): LadderSources | undefined {
-  const variants = parseVariants(p.variants);
-  if (!p.checksum8 || variants.length === 0 || !PUBLIC_CDN) return undefined;
-  return {
-    base: `${PUBLIC_CDN}/${derivativePrefix("album", galleryId, p.id, p.checksum8, p.ladder_rev)}`,
-    widths: variants.map((v) => v.w),
-    query: "",
-  };
+function ladderFor(p: LadderRow): LadderSources | undefined {
+  return photoLadder(p, "album", publicPageExpiry());
 }
 
 function toPhoto(p: PhotoRow): AlbumPhoto {
   return {
-    src: bunnyUrl(p.storage_path),
+    src: originalUrl(p.storage_path, publicPageExpiry()),
     alt: p.alt ?? undefined,
     width: p.width ?? undefined,
     height: p.height ?? undefined,
     fileName: p.file_name ?? undefined,
-    ladder: ladderFor(p, p.gallery_id),
+    ladder: ladderFor(p),
     thumbhash: p.thumbhash ?? undefined,
     // A number or nothing, never a coerced 0 — see sizesOf() in
     // client-galleries.ts. "0 B" beside a 30 MB file reads as a fact.
@@ -236,11 +220,11 @@ function toAlbum(
     location: g.location,
     year: g.year,
     description: g.description,
-    cover: g.cover_path ? bunnyUrl(g.cover_path) : "",
+    cover: g.cover_path ? originalUrl(g.cover_path, publicPageExpiry()) : "",
     color: g.accent_color,
     photographerHandle: g.photographer_handle,
     folder: g.bunny_folder ?? undefined,
-    coverLadder: heroRow ? ladderFor(heroRow, heroRow.gallery_id) : undefined,
+    coverLadder: heroRow ? ladderFor(heroRow) : undefined,
     coverThumbhash: heroRow?.thumbhash ?? undefined,
     // Sorted above rather than in the query so this doesn't depend on which
     // spelling of the nested-order option your supabase-js minor uses.
@@ -262,9 +246,23 @@ function toAlbum(
 
 type HasPath = { storage_path: string };
 
+/**
+ * The manifest as it applies to ROWS of an album.
+ *
+ * bunny.ts always excludes clients/ and d/, which is right for anything that
+ * lists storage: a listing cannot tell a delivered photo from a published one.
+ * A row in an album can: it is there because the photographer published it
+ * (step 7), so its file being under clients/ hides nothing. Every rule the
+ * photographer wrote into the manifest still applies.
+ */
+function forRows(m: ExcludeManifest): ExcludeManifest {
+  return { ...m, excludedFolders: m.excludedFolders.filter((f) => f !== "clients" && f !== "d") };
+}
+
 /** Drop every photograph the manifest hides. */
 function curate<T extends HasPath>(rows: T[], manifest: ExcludeManifest): T[] {
-  return rows.filter((row) => !isPhotoExcluded(row.storage_path, manifest));
+  const m = forRows(manifest);
+  return rows.filter((row) => !isPhotoExcluded(row.storage_path, m));
 }
 
 /**
@@ -278,7 +276,7 @@ function coverAfterCuration(
   manifest: ExcludeManifest,
 ): string | null {
   if (!coverPath) return null;
-  if (!isPhotoExcluded(coverPath, manifest)) return coverPath;
+  if (!isPhotoExcluded(coverPath, forRows(manifest))) return coverPath;
   return visible[0]?.storage_path ?? null;
 }
 
@@ -302,7 +300,7 @@ async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
       // status, attempts, claimed_at and the error text — to every browser that
       // opened an album page. One string literal: supabase-js parses this at the
       // type level and its parser only understands literals.
-      .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes)")
+      .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at)")
       .eq("kind", "album")
       .ilike("slug", pattern)
       .limit(1)
@@ -455,7 +453,7 @@ async function loadCoverRows(paths: string[]): Promise<Map<string, CoverRow>> {
     // stops this compiling rather than failing at runtime.
     const { data, error } = await supabaseRead()
       .from("photos")
-      .select("id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev")
+      .select("id, gallery_id, storage_path, checksum8, thumbhash, variants, ladder_rev, files_at")
       .in("storage_path", [...new Set(paths)]);
 
     if (error) {
@@ -597,7 +595,7 @@ const loadPortfolioPhotos = unstable_cache(
       getExcludeManifest(),
       supabaseRead()
         .from("photos")
-        .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, galleries!inner(kind)")
+        .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(kind, bunny_folder)")
         .eq("galleries.kind", "album")
         .order("sort_order", { ascending: true }),
     ]);
@@ -606,6 +604,7 @@ const loadPortfolioPhotos = unstable_cache(
       throw new Error(`Supabase: failed to load portfolio photos: ${error.message}`);
     }
 
+    const rows = forRows(manifest);
     const out: PortfolioPhoto[] = [];
     for (const row of data ?? []) {
       const path = row.storage_path;
@@ -613,15 +612,22 @@ const loadPortfolioPhotos = unstable_cache(
       // Same rules the storage walk applied, now against a path we already
       // have — and the same single call every other surface makes, so a folder,
       // a `Folder/*` and a single file behave identically everywhere.
-      if (isPhotoExcluded(path, manifest)) continue;
+      if (isPhotoExcluded(path, rows)) continue;
 
-      // "Portraits/Sara/3M0A1432.png" → "Portraits". A file at the root has no
-      // folder to be grouped under, which is what "Other" is for.
-      const slash = path.indexOf("/");
-      const rawCategory = slash === -1 ? "Other" : path.slice(0, slash);
+      // The album's folder decides: "Portraits/sara" → "Portraits". A photo
+      // published from a client gallery, or moved here from another album,
+      // keeps a path elsewhere and belongs where its album is. A hand-made
+      // album has no folder, so its photos go by their own path; a file at the
+      // root has no folder to be grouped under, which is what "Other" is for.
+      const gallery = Array.isArray(row.galleries) ? row.galleries[0] : row.galleries;
+      const by = gallery?.bunny_folder || (isPrivatePath(path) ? "" : path);
+      const slash = by.indexOf("/");
+      const rawCategory = slash === -1 ? (gallery?.bunny_folder ? by : "Other") : by.slice(0, slash);
 
+      const { galleries: _g, ...photo } = row;
+      void _g;
       out.push({
-        ...toPhoto(row),
+        ...toPhoto(photo),
         category: manifest.categoryLabels[rawCategory] ?? rawCategory,
         hidden: manifest.hiddenCategories.includes(rawCategory),
       });
@@ -662,7 +668,7 @@ const loadPhotosByPaths = unstable_cache(
     const { data, error } = await supabaseRead()
       .from("photos")
       // Same explicit column list as the album query, and for the same reason.
-      .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes")
+      .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at")
       .in("storage_path", paths);
 
     if (error) {

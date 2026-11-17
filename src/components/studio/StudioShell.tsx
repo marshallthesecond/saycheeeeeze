@@ -18,17 +18,28 @@ export interface ShellLabels {
   language: string;
 }
 
+/** The worker and the storage used, as of this page load. */
+export interface ShellStatus {
+  /** null: not known (the uploads update is not in the database yet). */
+  workerOnline: boolean | null;
+  workerLabel: string;
+  /** "12.4 GB stored" */
+  stored: string;
+}
+
 export default function StudioShell({
   accountName,
   email,
   locale,
   labels,
+  status,
   children,
 }: {
   accountName: string;
   email: string | null;
   locale: Locale;
   labels: ShellLabels;
+  status: ShellStatus;
   children: React.ReactNode;
 }) {
   return (
@@ -43,6 +54,19 @@ export default function StudioShell({
         <StudioNav className="mt-7" />
 
         <div className="mt-auto grid gap-3 px-3">
+          <div className="grid gap-1 text-[13px] text-muted-foreground">
+            {status.workerOnline !== null && (
+              <p className="flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className={`size-2 shrink-0 rounded-full ${status.workerOnline ? "bg-emerald-500" : "bg-foreground/30"}`}
+                />
+                {status.workerLabel}
+              </p>
+            )}
+            <p>{status.stored}</p>
+          </div>
+
           <a
             href="/"
             target="_blank"
@@ -83,6 +107,7 @@ export default function StudioShell({
             <span className="ml-2 text-muted-foreground">{accountName}</span>
           </p>
           <div className="flex shrink-0 items-center gap-1">
+            <StudioNav compact />
             <LocaleSwitch active={locale} label={labels.language} />
             <form action={signOut}>
               <button

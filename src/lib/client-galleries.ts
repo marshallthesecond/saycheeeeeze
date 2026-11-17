@@ -5,8 +5,8 @@
 // URLs, whatever its visibility. Client photos live under clients/, the public
 // zone blocks any URL containing "/clients/", and the private zone answers
 // nothing without a token. Visibility decides one thing only — whether a
-// passkey is needed to reach the page. The zone follows `kind`, which never
-// changes.
+// passkey is needed to reach the page. The zone follows where each photo's
+// files are (photos.files_at, see photo-files.ts), never the visibility.
 //
 // Photo reads are NOT wrapped in unstable_cache. A signed URL has a deadline
 // baked in, so caching it would hand a visitor a URL that expired an hour ago.
@@ -20,23 +20,21 @@ import { bunnyUrl } from "./bunny-url";
 import { supabaseAdmin, supabaseRead, withRetry } from "./supabase";
 import {
   nextExpiry,
-  privateHost,
   signBunnyUrl,
   signDirectoryQuery,
   signedPhoto,
   type SignedPhoto,
 } from "./bunny-sign";
 import {
-  derivativePrefix,
   hasLadder,
   parseTiers,
-  parseVariants,
   type DownloadSizes,
   type DownloadTier,
   type LadderSources,
 } from "./ladder";
 import { getPhotosByPaths } from "./albums";
 import { parseMark, type PhotoMark } from "./photo-marks";
+import { photoLadder } from "./photo-files";
 
 // Untyped clients. Kept even after regenerating database.types.ts: the picker
 // query embeds a `photos(count)` aggregate, whose inferred type fights with the
@@ -289,7 +287,7 @@ export async function getGalleryContent(
 ): Promise<GalleryContent> {
   const { data, error } = await untypedAdmin()
     .from("photos")
-    .select("storage_path, alt, sort_order, id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, client_mark")
+    .select("storage_path, alt, sort_order, id, gallery_id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, client_mark, files_at")
     .eq("gallery_id", gallery.id)
     .order("sort_order", { ascending: true });
 
@@ -319,8 +317,8 @@ export async function getGalleryContent(
   // ONE token for the whole gallery. Signing per file would mean one per width
   // per format — sixteen for a single photo, thousands for a real gallery.
   // Every derivative under this prefix is covered by the same query string.
-  const ladderQuery = signDirectoryQuery(`clients/_d/${gallery.id}/`, expiresAt);
-  const host = privateHost();
+  const ladderFolder = `clients/_d/${gallery.id}/`;
+  const ladderQuery = signDirectoryQuery(ladderFolder, expiresAt);
 
   /**
    * Bytes per tier, straight off the row.
@@ -343,19 +341,30 @@ export async function getGalleryContent(
     };
   }
 
+  // Each row's files where they are (photos.files_at). Nearly always inside
+  // the folder signed above; a photo uploaded while this gallery was a
+  // Portfolio album has its files elsewhere and gets a token of its own.
   function ladderFor(row: {
     id: string;
+    gallery_id?: string | null;
+    files_at?: string | null;
     checksum8?: string | null;
     variants?: unknown;
     ladder_rev?: number | null;
   }): LadderSources | undefined {
-    const variants = parseVariants(row.variants);
-    if (!row.checksum8 || variants.length === 0) return undefined;
-    return {
-      base: `${host}/${derivativePrefix("client", gallery.id, row.id, row.checksum8, row.ladder_rev ?? 1)}`,
-      widths: variants.map((v) => v.w),
-      query: ladderQuery,
-    };
+    return photoLadder(
+      {
+        id: String(row.id),
+        gallery_id: String(row.gallery_id ?? gallery.id),
+        files_at: row.files_at ?? null,
+        checksum8: row.checksum8 ?? null,
+        variants: row.variants,
+        ladder_rev: row.ladder_rev ?? 1,
+      },
+      "client",
+      expiresAt,
+      { folder: ladderFolder, query: ladderQuery },
+    );
   }
 
   return {
@@ -382,6 +391,26 @@ export async function getGalleryContent(
     coverThumbhash: (heroRow?.thumbhash as string | null) ?? undefined,
     signedUntil: expiresAt,
   };
+}
+
+/**
+ * A client gallery made into a Portfolio album (step 7) keeps its address in
+ * the client's hands working: the album's slug, so /galleries/<slug> can send
+ * them there. Null for anything else, and on a database without the column.
+ */
+export async function getAlbumMadeFromClientGallery(slug: string): Promise<string | null> {
+  const pattern = slug.replace(/([%_\\])/g, "\\$1");
+  const { data, error } = await untypedAdmin()
+    .from("galleries")
+    .select("slug")
+    .eq("kind", "album")
+    .eq("is_published", true)
+    .not("client_folder", "is", null)
+    .ilike("slug", pattern)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return String(data.slug);
 }
 
 /** Slugs for a sitemap or a build step. Public, listed, unexpired only. */
