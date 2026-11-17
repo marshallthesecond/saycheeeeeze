@@ -500,7 +500,17 @@
     "allAlbums": "Barcha albomlar ({n})",
     "privateTitle": "Yopiq galereyangiz",
     "privateBody": "Mendan kod oldingizmi? Suratlaringizni shu yerda oching.",
-    "enterPasskey": "Kodni kiritish"
+    "enterPasskey": "Kodni kiritish",
+    "viewPortfolio": "Portfolioni ko'rish",
+    "privateGalleries": "Yopiq galereyalar",
+    "platform": {
+      "body": "Suratlaringizni ulashish va mijozlarga topshirish uchun chiroyli, shaxsiy galereyalar. Portfolio, xizmatlaringiz va onlayn band qilish, barchasi bir joyda. Loyiha endi boshlanmoqda va o'smoqda.",
+      "delivery": "Suratlarni topshirish",
+      "portfolio": "Fotograf portfoliosi",
+      "booking": "Band qilish platformasi",
+      "open": "Birinchi mijozlar, hamkorlik va yangi g'oyalar uchun ochiqman. Birga biror narsa qilmoqchi bo'lsangiz yoki shunchaki salom bermoqchi bo'lsangiz, xabaringizdan xursand bo'laman.",
+      "reach": "Telegramda yozing"
+    }
   },
   "aboutPage": {
     "storyTitle": "Mening hikoyam",

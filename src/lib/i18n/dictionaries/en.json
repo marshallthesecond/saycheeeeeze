@@ -500,7 +500,17 @@
     "allAlbums": "All {n} albums",
     "privateTitle": "Your private gallery",
     "privateBody": "Got a passkey from me? Open your photos here.",
-    "enterPasskey": "Enter passkey"
+    "enterPasskey": "Enter passkey",
+    "viewPortfolio": "View portfolio",
+    "privateGalleries": "Private galleries",
+    "platform": {
+      "body": "Beautiful, personal galleries to share and deliver your photographs. Show your portfolio, run your photography services and take bookings, all in one place. It's early days, and it's growing.",
+      "delivery": "Photo delivery",
+      "portfolio": "Photography portfolio",
+      "booking": "Booking platform",
+      "open": "I'm open to early clients, collaborations and fresh ideas. If you'd like to build something together or just say hi, I'd love to hear from you.",
+      "reach": "Write to me on Telegram"
+    }
   },
   "aboutPage": {
     "storyTitle": "My story",

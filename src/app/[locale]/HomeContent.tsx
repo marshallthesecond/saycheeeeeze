@@ -19,6 +19,7 @@ import Lightbox from "@/src/components/common/Lightbox";
 import StickyHeader from "@/src/components/common/StickyHeader";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
 import GalleryStack from "@/src/components/home/GalleryStack";
+import PlatformCard from "@/src/components/home/PlatformCard";
 import AlbumShelf, { type ShelfAlbum } from "@/src/components/home/AlbumShelf";
 import PortraitsPitch, { type PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
 import { PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
@@ -127,7 +128,8 @@ export default function HomeContent({
       >
         {/* Left — the albums. Edge to edge on a phone, so the shelves run off the screen. */}
         <aside className={`-mx-4 xl:mx-0 ${STICKY}`}>
-          <GalleryStack albums={albums} />
+          <GalleryStack albums={albums} onPrivate={() => setPrivateOpen(true)} />
+          <PlatformCard className="mx-4 mt-6 hidden xl:mx-0 xl:flex" />
         </aside>
 
         {/* Middle — the work. */}
@@ -159,6 +161,8 @@ export default function HomeContent({
         <aside aria-label={t("home.sessions")} className={`flex flex-col gap-4 ${STICKY}`}>
           <PrivateGalleryCard onOpen={() => setPrivateOpen(true)} />
           <SessionsList sessions={sessions} />
+          {/* On a phone the platform card closes the page. */}
+          <PlatformCard className="xl:hidden" />
         </aside>
       </div>
 

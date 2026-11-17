@@ -29,7 +29,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { blurStyle } from "@/src/lib/ladder";
@@ -126,10 +126,21 @@ const GLASS_CARD: CSSProperties = {
   boxShadow: "inset 0 1px 0 0 var(--glass-edge), inset 0 -1px 0 0 oklch(0 0 0 / 0.05), var(--glass-shadow)",
 };
 
+const GLASS_BUTTON =
+  "sc-glass isolate inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[12px] font-medium text-foreground transition active:scale-95";
 const GLASS_ICON =
   "sc-glass isolate hidden size-8 items-center justify-center rounded-xl text-foreground transition active:scale-95 disabled:opacity-40 sm:flex";
 
-export default function GalleryStack({ albums, className = "" }: { albums: AlbumData[]; className?: string }) {
+export default function GalleryStack({
+  albums,
+  onPrivate,
+  className = "",
+}: {
+  albums: AlbumData[];
+  /** Opens the list of private galleries. */
+  onPrivate: () => void;
+  className?: string;
+}) {
   const { t, locale } = useT();
   const n = albums.length;
   // A few behind it on the left from the start, so both shelves are there.
@@ -487,12 +498,13 @@ export default function GalleryStack({ albums, className = "" }: { albums: Album
         </div>
       </div>
 
-      <div className="flex justify-center px-4">
-        <Link
-          href={`/${locale}/portfolio`}
-          className="sc-glass isolate inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[12px] font-medium text-foreground transition active:scale-95"
-        >
-          {t("home.allAlbums", { n })}
+      <div className="flex justify-center gap-2 px-4">
+        <button type="button" onClick={onPrivate} className={GLASS_BUTTON}>
+          <Lock aria-hidden className="size-3.5" />
+          {t("home.privateGalleries")}
+        </button>
+        <Link href={`/${locale}/portfolio`} className={GLASS_BUTTON}>
+          {t("home.viewPortfolio")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>
       </div>
