@@ -122,7 +122,7 @@ export default function GalleryRequestSheet({
           <button
             onClick={onClose}
             aria-label={t("common.close")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
+            className="btn-glass flex h-9 w-9 items-center justify-center text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -196,7 +196,7 @@ export default function GalleryRequestSheet({
           <button
             onClick={sendOnTelegram}
             disabled={missingSelection}
-            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-glass-primary flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold"
           >
             <Send className="h-4 w-4" />
             {t("request.sendTelegram")}

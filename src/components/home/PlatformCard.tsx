@@ -31,7 +31,7 @@ export default function PlatformCard({ className = "" }: { className?: string })
           href={PROFILE.telegram}
           target="_blank"
           rel="noopener noreferrer"
-          className="sc-glass isolate inline-flex h-8 w-fit items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[12px] font-medium text-foreground transition active:scale-95"
+          className="btn-glass inline-flex h-8 w-fit items-center gap-1.5 whitespace-nowrap px-3 text-[12px] font-medium text-foreground"
         >
           <Send aria-hidden className="size-3.5" />
           {t("home.platform.reach")}

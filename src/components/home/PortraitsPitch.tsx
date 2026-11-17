@@ -140,13 +140,13 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
         <div className="flex flex-col gap-2 @lg:flex-row">
           <Link
             href={book()}
-            className="flex h-11 items-center justify-center rounded-lg bg-primary px-5 sm:flex-1 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.99]"
+            className="btn-glass-primary flex h-11 items-center justify-center px-5 sm:flex-1 text-sm font-semibold"
           >
             {t("home.pitchBook")}
           </Link>
           <Link
             href={`/${locale}/services/${pitch.slug}`}
-            className="sc-glass isolate flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-foreground transition active:scale-[0.99]"
+            className="btn-glass flex h-11 items-center justify-center px-5 text-sm font-semibold text-foreground"
           >
             {t("home.pitchDetails")}
           </Link>

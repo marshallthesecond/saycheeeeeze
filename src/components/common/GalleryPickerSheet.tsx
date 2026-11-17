@@ -87,7 +87,7 @@ export default function GalleryPickerSheet({
           <button
             onClick={onClose}
             aria-label={t("common.close")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
+            className="btn-glass flex h-9 w-9 items-center justify-center text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -202,7 +202,7 @@ export default function GalleryPickerSheet({
             href={`https://t.me/${CONTACT.telegram}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground/[0.07] text-sm font-semibold text-foreground transition hover:bg-foreground/12"
+            className="btn-glass flex min-h-12 w-full items-center justify-center gap-2 text-sm font-semibold text-foreground"
           >
             <Send className="h-4 w-4" />
             {t(isPrivate ? "picker.askCode" : "picker.askGallery")}

@@ -444,6 +444,83 @@
 }
 
 /*
+  Buttons, site-wide (2026-11-17): the bottom nav's glass, with 10px corners.
+
+    .btn-glass          neutral: secondary actions, icon buttons, close
+    .btn-glass-primary  the brand colour as tinted glass: the one main action.
+                        --btn-tint recolours it (a service page's accent).
+
+  Size, padding and type stay utilities at each button. In the components
+  layer, so a utility on the button (text colour, say) still wins.
+*/
+@layer components {
+  .btn-glass,
+  .btn-glass-primary {
+    position: relative;
+    isolation: isolate;
+    border-radius: 10px;
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    backdrop-filter: blur(18px) saturate(170%);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease,
+      opacity 150ms ease;
+  }
+  .btn-glass::before,
+  .btn-glass-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--btn-sheen), transparent 55%);
+  }
+  .btn-glass:active:not(:disabled),
+  .btn-glass-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .btn-glass:disabled,
+  .btn-glass-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .btn-glass {
+    --btn-sheen: var(--glass-sheen);
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-ring);
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-edge),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.05),
+      0 6px 16px -8px oklch(0 0 0 / 0.3),
+      0 1px 3px -1px oklch(0 0 0 / 0.12);
+    color: var(--foreground);
+  }
+  .btn-glass:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--glass-bg), var(--foreground) 7%);
+  }
+
+  .btn-glass-primary {
+    --btn-tint: var(--primary);
+    --btn-sheen: oklch(1 0 0 / 0.2);
+    background-color: color-mix(in oklab, var(--btn-tint) 94%, transparent);
+    border: 1px solid color-mix(in oklab, var(--btn-tint), oklch(1 0 0) 22%);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.3),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.14),
+      0 8px 20px -10px color-mix(in oklab, var(--btn-tint) 85%, transparent),
+      0 1px 3px -1px oklch(0 0 0 / 0.2);
+    color: var(--primary-foreground);
+  }
+  .btn-glass-primary:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--btn-tint), oklch(0 0 0) 16%);
+  }
+}
+
+/*
   The journal spread on /portfolio (2026-11-14). Black and white on purpose,
   and the same in the light and the dark theme: a printed page lying on the
   site, not part of its cream-and-red palette. White text page, black photo

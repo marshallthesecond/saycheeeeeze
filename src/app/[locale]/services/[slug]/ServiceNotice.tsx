@@ -79,7 +79,7 @@ export default function ServiceNotice({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={closeLabel}
-                className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground transition hover:bg-foreground/20"
+                className="btn-glass -mr-1 flex h-9 w-9 shrink-0 items-center justify-center text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>

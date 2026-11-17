@@ -101,7 +101,7 @@ export default function AboutContent({
             <SessionsList sessions={sessions} bare />
             <Link
               href={`/${locale}/book`}
-              className="flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover active:scale-[0.99]"
+              className="btn-glass-primary flex h-11 items-center justify-center text-sm font-semibold"
             >
               {t("about.ctaButton")}
             </Link>

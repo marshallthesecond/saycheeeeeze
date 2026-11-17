@@ -822,7 +822,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
           href={"https://t.me/marshallthethird"}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full mb-8 rounded-full min-h-12 bg-foreground/[0.07] hover:bg-foreground/12 active:bg-foreground/16 text-sm font-semibold text-foreground/75 hover:text-foreground transition active:scale-[0.99]"
+          className="btn-glass flex items-center justify-center gap-2 w-full mb-8 min-h-12 text-sm font-semibold text-foreground/75"
         >
           <MessageCircle className="w-4 h-4" />
           {t("book.telegramFallback")}
@@ -1161,9 +1161,9 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit || submitting}
-                className={`mt-2 w-full rounded-full min-h-13 py-4 text-sm font-bold transition active:scale-[0.98]
+                className={`mt-2 w-full min-h-13 py-4 text-sm font-bold
                   ${canSubmit && !submitting
-                    ? "bg-primary hover:bg-primary-hover text-primary-foreground"
+                    ? "btn-glass-primary"
                     // Disabled reads as disabled: no fill colour and a faint
                     // label (WCAG exempts inactive controls from contrast).
                     : "bg-foreground/6 text-foreground/35 cursor-not-allowed"}`}
@@ -1779,7 +1779,7 @@ const LocationPicker = memo(function LocationPicker({
       {rest.length > 0 && !showAll && (
         <button
           onClick={() => setShowAll(true)}
-          className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 min-h-12 text-xs font-semibold text-muted-foreground hover:text-foreground/80 bg-foreground/4 hover:bg-foreground/[0.07] transition"
+          className="btn-glass flex items-center justify-center gap-2 px-4 py-3 min-h-12 text-xs font-semibold text-muted-foreground hover:text-foreground/80"
         >
           <MapPin className="w-3.5 h-3.5" />
           {t("book.showOtherLocations")}
@@ -1954,7 +1954,7 @@ const StatusBar = memo(function StatusBar(
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="shrink-0 rounded-full px-6 min-h-11 text-xs font-bold bg-primary hover:bg-primary-hover text-primary-foreground transition active:scale-95"
+          className="btn-glass-primary shrink-0 px-6 min-h-11 text-xs font-bold"
         >
           {canSubmit ? t("book.review") : `${total - doneCount} ${t("book.left")}`}
         </button>
@@ -2025,7 +2025,7 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
             href={botLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full rounded-full min-h-13 py-3.5 flex flex-col items-center justify-center gap-0.5 bg-primary hover:bg-primary-hover text-primary-foreground transition active:scale-[0.98]"
+            className="btn-glass-primary w-full min-h-13 py-3.5 flex flex-col items-center justify-center gap-0.5"
           >
             <span className="flex items-center gap-2 text-sm font-bold">
               <Send className="w-4 h-4" />
@@ -2043,7 +2043,7 @@ function Confirmation({ reference, botLink, state, packageName, durationLabel, t
               setTimeout(() => setCopied(false), 2000);
             } catch { /* details are on screen anyway */ }
           }}
-          className="w-full rounded-full min-h-12 bg-foreground/10 hover:bg-foreground/15 text-sm font-semibold transition active:scale-[0.98]"
+          className="btn-glass w-full min-h-12 text-sm font-semibold"
         >
           {copied ? t("common.copied") : t("book.copyDetails")}
         </button>

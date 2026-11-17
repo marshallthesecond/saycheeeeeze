@@ -34,9 +34,9 @@ const LAST_KEY = "home.shelf.last";
 
 /** Small pieces of glass, like the controls on a gallery page. */
 const GLASS_ICON =
-  "sc-glass isolate size-8 items-center justify-center rounded-xl text-foreground transition active:scale-95";
+  "btn-glass size-8 items-center justify-center text-foreground";
 const GLASS_BUTTON =
-  "sc-glass isolate inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 " +
+  "btn-glass inline-flex h-8 items-center gap-1.5 whitespace-nowrap px-3 " +
   "text-[12px] font-medium text-foreground transition active:scale-95";
 
 /**

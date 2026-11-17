@@ -101,7 +101,7 @@ export function PrivateGalleryCard({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        className="sc-glass isolate h-10 rounded-xl text-[13px] font-semibold text-foreground transition hover:text-foreground active:scale-[0.99]"
+        className="btn-glass h-10 text-[13px] font-semibold text-foreground"
       >
         {t("home.enterPasskey")}
       </button>

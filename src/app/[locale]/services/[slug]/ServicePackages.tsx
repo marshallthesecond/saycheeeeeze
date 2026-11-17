@@ -26,7 +26,7 @@
 // A client component because the toggle is state, and confining it to this
 // subtree keeps the rest of the page server-rendered.
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { CalendarDays, Check, Lock, Send } from 'lucide-react';
 import Link from 'next/link';
 
@@ -344,8 +344,8 @@ export default function ServicePackages({
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link
             href={bookHref}
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-full px-2 text-[13px] font-bold text-white transition active:scale-[0.98]"
-            style={{ background: accentColor }}
+            className="btn-glass-primary flex min-h-11 items-center justify-center gap-1.5 px-2 text-[13px] font-bold text-white"
+            style={{ "--btn-tint": accentColor } as CSSProperties}
           >
             <CalendarDays className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{labels.bookShort}</span>
@@ -354,7 +354,7 @@ export default function ServicePackages({
             href={`https://t.me/${CONTACT.telegram}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-foreground/25 px-2 text-[13px] font-bold text-foreground transition hover:border-foreground/60 active:scale-[0.98]"
+            className="btn-glass flex min-h-11 items-center justify-center gap-1.5 px-2 text-[13px] font-bold text-foreground"
           >
             <Send className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{labels.telegramShort}</span>

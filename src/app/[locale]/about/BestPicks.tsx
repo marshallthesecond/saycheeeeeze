@@ -131,7 +131,7 @@ export default function BestPicks({
 
 /** A small piece of glass, like the controls on a gallery page. */
 const PILL =
-  "sc-glass isolate inline-flex h-8 items-center justify-center gap-1.5 rounded-xl px-3 " +
+  "btn-glass inline-flex h-8 items-center justify-center gap-1.5 px-3 " +
   "text-[12px] font-medium text-foreground transition hover:text-foreground active:scale-95";
 
 /**
