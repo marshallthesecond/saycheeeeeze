@@ -1,30 +1,29 @@
 "use client";
 
-// The Home page (rebuilt 2026-11-17). Three columns from 1280px, as before:
+// The Home page (rebuilt 2026-11-17). Three columns from 1280px:
 //
-//   left    eight quick-access tiles, one small piece of glass
+//   left    the albums as a stack to flick through (GalleryStack)
 //   middle  Best picks, then one album to look through (a different one each
 //           visit), then the Portraits session, pitched
-//   right   albums, the private-gallery door, the session types
+//   right   the private-gallery door and the session types
 //
-// Below 1280px one column in that order: the tiles first, right under the
+// Below 1280px one column in that order: the stack first, right under the
 // header, then the work, then the cards. The profile panel that used to be
 // the left column is the About page's main section; the page's h1 is kept
-// for search engines and screen readers but not shown.
+// for search engines and screen readers but not shown. (For a few hours on
+// 2026-11-17 the left column held eight quick-access tiles; the stack took
+// their place.)
 
 import { useCallback, useMemo, useState } from "react";
 import Lightbox from "@/src/components/common/Lightbox";
 import StickyHeader from "@/src/components/common/StickyHeader";
 import GalleryPickerSheet from "@/src/components/common/GalleryPickerSheet";
-import { Album, Aperture, Camera, Briefcase, LayoutDashboard, Lock, Send, User } from "lucide-react";
-import QuickTiles, { type QuickTile } from "@/src/components/home/QuickTiles";
+import GalleryStack from "@/src/components/home/GalleryStack";
 import AlbumShelf, { type ShelfAlbum } from "@/src/components/home/AlbumShelf";
 import PortraitsPitch, { type PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
-import ServicesSheet from "@/src/components/home/ServicesSheet";
-import { GalleriesCard, PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
+import { PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { bunnyUrl } from "@/src/lib/bunny-url";
-import { PROFILE } from "@/src/lib/profile";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 import type { SessionSummary } from "@/src/lib/session-summaries";
@@ -61,7 +60,7 @@ export default function HomeContent({
   pitch,
 }: {
   albums: AlbumData[];
-  /** storage path → photo, for the best picks and the tiles. */
+  /** storage path → photo, for the best picks. */
   photoIndex: Record<string, AlbumPhoto>;
   extraPicks: ExtraPick[];
   galleries: GalleryListing[];
@@ -70,9 +69,8 @@ export default function HomeContent({
   pitch: PortraitsPitchData | null;
 }) {
   const { t, locale } = useT();
-  const [sheet, setSheet] = useState<"services" | "albums" | "private" | null>(null);
-  const closeSheet = useCallback(() => setSheet(null), []);
-  const [note, setNote] = useState(false);
+  const [privateOpen, setPrivateOpen] = useState(false);
+  const closeSheet = useCallback(() => setPrivateOpen(false), []);
 
   const [lightbox, setLightbox] = useState<{ photos: AlbumPhoto[]; index: number } | null>(null);
   const close = useCallback(() => setLightbox(null), []);
@@ -117,17 +115,6 @@ export default function HomeContent({
   }, [photoIndex, extraPicks, pickLabel, locale, t]);
   const pickPhotos = useMemo(() => pickItems.map((it) => ({ ...it.photo, alt: it.alt })), [pickItems]);
 
-  const tiles: QuickTile[] = [
-    { key: "book", name: t("home.tiles.book"), Icon: Camera, accent: true, href: `/${locale}/book` },
-    { key: "portfolio", name: t("home.tiles.portfolio"), Icon: Briefcase, href: `/${locale}/portfolio` },
-    { key: "services", name: t("home.tiles.services"), Icon: Aperture, onClick: () => setSheet("services") },
-    { key: "galleries", name: t("home.tiles.galleries"), Icon: Album, onClick: () => setSheet("albums") },
-    { key: "private", name: t("home.tiles.private"), Icon: Lock, onClick: () => setSheet("private") },
-    { key: "about", name: t("home.tiles.about"), Icon: User, href: `/${locale}/about` },
-    { key: "message", name: t("home.tiles.message"), Icon: Send, href: PROFILE.telegram, external: true },
-    { key: "studio", name: t("home.tiles.studio"), Icon: LayoutDashboard, onClick: () => setNote(true) },
-  ];
-
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       <StickyHeader title="saycheeeeeze" fadeOver={120} variant="wordmark" />
@@ -135,12 +122,12 @@ export default function HomeContent({
       <h1 className="sr-only">{`${t("profile.name")}, ${t("about.heroTitle")}`}</h1>
 
       <div
-        className="mx-auto grid max-w-[1920px] grid-cols-1 gap-8 px-4 pb-32 xl:grid-cols-[300px_minmax(0,1fr)_300px] xl:gap-4"
+        className="mx-auto grid max-w-[1920px] grid-cols-1 gap-7 px-4 pb-32 xl:grid-cols-[300px_minmax(0,1fr)_300px] xl:gap-4"
         style={{ paddingTop: "calc(3rem + env(safe-area-inset-top))" }}
       >
-        {/* Left — the ways in. */}
-        <aside className={STICKY}>
-          <QuickTiles tiles={tiles} label={t("home.tilesLabel")} />
+        {/* Left — the albums. Edge to edge on a phone, so the shelves run off the screen. */}
+        <aside className={`-mx-4 xl:mx-0 ${STICKY}`}>
+          <GalleryStack albums={albums} />
         </aside>
 
         {/* Middle — the work. */}
@@ -169,20 +156,16 @@ export default function HomeContent({
         </main>
 
         {/* Right — what else. */}
-        <aside aria-label={t("about.galleries")} className={`flex flex-col gap-4 ${STICKY}`}>
-          <GalleriesCard albums={albums} />
-          <PrivateGalleryCard onOpen={() => setSheet("private")} />
+        <aside aria-label={t("home.sessions")} className={`flex flex-col gap-4 ${STICKY}`}>
+          <PrivateGalleryCard onOpen={() => setPrivateOpen(true)} />
           <SessionsList sessions={sessions} />
         </aside>
       </div>
 
-      {note && <StudioNote onClose={() => setNote(false)} />}
-
-      <ServicesSheet open={sheet === "services"} onClose={closeSheet} sessions={sessions} />
       <GalleryPickerSheet
-        open={sheet === "albums" || sheet === "private"}
+        open={privateOpen}
         onClose={closeSheet}
-        mode={sheet === "private" ? "private" : "albums"}
+        mode="private"
         galleries={galleries}
         albums={albums}
         locale={locale}
@@ -197,32 +180,6 @@ export default function HomeContent({
           onNext={() => step(1)}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * The Studio is where photographers will manage their own pages; it is not
- * open to them yet. A short note above the bottom bar, gone after a few
- * seconds or on a tap.
- */
-function StudioNote({ onClose }: { onClose: () => void }) {
-  const { t } = useT();
-  return (
-    <div
-      role="status"
-      className="fixed inset-x-4 z-40 mx-auto flex max-w-md items-start gap-3 rounded-xl bg-foreground px-4 py-3 text-background shadow-lg"
-      style={{ bottom: "calc(6rem + env(safe-area-inset-bottom))" }}
-      ref={(el) => {
-        if (!el) return;
-        const id = window.setTimeout(onClose, 5000);
-        return () => window.clearTimeout(id);
-      }}
-    >
-      <p className="flex-1 text-[13px] leading-snug">{t("home.studioNote")}</p>
-      <button type="button" onClick={onClose} className="shrink-0 text-[13px] font-semibold underline underline-offset-2">
-        {t("common.close")}
-      </button>
     </div>
   );
 }
