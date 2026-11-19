@@ -134,7 +134,24 @@
       "movedMany": "{n} ta surat \"{album}\" albomiga ko'chirildi",
       "alreadyThere": "{n} tasi u yerda bor edi",
       "openAlbum": "Ochish",
-      "inAlbum": "\"{album}\" albomida"
+      "inAlbum": "\"{album}\" albomida",
+      "actions": {
+        "open": "{name}: amallar",
+        "addTo": "Qo'shish…",
+        "addToTitle": "Qayerga qo'shish",
+        "back": "Orqaga",
+        "bestPicks": "Eng yaxshi ishlarim",
+        "servicePages": "Xizmat sahifalari",
+        "countOne": "1 ta surat",
+        "count": "{n} ta surat",
+        "showsFirst": "saytda birinchi {n} tasi",
+        "added": "Qo'shildi: {place}",
+        "removed": "Olib tashlandi: {place}",
+        "publishFirst": "Sayt sahifalariga faqat albomdagi suratlar qo'shiladi. Avval buni albomga chop eting.",
+        "publishFirstIn": "U \"{album}\" albomida: u yerdan qo'shing.",
+        "shownOn": "Saytda:",
+        "done": "Tayyor"
+      }
     },
     "makePublic": "Portfolioga qo'shish",
     "makePublicConfirm": "Albom qilish",
@@ -240,7 +257,10 @@
     "sameGallery": "Bu suratlar allaqachon shu galereyada.",
     "targetPrivate": "Suratlarni faqat ochiq albomga yuborish mumkin, mijoz galereyasiga emas.",
     "alreadyPublic": "Bu galereya allaqachon portfolioda.",
-    "notPrivateOrigin": "Bu albom mijoz galereyasi bo'lmagan, uni yopiq qilib bo'lmaydi."
+    "notPrivateOrigin": "Bu albom mijoz galereyasi bo'lmagan, uni yopiq qilib bo'lmaydi.",
+    "notAlbum": "Sayt sahifalariga faqat albomdagi suratlar qo'shiladi. Avval uni albomga chop eting.",
+    "placeFull": "Ro'yxat to'lgan: 100 ta surat. Avval ba'zilarini olib tashlang.",
+    "placesNotSetUp": "Buning uchun ma'lumotlar bazasining so'nggi yangilanishi kerak: supabase/migrations/20261119120000_photo_placements.sql faylini ishga tushiring."
   },
   "error": {
     "title": "Nimadir xato ketdi",

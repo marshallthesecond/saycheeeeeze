@@ -134,7 +134,24 @@
       "movedMany": "{n} photos moved to {album}",
       "alreadyThere": "{n} already there",
       "openAlbum": "Open",
-      "inAlbum": "In {album}"
+      "inAlbum": "In {album}",
+      "actions": {
+        "open": "Actions for {name}",
+        "addTo": "Add to…",
+        "addToTitle": "Add to",
+        "back": "Back",
+        "bestPicks": "Best picks",
+        "servicePages": "Service pages",
+        "countOne": "1 photo",
+        "count": "{n} photos",
+        "showsFirst": "the site shows the first {n}",
+        "added": "Added to {place}",
+        "removed": "Removed from {place}",
+        "publishFirst": "Only album photos can go on the site's pages. Publish this one to an album first.",
+        "publishFirstIn": "It's in {album}: add it from there.",
+        "shownOn": "Shown on:",
+        "done": "Done"
+      }
     },
     "makePublic": "Add to Portfolio",
     "makePublicConfirm": "Add as album",
@@ -240,7 +257,10 @@
     "sameGallery": "Those photos are already in this gallery.",
     "targetPrivate": "Photos can go only to a public album, not to a client gallery.",
     "alreadyPublic": "This gallery is already on the Portfolio.",
-    "notPrivateOrigin": "This album wasn't a client gallery, so it can't be made private."
+    "notPrivateOrigin": "This album wasn't a client gallery, so it can't be made private.",
+    "notAlbum": "Only album photos can go on the site's pages. Publish it to an album first.",
+    "placeFull": "That list is full: 100 photos. Take some off first.",
+    "placesNotSetUp": "This needs the latest database update: run supabase/migrations/20261119120000_photo_placements.sql."
   },
   "error": {
     "title": "Something went wrong",

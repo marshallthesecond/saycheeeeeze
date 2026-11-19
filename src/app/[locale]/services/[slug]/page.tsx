@@ -29,7 +29,8 @@ import {
 import { getDictionary } from '@/src/lib/i18n/dictionaries';
 import { isLocale, defaultLocale, type Locale } from '@/src/lib/i18n/config';
 import { alternatesFor, cityName, titleInCity, SITE_URL } from '@/src/lib/seo';
-import { getPhotosByPaths, getPortfolioPhotos } from '@/src/lib/albums';
+import { getPhotosByPaths, getPlacements, getPortfolioPhotos } from '@/src/lib/albums';
+import { HERO_STACK_COUNT, RAIL_COUNT, servicePlace } from '@/src/lib/placements';
 import type { AlbumPhoto, PortfolioPhoto } from '@/src/lib/albums';
 import { bunnyUrl } from '@/src/lib/bunny-url';
 import {
@@ -127,8 +128,6 @@ export async function generateMetadata({
   };
 }
 
-const RAIL_COUNT = 8;
-
 /**
  * The widest rung the audience band may load.
  *
@@ -152,9 +151,6 @@ const AUDIENCE_BACKDROP_MAX = 720;
 const HERO_GROUND_MAX = 1440;
 const HERO_FRAME_MAX = 480;
 
-/** Frames in the fan. Also how many the rail gives up to it — see below. */
-const HERO_STACK_COUNT = 3;
-
 /**
  * A photo row → the plain strings a presentational component needs.
  *
@@ -176,7 +172,13 @@ function ladderSources(photo: AlbumPhoto | undefined, maxWidth: number): HeroIma
 /**
  * The photographs shown under "Best picks", in order of preference:
  *
- *   1. galleryPaths     — curated frame by frame, order preserved
+ *   0. the Studio       — "Add to..." on a photo, in the order they were
+ *                         added (photo_placements). Once that table exists
+ *                         it replaces galleryPaths: taking every photo off a
+ *                         page's list gives it the automatic choice below,
+ *                         not the old list back.
+ *   1. galleryPaths     — curated frame by frame, order preserved; only
+ *                         before the placements migration
  *   2. galleryCategory  — everything from one Bunny folder
  *   3. an even spread of the portfolio
  *
@@ -196,9 +198,13 @@ async function pickExamples(
   service: ServiceData,
   pool: PortfolioPhoto[],
   count: number,
-  cover?: AlbumPhoto,
+  cover: AlbumPhoto | undefined,
+  /** Chosen in the Studio; null before the placements migration. */
+  placed: AlbumPhoto[] | null,
 ): Promise<AlbumPhoto[]> {
-  if (service.galleryPaths?.length) {
+  if (placed && placed.length > 0) return placed.slice(0, count);
+
+  if (!placed && service.galleryPaths?.length) {
     const byPath = await getPhotosByPaths(service.galleryPaths);
     // Keep the author's order, and drop any path that no longer resolves rather
     // than rendering a hole.
@@ -250,7 +256,7 @@ export default async function ServicePage({
   // was the last place still asking the Optimizer to resize eight full-size
   // originals per page. Services without matching albums fall back to the
   // service cover so the rail is never empty.
-  const albumPool = await getPortfolioPhotos();
+  const [albumPool, placements] = await Promise.all([getPortfolioPhotos(), getPlacements()]);
 
   // A storage path, so the hero goes through the same ladder as everything
   // else rather than being a 39 MB file in public/ resized on every cold
@@ -278,6 +284,7 @@ export default async function ServicePage({
     albumPool,
     wantsStack ? RAIL_COUNT + HERO_STACK_COUNT : RAIL_COUNT,
     cover,
+    placements ? (placements[servicePlace(service.slug)] ?? []).map((p) => p.photo) : null,
   );
   const galleryPicks =
     wantsStack && picks.length > RAIL_COUNT ? picks.slice(HERO_STACK_COUNT) : picks.slice(0, RAIL_COUNT);

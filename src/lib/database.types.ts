@@ -552,6 +552,45 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_placements: {
+        Row: {
+          account_id: string
+          created_at: string
+          photo_id: string
+          place: string
+          position: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          photo_id: string
+          place: string
+          position: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          photo_id?: string
+          place?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_placements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_placements_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photos: {
         Row: {
           account_id: string
@@ -923,6 +962,10 @@ export type Database = {
       studio_move_photos: {
         Args: { p_from: string; p_photo_ids: string[]; p_to: string }
         Returns: Json
+      }
+      studio_place_photo: {
+        Args: { p_on: boolean; p_photo_id: string; p_place: string }
+        Returns: string[]
       }
       studio_publish_photos: {
         Args: { p_from: string; p_photo_ids: string[]; p_to: string }

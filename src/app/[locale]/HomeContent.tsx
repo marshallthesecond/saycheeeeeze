@@ -24,13 +24,12 @@ import AlbumShelf, { type ShelfAlbum } from "@/src/components/home/AlbumShelf";
 import PortraitsPitch, { type PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
 import { PrivateGalleryCard, SessionsList } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-import { bunnyUrl } from "@/src/lib/bunny-url";
 import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 import type { GalleryListing } from "@/src/lib/client-galleries";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import BestPicks, { type PickItem } from "./about/BestPicks";
 import { FALLBACK_RATIO, PICKS_WANTED, formatPickDate } from "./about/best-picks";
-import { BEST_PICKS, type WorksCategory } from "./about/photos";
+import type { WorksCategory } from "./about/photos";
 
 /**
  * The middle column is the viewport minus two 300px columns, three 16px gaps
@@ -42,7 +41,20 @@ const FEATURE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 2), (min-width: 640p
 const PHONE_TILE_SIZES = "34vw";
 const DESKTOP_TILE_SIZES = `(min-width: 1280px) calc(${MIDDLE} / 6), 17vw`;
 const STICKY =
-  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-x-hidden xl:overflow-y-auto [scrollbar-width:thin]";
+  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-x-hidden xl:overflow-y-auto";
+
+/**
+ * A Best pick that was chosen: in the Studio, or in the code before the
+ * placements migration. `cat` is a caption written in the code (translated
+ * here); a photo added in the Studio has its portfolio `category` instead.
+ */
+export interface ChosenPick {
+  photo: AlbumPhoto;
+  cat?: WorksCategory;
+  category?: string;
+  title?: string;
+  date?: string;
+}
 
 /** A portfolio photograph that fills a Best picks slot nobody chose yet. */
 export interface ExtraPick {
@@ -53,7 +65,7 @@ export interface ExtraPick {
 
 export default function HomeContent({
   albums,
-  photoIndex,
+  chosenPicks,
   extraPicks,
   galleries,
   sessions,
@@ -61,8 +73,8 @@ export default function HomeContent({
   pitch,
 }: {
   albums: AlbumData[];
-  /** storage path → photo, for the best picks. */
-  photoIndex: Record<string, AlbumPhoto>;
+  /** The chosen Best picks, in order, captioned. */
+  chosenPicks: ChosenPick[];
   extraPicks: ExtraPick[];
   galleries: GalleryListing[];
   sessions: SessionSummary[];
@@ -91,9 +103,9 @@ export default function HomeContent({
     [t],
   );
   const pickItems = useMemo<PickItem[]>(() => {
-    const chosen: PickItem[] = BEST_PICKS.map((p, index) => {
-      const photo = photoIndex[p.path] ?? { src: bunnyUrl(p.path) };
-      const category = pickLabel(p.cat);
+    const chosen: PickItem[] = chosenPicks.map((p, index) => {
+      const photo = p.photo;
+      const category = p.cat ? pickLabel(p.cat) : p.category ?? "";
       return {
         index,
         photo,
@@ -113,7 +125,7 @@ export default function HomeContent({
       alt: t("about.bestPickAlt", { subject: category }),
     }));
     return [...chosen, ...extra].slice(0, PICKS_WANTED);
-  }, [photoIndex, extraPicks, pickLabel, locale, t]);
+  }, [chosenPicks, extraPicks, pickLabel, locale, t]);
   const pickPhotos = useMemo(() => pickItems.map((it) => ({ ...it.photo, alt: it.alt })), [pickItems]);
 
   return (
