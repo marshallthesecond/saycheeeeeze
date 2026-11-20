@@ -33,9 +33,10 @@ import { MINI_EVENT, isMiniPackage, miniSlotBookable } from "@/src/lib/mini-sess
 import { getBookablePackages } from "@/src/lib/packages.server";
 import { formatSom, peopleError, pick, type SessionPackage } from "@/src/lib/packages";
 import { quoteBooking } from "@/src/lib/booking-price";
-import { findCatalogItem } from "@/src/lib/booking-catalog";
+import { createCatalog } from "@/src/lib/booking-catalog";
+import { getLiveServices } from "@/src/lib/live-services";
 import { pickLocale } from "@/src/lib/services";
-import { packageDuration } from "@/src/lib/service-format";
+import { packageDuration, packageTitle } from "@/src/lib/service-format";
 import {
   EXTRA_LOCATION_FEE_UZS, MAX_LOCATIONS, hasSurcharge, locationSurchargeUzs,
 } from "@/src/lib/locations";
@@ -153,8 +154,13 @@ export async function POST(req: NextRequest) {
   // quoteBooking() is the same function the form uses to show the quote, so
   // the 409 below fires only on a genuine change, never on the two sides
   // disagreeing about arithmetic.
-  const packages = await getBookablePackages();
-  const catalogItem = body.packageId ? findCatalogItem(body.packageId) : undefined;
+  //
+  // The live services: the code with what was published in the Studio laid
+  // over it, and the services turned off retired. The form builds its
+  // catalogue from the same overlay, so the two price alike.
+  const [packages, liveServices] = await Promise.all([getBookablePackages(), getLiveServices()]);
+  const catalog = createCatalog(liveServices);
+  const catalogItem = body.packageId ? catalog.findCatalogItem(body.packageId) : undefined;
   const pkg = packages.find((p) => p.id === body.packageId);
 
   if (!catalogItem && !pkg) {
@@ -169,7 +175,8 @@ export async function POST(req: NextRequest) {
    * stay nameable and an old link has to stay priceable. Until this check,
    * that also meant the route would happily create a NEW booking for it.
    *
-   * The form cannot offer one: catalogForService() drops retired groups. But
+   * The form cannot offer one: catalogForService() drops retired groups,
+   * packages hidden or deleted in the Studio, and services turned off. But
    * the form is not the only thing that can POST here, and the ceremony-day
    * graduation tiers are the case that makes it matter — they were withdrawn
    * on 15 October with the ceremony still a week away, so the date validation
@@ -197,12 +204,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const quote = quoteBooking({
-    packageId: body.packageId,
-    sessionPackages: packages,
-    peopleCount: people,
-    locationIds,
-  });
+  const quote = quoteBooking(
+    {
+      packageId: body.packageId,
+      sessionPackages: packages,
+      peopleCount: people,
+      locationIds,
+    },
+    catalog,
+  );
   if (!quote) return NextResponse.json({ error: "package" }, { status: 400 });
 
   const durationMinutes = quote.durationMinutes;
@@ -233,8 +243,13 @@ export async function POST(req: NextRequest) {
   //
   // pickLocale, not the Localized straight into the template — an object
   // interpolates without complaint and prints "[object Object]".
+  //
+  // A package named in the Studio gets its name and its length: "Classic,
+  // 1.5 hours" says which card the client tapped.
   const packageLabel = catalogItem
-    ? `${pickLocale(catalogItem.serviceTitle, "en")} — ${packageDuration(catalogItem, "en")}`
+    ? `${pickLocale(catalogItem.serviceTitle, "en")} — ${
+        catalogItem.name ? `${packageTitle(catalogItem, "en")}, ${packageDuration(catalogItem, "en")}` : packageDuration(catalogItem, "en")
+      }`
     : pick((pkg as SessionPackage).name, "en");
 
   // This used to reject "studio" typed into the free-text box, because typing

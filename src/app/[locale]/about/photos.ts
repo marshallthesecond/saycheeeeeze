@@ -13,6 +13,15 @@
 /**
  * BEST PICKS — the grid near the top of the page.
  *
+ * SINCE 2026-11-19 THEY ARE CHOSEN IN THE STUDIO: "Add to..." on a photo,
+ * Best picks (photo_placements, src/lib/placements.ts). Once that migration is
+ * run this list no longer decides which photos show or in what order. Two
+ * things are still read from it: what the site shows until the migration is
+ * run, and the CAPTION of any photo listed here that is chosen in the Studio
+ * (the migration copied these in, so they keep their words). A photo added
+ * in the Studio that is not listed here is captioned from its album: its
+ * portfolio category, the album's title and the album's date.
+ *
  * Order is display order, with one exception: the FIRST entry is the big
  * feature tile, and the four beside it are chosen by shape — landscape frames
  * for the two short slots, portrait frames for the two tall ones — so a

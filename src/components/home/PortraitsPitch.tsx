@@ -24,6 +24,8 @@ import type { AlbumPhoto } from "@/src/lib/albums";
 export interface PitchTier {
   /** Bookable at this price when set. */
   id?: string;
+  /** The Studio's name for it; the title when present, with the length under it. */
+  name?: string;
   duration: string;
   photos: string;
   delivery: string;
@@ -116,7 +118,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-foreground">{tier.duration}</span>
+                        <span className="text-sm font-bold text-foreground">{tier.name ?? tier.duration}</span>
                         {tier.highlight && (
                           <span className="whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10.5px] font-semibold text-primary-foreground">
                             {t("service.mostPopular")}
@@ -124,6 +126,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
                         )}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
+                        {tier.name ? `${tier.duration}, ` : ""}
                         {tier.photos}, {tier.delivery.charAt(0).toLowerCase() + tier.delivery.slice(1)}
                       </span>
                     </span>

@@ -552,6 +552,45 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_placements: {
+        Row: {
+          account_id: string
+          created_at: string
+          photo_id: string
+          place: string
+          position: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          photo_id: string
+          place: string
+          position: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          photo_id?: string
+          place?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_placements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_placements_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photos: {
         Row: {
           account_id: string
@@ -671,6 +710,47 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      service_content: {
+        Row: {
+          account_id: string
+          draft: Json | null
+          enabled: boolean
+          published: Json | null
+          published_at: string | null
+          rev: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          draft?: Json | null
+          enabled?: boolean
+          published?: Json | null
+          published_at?: string | null
+          rev?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          draft?: Json | null
+          enabled?: boolean
+          published?: Json | null
+          published_at?: string | null
+          rev?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_content_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       upload_batches: {
         Row: {
@@ -924,9 +1004,25 @@ export type Database = {
         Args: { p_from: string; p_photo_ids: string[]; p_to: string }
         Returns: Json
       }
+      studio_discard_service_draft: {
+        Args: { p_account: string; p_rev: number; p_slug: string }
+        Returns: number
+      }
+      studio_order_place: {
+        Args: { p_account: string; p_photo_ids: string[]; p_place: string }
+        Returns: undefined
+      }
+      studio_place_photo: {
+        Args: { p_on: boolean; p_photo_id: string; p_place: string }
+        Returns: string[]
+      }
       studio_publish_photos: {
         Args: { p_from: string; p_photo_ids: string[]; p_to: string }
         Returns: Json
+      }
+      studio_publish_service: {
+        Args: { p_account: string; p_rev: number; p_slug: string }
+        Returns: number
       }
       studio_renew_upload_tickets: {
         Args: { p_batch_id: string }
@@ -940,6 +1036,26 @@ export type Database = {
         Args: { p_upload_id: string }
         Returns: Json
       }
+      studio_save_service_draft: {
+        Args: { p_account: string; p_draft: Json; p_rev: number; p_slug: string }
+        Returns: number
+      }
+      studio_service_guard: {
+        Args: { p_account: string; p_slug: string }
+        Returns: undefined
+      }
+      studio_services: {
+        Args: { p_account: string }
+        Returns: {
+          draft: Json | null
+          enabled: boolean
+          published: Json | null
+          published_at: string | null
+          rev: number
+          slug: string
+          updated_at: string
+        }[]
+      }
       studio_set_cover: {
         Args: { p_gallery_id: string; p_photo_id?: string }
         Returns: undefined
@@ -947,6 +1063,10 @@ export type Database = {
       studio_set_gallery_public: {
         Args: { p_category?: string; p_gallery_id: string; p_public: boolean }
         Returns: Json
+      }
+      studio_set_service_enabled: {
+        Args: { p_account: string; p_on: boolean; p_slug: string }
+        Returns: boolean
       }
       studio_storage_cleanup: {
         Args: never

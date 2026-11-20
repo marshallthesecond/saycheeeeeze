@@ -20,9 +20,9 @@
 //      the other fourteen pages still works: the form adds that service as a
 //      fourth option rather than losing the tier they just tapped.
 
-import { catalogForService, type CatalogItem } from "./booking-catalog";
+import { codeCatalog, type Catalog, type CatalogItem } from "./booking-catalog";
 import { MINI_EVENT, miniCatalog } from "./mini-sessions";
-import { servicesData, type Localized } from "./services";
+import { servicesData, type Localized, type ServiceData } from "./services";
 
 export interface BookingServiceOption {
   /** A services.ts slug, or a one-off event id. */
@@ -126,17 +126,28 @@ const CORE: BookingServiceOption[] = [
  *
  * Model and brand photography are deliberately absent — Marshall's call, and
  * the way back is to add a line to CORE, not to touch the form.
+ *
+ * A service turned off in the Studio has nothing in its catalogue, so it is
+ * left out here, CORE or not. `services` and `catalog` are the live ones (the
+ * Studio's overlay applied); the defaults are the code's.
  */
 export function offeredServices(
   todayISO: string,
   arrivedFrom?: string | null,
+  services: readonly ServiceData[] = servicesData,
+  catalog: Catalog = codeCatalog,
 ): BookingServiceOption[] {
-  const live = CORE.filter((s) => !s.untilISO || s.untilISO >= todayISO);
+  const isService = (id: string) => services.some((s) => s.slug === id);
+  const live = CORE.filter(
+    (s) =>
+      (!s.untilISO || s.untilISO >= todayISO) &&
+      (!isService(s.id) || catalog.catalogForService(s.id).length > 0),
+  );
 
   if (!arrivedFrom || live.some((s) => s.id === arrivedFrom)) return live;
 
-  const service = servicesData.find((s) => s.slug === arrivedFrom);
-  if (!service || catalogForService(arrivedFrom).length === 0) return live;
+  const service = services.find((s) => s.slug === arrivedFrom);
+  if (!service || catalog.catalogForService(arrivedFrom).length === 0) return live;
 
   return [
     ...live,
@@ -158,17 +169,17 @@ export function offeredServices(
  * group key should make the form show too much, not leave a client staring at
  * a step with no options and no explanation.
  */
-export function catalogForBooking(serviceId: string | null): CatalogItem[] {
+export function catalogForBooking(serviceId: string | null, catalog: Catalog = codeCatalog): CatalogItem[] {
   if (!serviceId) return [];
   if (serviceId === MINI_EVENT.id) return miniCatalog();
 
   if (serviceId === GRADUATION_SLUG) {
-    const all = catalogForService(GRADUATION_SLUG);
+    const all = catalog.catalogForService(GRADUATION_SLUG);
     const group = all.filter((i) => i.groupKey === GRAD_CAMPUS_GROUP);
     return group.length > 0 ? group : all;
   }
 
-  return catalogForService(serviceId);
+  return catalog.catalogForService(serviceId);
 }
 
 /**

@@ -232,7 +232,10 @@
     "close": "Close",
     "privateGalleryTitle": "Your own private gallery",
     "privateGalleryBody": "In every package — a passkey-protected link that is yours alone, not a shared drive folder.",
-    "photoAlt": "{title} — example {n}"
+    "photoAlt": "{title} — example {n}",
+    "previewBar": "Preview of unpublished changes",
+    "previewOff": "This service is off: visitors get Not found",
+    "previewExit": "Back to Studio"
   },
   "notFound": {
     "title": "This page doesn't exist",
@@ -509,7 +512,8 @@
       "portfolio": "Photography portfolio",
       "booking": "Booking platform",
       "open": "I'm open to early clients, collaborations and fresh ideas. If you'd like to build something together or just say hi, I'd love to hear from you.",
-      "reach": "Write to me on Telegram"
+      "reach": "Write to me on Telegram",
+      "studio": "Studio"
     }
   },
   "aboutPage": {

@@ -27,10 +27,12 @@ export function offeredGroups(service: ServiceData): ServicePackageGroup[] {
   return (service.packageGroups ?? []).filter((g) => !g.retired);
 }
 
-/** Every package a service still offers — allPackages minus the retired groups. */
+/** Every package a service still offers: allPackages minus retired groups and packages. */
 export function offeredPackages(service: ServiceData): ServicePackage[] {
-  if (service.packageGroups?.length) return offeredGroups(service).flatMap((g) => g.packages);
-  return service.packages ?? [];
+  if (service.packageGroups?.length) {
+    return offeredGroups(service).flatMap((g) => g.packages.filter((p) => !p.retired));
+  }
+  return (service.packages ?? []).filter((p) => !p.retired);
 }
 
 /**
@@ -161,6 +163,20 @@ export interface ServicePackage {
    * sell a fixed-size session.
    */
   groupSize?: number;
+  /**
+   * A name set in the Studio ("Classic", "Group"). The card's title when
+   * present, with the length under it; absent, the length is the title, as
+   * it always was. Never set in code.
+   */
+  name?: Localized;
+  /** A sentence set in the Studio, at the top of the opened package. */
+  description?: Localized;
+  /**
+   * Hidden or deleted in the Studio: off the page and not bookable, but still
+   * found by its id, so a booking made before keeps its name and price. The
+   * same rule as `retired` on ServicePackageGroup, for one package.
+   */
+  retired?: boolean;
 }
 
 /**
@@ -209,7 +225,11 @@ export interface ServicePackageGroup {
 
 /** The same, after pickLocale() has run — what the client components receive. */
 export interface ResolvedPackage
-  extends Omit<ServicePackage, 'perks' | 'note' | 'duration' | 'photos' | 'delivery'> {
+  extends Omit<ServicePackage, 'perks' | 'note' | 'duration' | 'photos' | 'delivery' | 'name' | 'description'> {
+  /** The Studio's name; the card's title when present. */
+  name?: string;
+  /** The Studio's sentence, at the top of the opened package. */
+  description?: string;
   /** Rendered from durationMinutes (or the override) in the page's locale. */
   duration: string;
   photos: string;
@@ -341,10 +361,16 @@ export interface ServiceData {
    * bottom of the page. Without it every service showed the same eight
    * portfolio images.
    *
+   * SINCE 2026-11-19 THE STUDIO CHOOSES THEM: "Add to..." on a photo puts it
+   * on this page's rail (photo_placements, src/lib/placements.ts). Once that
+   * migration is run, `galleryPaths` below is not read; it is what the site
+   * shows until then, and what the migration copied in. With nothing chosen
+   * in the Studio a rail falls back to 2 and 3.
+   *
    * THREE SOURCES, IN THIS ORDER:
    *
-   *   1. `galleryPaths`     curated frame by frame, order preserved. This is
-   *                         the one to use. A path with no row is skipped
+   *   1. `galleryPaths`     curated frame by frame, order preserved. Before
+   *                         the placements migration only. A path with no row is skipped
    *                         rather than rendering a hole, so a typo costs one
    *                         photograph, not the rail.
    *   2. `galleryCategory`  one top-level Bunny folder, sampled evenly. What
@@ -439,6 +465,17 @@ export interface ServiceData {
    *  through accentText() in services/[slug]/accent.ts — a raw accent as text
    *  fails AA on the dark ground. */
   accentColor: string;
+  /**
+   * Where the subject of the cover sits, in percent from the left and the top.
+   * The hero crops the photograph to its own shape; this keeps the subject in
+   * the crop. Set in the Studio; absent means the middle.
+   */
+  coverFocus?: { x: number; y: number };
+  /**
+   * Turned off in the Studio: no page, not on the lists, not bookable. Never
+   * set in code. See service-content.ts.
+   */
+  off?: boolean;
 }
 
 /**
@@ -530,6 +567,8 @@ export const servicesData: ServiceData[] = [
     iconName: 'Camera',
     coverPath: 'Random/espressomachine.jpg',
     // "My best picks", in this order. EMPTY = the page picks for you.
+    // Chosen in the Studio since 2026-11-19 ("Add to..." on a photo); this
+    // list only counts until the placements migration is run.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],
@@ -661,6 +700,8 @@ export const servicesData: ServiceData[] = [
     iconName: 'User',
     coverPath: 'Portraits/Mekhrangiz/4P5A1811.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
+    // Chosen in the Studio since 2026-11-19 ("Add to..." on a photo); this
+    // list only counts until the placements migration is run.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [
@@ -830,6 +871,8 @@ export const servicesData: ServiceData[] = [
     iconName: 'GraduationCap',
     coverPath: 'WIUT/5Y2A4401.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
+    // Chosen in the Studio since 2026-11-19 ("Add to..." on a photo); this
+    // list only counts until the placements migration is run.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [
@@ -1228,6 +1271,8 @@ export const servicesData: ServiceData[] = [
     iconName: 'Camera',
     coverPath: 'WIUT-Fashion-Show/3M0A1946.png',
     // "My best picks", in this order. EMPTY = the page picks for you.
+    // Chosen in the Studio since 2026-11-19 ("Add to..." on a photo); this
+    // list only counts until the placements migration is run.
     // Bunny storage paths, same shape as coverPath above.
     //   node --env-file=.env.local scripts/list-photos.mjs   lists them all.
     galleryPaths: [],

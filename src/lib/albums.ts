@@ -573,6 +573,22 @@ export async function getAllAlbums(): Promise<AlbumData[]> {
  * getPortfolioPhotos() returns the rows instead.
  */
 
+/**
+ * The portfolio category a photo is under, before portfolio-exclude.json gives
+ * it a label.
+ *
+ * The album's folder decides: "Portraits/sara" → "Portraits". A photo
+ * published from a client gallery, or moved here from another album, keeps a
+ * path elsewhere and belongs where its album is. A hand-made album has no
+ * folder, so its photos go by their own path; a file at the root has no
+ * folder to be grouped under, which is what "Other" is for.
+ */
+function categoryOf(path: string, folder: string | null | undefined): string {
+  const by = folder || (isPrivatePath(path) ? "" : path);
+  const slash = by.indexOf("/");
+  return slash === -1 ? (folder ? by : "Other") : by.slice(0, slash);
+}
+
 /** A portfolio tile: everything AlbumPhoto has, plus how it is filtered. */
 export interface PortfolioPhoto extends AlbumPhoto {
   /** Top-level folder — "WIUT", "Portraits" — or "Other" for root files. */
@@ -614,15 +630,8 @@ const loadPortfolioPhotos = unstable_cache(
       // a `Folder/*` and a single file behave identically everywhere.
       if (isPhotoExcluded(path, rows)) continue;
 
-      // The album's folder decides: "Portraits/sara" → "Portraits". A photo
-      // published from a client gallery, or moved here from another album,
-      // keeps a path elsewhere and belongs where its album is. A hand-made
-      // album has no folder, so its photos go by their own path; a file at the
-      // root has no folder to be grouped under, which is what "Other" is for.
       const gallery = Array.isArray(row.galleries) ? row.galleries[0] : row.galleries;
-      const by = gallery?.bunny_folder || (isPrivatePath(path) ? "" : path);
-      const slash = by.indexOf("/");
-      const rawCategory = slash === -1 ? (gallery?.bunny_folder ? by : "Other") : by.slice(0, slash);
+      const rawCategory = categoryOf(path, gallery?.bunny_folder);
 
       const { galleries: _g, ...photo } = row;
       void _g;
@@ -698,6 +707,91 @@ export async function getPhotosByPaths(
     const why = e instanceof Error ? e.message : String(e);
     console.warn(`[albums] Could not resolve photo paths: ${why}`);
     return {};
+  }
+}
+
+// Placements: Best picks and the service rails, chosen in the Studio
+
+/** A photograph chosen for a place in the Studio, with what its caption needs. */
+export interface PlacedPhoto {
+  photo: AlbumPhoto;
+  /** Its storage path. The captions written in the code are keyed by it. */
+  path: string;
+  /** Its portfolio category, named as on the Portfolio page ("Portraits"). */
+  category: string;
+  /** The album it is in. */
+  albumTitle: string;
+  /** The album's date as written in the Studio, or else its year. */
+  albumDate: string;
+}
+
+/** place ("best-picks", "service:portraits") → its photographs, in order. */
+export type Placements = Record<string, PlacedPhoto[]>;
+
+/** The table is not in the database yet: 20261119120000 has not been run. */
+function isMissingTable(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST205" || error.code === "42P01" || /photo_placements/.test(error.message ?? "");
+}
+
+/**
+ * Every placement a visitor may see: photos in published, public albums only
+ * (the table's policy, and the photos and galleries policies under it).
+ *
+ * `null` when the table does not exist yet, so the pages keep the lists in
+ * the code. Tagged "albums" like everything here: a change in the Studio
+ * expires that tag, on this deployment and on the live site.
+ */
+const loadPlacements = unstable_cache(
+  async (): Promise<Placements | null> => {
+    const [manifest, { data, error }] = await Promise.all([
+      getExcludeManifest(),
+      supabaseRead()
+        .from("photo_placements")
+        .select(
+          "place, position, photos!inner(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(title, date_label, year, bunny_folder))",
+        )
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true }),
+    ]);
+
+    if (error) {
+      if (isMissingTable(error)) return null;
+      throw new Error(`Supabase: failed to load placements: ${error.message}`);
+    }
+
+    const out: Placements = {};
+    for (const row of data ?? []) {
+      const photoRow = Array.isArray(row.photos) ? row.photos[0] : row.photos;
+      if (!photoRow) continue;
+      const { galleries, ...photo } = photoRow;
+      const gallery = Array.isArray(galleries) ? galleries[0] : galleries;
+      const rawCategory = categoryOf(photo.storage_path, gallery?.bunny_folder);
+      (out[row.place] ??= []).push({
+        photo: { ...toPhoto(photo), id: photo.id },
+        path: photo.storage_path,
+        category: manifest.categoryLabels[rawCategory] ?? rawCategory,
+        albumTitle: gallery?.title ?? "",
+        albumDate: gallery?.date_label || gallery?.year || "",
+      });
+    }
+    return out;
+  },
+  ["photo-placements"],
+  { revalidate: REVALIDATE_SECONDS, tags: ["albums"] },
+);
+
+/**
+ * The places' photographs, or `null` when the site should use the lists in
+ * the code: before the migration, and if the database cannot be reached (the
+ * code lists are a better fallback than empty sections).
+ */
+export async function getPlacements(): Promise<Placements | null> {
+  try {
+    return await withRetry("albums", loadPlacements);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.warn(`[albums] Could not load placements: ${why}`);
+    return null;
   }
 }
 

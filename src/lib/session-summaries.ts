@@ -8,7 +8,7 @@ import type { AlbumPhoto } from "@/src/lib/albums";
 import type { Locale } from "@/src/lib/i18n/config";
 import { formatSom } from "@/src/lib/packages";
 import { PROFILE } from "@/src/lib/profile";
-import { entryPackage, getServiceBySlug, pickLocale } from "@/src/lib/services";
+import { entryPackage, pickLocale, servicesData, type ServiceData } from "@/src/lib/services";
 
 export interface SessionSummary {
   slug: string;
@@ -21,15 +21,19 @@ export interface SessionSummary {
 /**
  * @param photoFor storage path → photo, for the thumbnail. Optional: a session
  *                 with no resolved photograph simply shows none.
+ * @param services the services as the site shows them (getLiveServices()):
+ *                 the Studio's titles and prices, and the ones turned off left
+ *                 out. Defaults to the code's.
  */
 export function sessionSummaries(
   locale: Locale,
   photoFor: (slug: string) => AlbumPhoto | undefined = () => undefined,
+  services: readonly ServiceData[] = servicesData,
 ): SessionSummary[] {
   const out: SessionSummary[] = [];
   for (const slug of PROFILE.sessions) {
-    const service = getServiceBySlug(slug);
-    if (!service) continue;
+    const service = services.find((s) => s.slug === slug);
+    if (!service || service.off) continue;
     const entry = entryPackage(service);
     out.push({
       slug,

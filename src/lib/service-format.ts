@@ -8,7 +8,7 @@
 // Not in the dictionaries because the booking API route needs them and wants
 // English regardless — its output goes to Marshall, not the client.
 
-import type { DeliverySpec, PhotoCount, ServicePackage } from './services';
+import type { DeliverySpec, Localized, PhotoCount, ServicePackage } from './services';
 import { pickLocale } from './services';
 
 type Lang = 'en' | 'ru' | 'uz';
@@ -74,6 +74,25 @@ export function packageDuration(
   return pkg.duration !== undefined
     ? pickLocale(pkg.duration, locale)
     : formatDuration(pkg.durationMinutes, locale);
+}
+
+/**
+ * A package's title: the name it was given in the Studio, or else its length
+ * with the code's short note after it ("1 hour · group"), as it always was.
+ */
+export function packageTitle(
+  pkg: {
+    name?: Localized | null;
+    note?: Localized | null;
+    duration?: Localized;
+    durationMinutes: number;
+  },
+  locale: string,
+): string {
+  const name = pkg.name ? pickLocale(pkg.name, locale).trim() : '';
+  if (name) return name;
+  const length = packageDuration(pkg, locale);
+  return pkg.note ? `${length} · ${pickLocale(pkg.note, locale)}` : length;
 }
 
 /** "25–40 edited photos" · "25–40 обработанных фото" · "25–40 ta tayyor surat". */

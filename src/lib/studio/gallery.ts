@@ -211,6 +211,44 @@ async function albumsHolding(paths: string[]): Promise<Map<string, string>> {
   return found;
 }
 
+/**
+ * Where the account's photos are shown besides their albums (Best picks, the
+ * service pages' rails), for the "Add to..." menu on each photo.
+ */
+export interface PlacementState {
+  /** photo id → the places it is in, for this gallery's photos. */
+  byPhoto: Record<string, string[]>;
+  /** place → how many photos it holds, across the account. */
+  counts: Record<string, number>;
+}
+
+/**
+ * The account's placements, or "missing" before
+ * 20261119120000_photo_placements.sql is run. Any other failure throws.
+ */
+export async function placementState(
+  session: StudioSession,
+  photoIds: string[],
+): Promise<PlacementState | "missing"> {
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase
+    .from("photo_placements")
+    .select("place, photo_id")
+    .eq("account_id", session.account.id);
+  if (error) {
+    if (error.code === "PGRST205" || error.code === "42P01" || /photo_placements/.test(error.message)) return "missing";
+    throw new Error(`Studio: could not load where photos are shown: ${error.message}`);
+  }
+  const mine = new Set(photoIds);
+  const byPhoto: Record<string, string[]> = {};
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.place] = (counts[row.place] ?? 0) + 1;
+    if (mine.has(row.photo_id)) (byPhoto[row.photo_id] ??= []).push(row.place);
+  }
+  return { byPhoto, counts };
+}
+
 export interface AlbumTarget {
   id: string;
   title: string;

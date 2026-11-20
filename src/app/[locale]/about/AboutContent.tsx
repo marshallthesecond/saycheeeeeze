@@ -31,7 +31,7 @@ import type { SessionSummary } from "@/src/lib/session-summaries";
 import type { WorkPhoto, WorkPreview } from "@/src/lib/work-preview";
 
 const STICKY =
-  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto [scrollbar-width:thin]";
+  "xl:sticky xl:top-[calc(3.5rem+env(safe-area-inset-top))] xl:max-h-[calc(100dvh-4.5rem-env(safe-area-inset-top))] xl:self-start xl:overflow-y-auto";
 
 const SECTION_TITLE = "text-xl font-bold tracking-tight";
 

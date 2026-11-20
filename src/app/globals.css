@@ -608,6 +608,18 @@ body {
   overflow-x: clip;
 }
 
+/* No scrollbars anywhere (Marshall, 2026-11-19): not the page's own bar on
+   the right, not a section's. Everything still scrolls with a wheel, a
+   trackpad, touch and the keyboard; only the bar is gone. Outside any
+   @layer on purpose, so it also wins over a `[scrollbar-width:…]` utility.
+   Delete these two rules to bring the bars back. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* Fonts at 16px+ in form fields, otherwise iOS Safari zooms the viewport on
    focus and the user has to pinch back out. */
 input,

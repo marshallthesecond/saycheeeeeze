@@ -6,7 +6,7 @@
 // Two implementations differing by a rounding rule would produce a booking
 // form that rejects real customers with "the price changed".
 
-import { findCatalogItem } from "./booking-catalog";
+import { codeCatalog, type Catalog } from "./booking-catalog";
 import { locationsCost } from "./locations";
 import { getPackage, priceFor, type SessionPackage } from "./packages";
 
@@ -75,11 +75,11 @@ function headCountFor(
  * The catalogue wins over the generics if an id somehow appears in both, since
  * the catalogue is what the client was looking at.
  */
-export function quoteBooking(input: QuoteInput): BookingQuote | null {
+export function quoteBooking(input: QuoteInput, catalog: Catalog = codeCatalog): BookingQuote | null {
   const { packageId, sessionPackages, peopleCount, locationIds } = input;
   if (!packageId) return null;
 
-  const item = findCatalogItem(packageId);
+  const item = catalog.findCatalogItem(packageId);
   if (item) {
     const places = locationsCost(locationIds, item.durationMinutes);
     const heads = headCountFor(item, peopleCount);

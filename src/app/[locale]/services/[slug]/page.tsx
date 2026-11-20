@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -7,12 +8,13 @@ import {
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import {
-  getServiceBySlug,
   getAllServiceSlugs,
   offeredGroups,
   pickLocale,
   pickLocaleOpt,
 } from '@/src/lib/services';
+import { getLiveService } from '@/src/lib/live-services';
+import { previewService } from '@/src/lib/studio/services';
 import type {
   Localized,
   ResolvedAudience,
@@ -29,7 +31,8 @@ import {
 import { getDictionary } from '@/src/lib/i18n/dictionaries';
 import { isLocale, defaultLocale, type Locale } from '@/src/lib/i18n/config';
 import { alternatesFor, cityName, titleInCity, SITE_URL } from '@/src/lib/seo';
-import { getPhotosByPaths, getPortfolioPhotos } from '@/src/lib/albums';
+import { getPhotosByPaths, getPlacements, getPortfolioPhotos } from '@/src/lib/albums';
+import { HERO_STACK_COUNT, RAIL_COUNT, servicePlace } from '@/src/lib/placements';
 import type { AlbumPhoto, PortfolioPhoto } from '@/src/lib/albums';
 import { bunnyUrl } from '@/src/lib/bunny-url';
 import {
@@ -47,6 +50,7 @@ import ServicePackages from './ServicePackages';
 import ServiceNotice from './ServiceNotice';
 import ServiceHero from './ServiceHero';
 import ServiceHeroStack from './ServiceHeroStack';
+import PreviewBar from './PreviewBar';
 import type { HeroFrame, HeroImage } from './ServiceHeroStack';
 import {
   AudienceOnly,
@@ -68,14 +72,37 @@ export function generateStaticParams() {
   return getAllServiceSlugs().map((slug) => ({ slug }));
 }
 
+/**
+ * The service this page shows: as published, with the Studio's content laid
+ * over the code (see live-services.ts). None when it is turned off.
+ *
+ * In preview (draft mode, from the Studio's Preview button) and signed in to
+ * the Studio: the draft, shown even when the service is off.
+ */
+async function serviceFor(slug: string): Promise<{ service: ServiceData; preview: boolean } | null> {
+  if ((await draftMode()).isEnabled) {
+    const draft = await previewService(slug);
+    if (draft) return { service: draft, preview: true };
+  }
+  const live = await getLiveService(slug);
+  return live && !live.off ? { service: live, preview: false } : null;
+}
+
+/** CSS object-position for the cover's focus point. */
+function focusOf(service: ServiceData): string | undefined {
+  const f = service.coverFocus;
+  return f && (f.x !== 50 || f.y !== 50) ? `${f.x}% ${f.y}%` : undefined;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
   const { slug, locale } = await params;
-  const service = getServiceBySlug(slug);
-  if (!service) return { title: 'Service not found' };
+  const found = await serviceFor(slug);
+  if (!found) return { title: 'Service not found' };
+  const { service } = found;
 
   // Metadata is part of the page. A Russian search result with an English
   // title is the same bug as an English heading, except it happens before
@@ -127,8 +154,6 @@ export async function generateMetadata({
   };
 }
 
-const RAIL_COUNT = 8;
-
 /**
  * The widest rung the audience band may load.
  *
@@ -152,9 +177,6 @@ const AUDIENCE_BACKDROP_MAX = 720;
 const HERO_GROUND_MAX = 1440;
 const HERO_FRAME_MAX = 480;
 
-/** Frames in the fan. Also how many the rail gives up to it — see below. */
-const HERO_STACK_COUNT = 3;
-
 /**
  * A photo row → the plain strings a presentational component needs.
  *
@@ -176,7 +198,13 @@ function ladderSources(photo: AlbumPhoto | undefined, maxWidth: number): HeroIma
 /**
  * The photographs shown under "Best picks", in order of preference:
  *
- *   1. galleryPaths     — curated frame by frame, order preserved
+ *   0. the Studio       — "Add to..." on a photo, in the order they were
+ *                         added (photo_placements). Once that table exists
+ *                         it replaces galleryPaths: taking every photo off a
+ *                         page's list gives it the automatic choice below,
+ *                         not the old list back.
+ *   1. galleryPaths     — curated frame by frame, order preserved; only
+ *                         before the placements migration
  *   2. galleryCategory  — everything from one Bunny folder
  *   3. an even spread of the portfolio
  *
@@ -196,9 +224,13 @@ async function pickExamples(
   service: ServiceData,
   pool: PortfolioPhoto[],
   count: number,
-  cover?: AlbumPhoto,
+  cover: AlbumPhoto | undefined,
+  /** Chosen in the Studio; null before the placements migration. */
+  placed: AlbumPhoto[] | null,
 ): Promise<AlbumPhoto[]> {
-  if (service.galleryPaths?.length) {
+  if (placed && placed.length > 0) return placed.slice(0, count);
+
+  if (!placed && service.galleryPaths?.length) {
     const byPath = await getPhotosByPaths(service.galleryPaths);
     // Keep the author's order, and drop any path that no longer resolves rather
     // than rendering a hole.
@@ -232,8 +264,9 @@ export default async function ServicePage({
   params: Promise<{ slug: string; locale: string }>;
 }) {
   const { slug, locale } = await params;
-  const service = getServiceBySlug(slug);
-  if (!service) notFound();
+  const found = await serviceFor(slug);
+  if (!found) notFound();
+  const { service, preview } = found;
 
   // Validated once. `locale` off the params is a string the router happens to
   // have matched; everything below that needs a real Locale — the dictionary,
@@ -250,7 +283,7 @@ export default async function ServicePage({
   // was the last place still asking the Optimizer to resize eight full-size
   // originals per page. Services without matching albums fall back to the
   // service cover so the rail is never empty.
-  const albumPool = await getPortfolioPhotos();
+  const [albumPool, placements] = await Promise.all([getPortfolioPhotos(), getPlacements()]);
 
   // A storage path, so the hero goes through the same ladder as everything
   // else rather than being a 39 MB file in public/ resized on every cold
@@ -278,6 +311,7 @@ export default async function ServicePage({
     albumPool,
     wantsStack ? RAIL_COUNT + HERO_STACK_COUNT : RAIL_COUNT,
     cover,
+    placements ? (placements[servicePlace(service.slug)] ?? []).map((p) => p.photo) : null,
   );
   const galleryPicks =
     wantsStack && picks.length > RAIL_COUNT ? picks.slice(HERO_STACK_COUNT) : picks.slice(0, RAIL_COUNT);
@@ -288,10 +322,12 @@ export default async function ServicePage({
   );
   // Falls back to the cover when no ground is named — the cover is the one
   // photograph every service is guaranteed to have.
-  const heroGround = ladderSources(
+  const coverPosition = focusOf(service);
+  const groundSources = ladderSources(
     photoRows[groundPath ?? service.coverPath],
     HERO_GROUND_MAX,
   );
+  const heroGround = groundSources && coverPosition ? { ...groundSources, position: coverPosition } : groundSources;
 
   // packageGroups wins where both exist; a flat list is wrapped in one unnamed
   // group so the render path below is the same either way.
@@ -393,6 +429,11 @@ export default async function ServicePage({
         // so this fallback has to tolerate its absence rather than assume it.
       : [{ key: 'default', title: '', blurb: '', packages: service.packages ?? [] }]
   ).map((g) => ({
+    ...g,
+    // Hidden or deleted in the Studio: off the page, still bookable by id for
+    // the bookings already made (see `retired` on ServicePackage).
+    packages: g.packages.filter((p) => !p.retired),
+  })).map((g) => ({
     key: g.key,
     title: L(g.title),
     blurb: L(g.blurb),
@@ -409,6 +450,8 @@ export default async function ServicePage({
       delivery: formatDelivery(pkg.delivery, locale),
       perks: pkg.perks?.map((perk) => L(perk)),
       note: pickLocaleOpt(pkg.note, locale),
+      name: pickLocaleOpt(pkg.name, locale),
+      description: pickLocaleOpt(pkg.description, locale),
     })),
   }));
 
@@ -499,7 +542,7 @@ export default async function ServicePage({
   const offers = packageGroups.flatMap((g) =>
     g.packages.map((pkg) => ({
       '@type': 'Offer',
-      name: [g.title, pkg.duration].filter(Boolean).join(' · '),
+      name: [g.title, pkg.name ?? pkg.duration].filter(Boolean).join(' · '),
       price: String(pkg.priceUzs),
       priceCurrency: 'UZS',
       availability: 'https://schema.org/InStock',
@@ -528,7 +571,8 @@ export default async function ServicePage({
   // One <script> holding an array, rather than two tags. Both are valid
   // JSON-LD and parsers read either; one tag is one place to look when a
   // Rich Results test disagrees with the page.
-  const pageSchema = [faqSchema, serviceSchema];
+  // No FAQPage without questions: an empty one is a worse signal than none.
+  const pageSchema = faqs.length > 0 ? [faqSchema, serviceSchema] : [serviceSchema];
 
   return (
     // Everything inside stays a server component: a client provider can take
@@ -590,6 +634,7 @@ export default async function ServicePage({
               fetchPriority="high"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
+              style={coverPosition ? { objectPosition: coverPosition } : undefined}
             />
           </picture>
         ) : (
@@ -600,6 +645,7 @@ export default async function ServicePage({
             sizes="100vw"
             unoptimized
             className="object-cover"
+            style={coverPosition ? { objectPosition: coverPosition } : undefined}
             priority
           />
         )}
@@ -915,6 +961,14 @@ export default async function ServicePage({
         </div>
 
       </main>
+      {preview && (
+        <PreviewBar
+          label={s.previewBar}
+          offNote={service.off ? s.previewOff : undefined}
+          exitLabel={s.previewExit}
+          exitHref={`/api/studio/preview?exit=1&slug=${encodeURIComponent(slug)}`}
+        />
+      )}
     </div>
     </AudienceProvider>
   );

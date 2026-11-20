@@ -13,6 +13,7 @@ import {
 } from "@/src/lib/bookings";
 import { MINI_EVENT } from "@/src/lib/mini-sessions";
 import { getBookablePackages } from "@/src/lib/packages.server";
+import { getServiceOverlay } from "@/src/lib/live-services";
 import BookingClient from "./BookingClient";
 
 export async function generateMetadata({
@@ -43,11 +44,13 @@ export default async function BookingPage() {
   // product is one-a-day and listTakenDays() answers for it; the mini-sessions
   // sell eight blocks of the same date, so "is 27 September taken" is the
   // wrong question there and only "is 16:45 taken" is the right one.
-  const [packages, taken, blackouts, eventSlots] = await Promise.all([
+  const [packages, taken, blackouts, eventSlots, overlay] = await Promise.all([
     getBookablePackages(),
     listTakenDays(fromISO),
     listBlackoutDates(fromISO),
     listTakenSlots(MINI_EVENT.dateISO),
+    // What the Studio published and turned off: the form prices with it.
+    getServiceOverlay(),
   ]);
 
   return (
@@ -57,6 +60,7 @@ export default async function BookingPage() {
       blackouts={blackouts}
       eventSlots={eventSlots}
       availability={DEFAULT_AVAILABILITY}
+      overlay={overlay}
     />
   );
 }

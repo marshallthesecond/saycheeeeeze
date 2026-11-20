@@ -44,6 +44,8 @@ function revalidate(slugs: string[], now = false): void {
   revalidateTag("albums", profile);
   for (const slug of slugs) revalidateTag(`album:${slug.toLowerCase()}`, profile);
   revalidateTag("client-galleries", profile);
+  // The services (live-services.ts): what the Studio's Services tab published.
+  revalidateTag("services", profile);
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -62,7 +64,7 @@ export async function POST(req: Request): Promise<Response> {
     revalidate(slugs, params.get("now") === "1");
     return Response.json({
       ok: true,
-      revalidated: ["albums", ...slugs.map((s) => `album:${s.toLowerCase()}`), "client-galleries"],
+      revalidated: ["albums", ...slugs.map((s) => `album:${s.toLowerCase()}`), "client-galleries", "services"],
     });
   }
 

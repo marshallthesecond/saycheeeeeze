@@ -1,6 +1,7 @@
 "use client";
 
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { DARK_ONLY } from "@/src/lib/theme";
 
 export function ThemeProvider({
   children,
@@ -12,9 +13,10 @@ export function ThemeProvider({
       attribute="class"
       defaultTheme="system"
       enableSystem
+      // Light mode is off for now: see src/lib/theme.ts.
+      forcedTheme={DARK_ONLY ? "dark" : undefined}
     >
       {children}
     </NextThemesProvider>
   );
 }
-

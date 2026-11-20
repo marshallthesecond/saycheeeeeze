@@ -6,6 +6,7 @@ import {
   Playfair_Display,
 } from "next/font/google";
 import { ThemeProvider } from "@/src/components/theme-provider";
+import { DARK_ONLY } from "@/src/lib/theme";
 import "./globals.css";
 
 // Three fonts, site-wide:
@@ -107,10 +108,14 @@ export const viewport: Viewport = {
   // Android/Safari browser chrome in a visibly different colour from the page.
   // Media queries are exact here because the site has no theme toggle: it
   // follows the system, which is precisely what these queries read.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F5ECE1" },
-    { media: "(prefers-color-scheme: dark)", color: "#1E1517" },
-  ],
+  // While the site is dark only (src/lib/theme.ts) the bar is always the
+  // dark one, whatever the device asks for.
+  themeColor: DARK_ONLY
+    ? "#1E1517"
+    : [
+        { media: "(prefers-color-scheme: light)", color: "#F5ECE1" },
+        { media: "(prefers-color-scheme: dark)", color: "#1E1517" },
+      ],
 };
 
 export default function RootLayout({

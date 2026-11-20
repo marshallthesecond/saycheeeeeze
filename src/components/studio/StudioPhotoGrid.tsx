@@ -11,13 +11,18 @@
 //
 // Client galleries also show what the client chose for each photo, with
 // chips to see only one kind: pick Publish, Select all, Publish to album.
+//
+// Outside choosing, each tile has a "..." menu (PhotoActions): "Add to..."
+// puts the photo on Best picks or a service page, and the line under the tile
+// says where it is shown (2026-11-19).
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
-import { Check, CircleAlert } from "lucide-react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, Star } from "lucide-react";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
 import {
   deletePhotos,
+  placePhoto,
   sendPhotos,
   setCover,
   type DeletePhotosState,
@@ -25,8 +30,9 @@ import {
 } from "@/src/app/studio/gallery-actions";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import type { GalleryKind } from "@/src/lib/ladder";
-import type { AlbumTarget, ClientMark, StudioPhoto } from "@/src/lib/studio/gallery";
+import type { AlbumTarget, ClientMark, PlacementState, StudioPhoto } from "@/src/lib/studio/gallery";
 import { PendingButton } from "./FormFeedback";
+import PhotoActions, { type PlaceOption } from "./PhotoActions";
 
 type Filter = "all" | ClientMark | "none";
 const FILTERS: Filter[] = ["all", "publish", "keep", "delete", "none"];
@@ -62,10 +68,57 @@ interface Props {
   /** Where chosen photos can go. */
   albums: AlbumTarget[];
   categories: string[];
+  /** Places a photo can be added to ("Add to..."), in menu order. */
+  places: PlaceOption[];
+  /** Where the photos are shown now. Albums only; null for a client gallery. */
+  placements: PlacementState | "missing" | "failed" | null;
 }
 
-export default function StudioPhotoGrid({ galleryId, galleryTitle, kind, photos: all, albums, categories }: Props) {
+export default function StudioPhotoGrid({
+  galleryId,
+  galleryTitle,
+  kind,
+  photos: all,
+  albums,
+  categories,
+  places,
+  placements,
+}: Props) {
   const { t } = useT();
+
+  // Where each photo is shown, kept here so a change shows at once without
+  // reloading the page; the server's answer is what is kept.
+  const known = placements && typeof placements === "object" ? placements : null;
+  const [placedBy, setPlacedBy] = useState<Record<string, string[]>>(() => known?.byPhoto ?? {});
+  // The same, for the answer of a change to be compared with what was before.
+  const placedRef = useRef(placedBy);
+  const [placeCounts, setPlaceCounts] = useState<Record<string, number>>(() => known?.counts ?? {});
+  const placeName = useCallback(
+    (id: string) => {
+      const p = places.find((x) => x.id === id);
+      return p?.title ?? t("gallery.photos.actions.bestPicks");
+    },
+    [places, t],
+  );
+  const toggle = useCallback(
+    async (photoId: string, place: string, on: boolean): Promise<string | undefined> => {
+      let result: Awaited<ReturnType<typeof placePhoto>>;
+      try {
+        result = await placePhoto(galleryId, photoId, place, on);
+      } catch {
+        return "failed";
+      }
+      if (result.error || !result.places) return result.error ?? "failed";
+      const now = result.places;
+      const was = (placedRef.current[photoId] ?? []).includes(place);
+      const is = now.includes(place);
+      placedRef.current = { ...placedRef.current, [photoId]: now };
+      setPlacedBy(placedRef.current);
+      if (was !== is) setPlaceCounts((c) => ({ ...c, [place]: Math.max(0, (c[place] ?? 0) + (is ? 1 : -1)) }));
+      return undefined;
+    },
+    [galleryId],
+  );
   const [selecting, setSelecting] = useState(false);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set());
   const [armed, setArmed] = useState(false);
@@ -363,6 +416,25 @@ export default function StudioPhotoGrid({ galleryId, galleryTitle, kind, photos:
                   {t(`gallery.photos.mark.${photo.mark}`)}
                 </span>
               )}
+              {!selecting && (
+                <PhotoActions
+                  fileName={photo.fileName}
+                  ladder={photo.ladder}
+                  thumbhash={photo.thumbhash}
+                  canPlace={!isClient}
+                  publishedIn={photo.publishedIn}
+                  places={places}
+                  placed={
+                    isClient
+                      ? []
+                      : placements === "missing" || placements === "failed"
+                        ? placements
+                        : (placedBy[photo.id] ?? [])
+                  }
+                  counts={placeCounts}
+                  onToggle={(place, on) => toggle(photo.id, place, on)}
+                />
+              )}
               {selecting && (
                 <span
                   aria-hidden
@@ -396,6 +468,22 @@ export default function StudioPhotoGrid({ galleryId, galleryTitle, kind, photos:
               {photo.publishedIn && (
                 <p className="truncate text-xs text-foreground" title={photo.publishedIn}>
                   {t("gallery.photos.inAlbum", { album: photo.publishedIn })}
+                </p>
+              )}
+              {(placedBy[photo.id]?.length ?? 0) > 0 && (
+                <p
+                  className="flex min-w-0 items-center gap-1 text-xs text-foreground"
+                  title={(placedBy[photo.id] ?? []).map(placeName).join(", ")}
+                >
+                  <Star aria-hidden className="size-3 shrink-0 fill-accent-warm text-accent-warm" />
+                  <span className="truncate">
+                    <span className="sr-only">{t("gallery.photos.actions.shownOn")} </span>
+                    {(placedBy[photo.id] ?? [])
+                      .slice()
+                      .sort((a, b) => places.findIndex((p) => p.id === a) - places.findIndex((p) => p.id === b))
+                      .map(placeName)
+                      .join(", ")}
+                  </span>
                 </p>
               )}
               {!selecting && !photo.isCover && (

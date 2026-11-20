@@ -17,6 +17,7 @@ import { STUDIO_HOME, studioGalleryPath } from "@/src/lib/studio/config";
 import { endOfStudioDay } from "@/src/lib/studio/gallery";
 import { publicPath } from "@/src/lib/studio/galleries";
 import { alsoRefreshLiveSite } from "@/src/lib/studio/live-site";
+import { isPlace } from "@/src/lib/placements";
 import { PASSKEY_MAX, PASSKEY_MIN, generatePasskey } from "@/src/lib/studio/passkey";
 import { requireStudio } from "@/src/lib/studio/session";
 import { categoryProblem, isValidSlug, slugify } from "@/src/lib/studio/slug";
@@ -102,6 +103,9 @@ const REASONS: Record<string, string> = {
   not_member: "notFound",
   not_client: "notFound",
   photo_not_found: "notFound",
+  not_album: "notAlbum",
+  place: "invalid",
+  place_full: "placeFull",
 };
 
 /** A Supabase error -> a key under `errors`. */
@@ -581,4 +585,45 @@ export async function setGalleryPublic(_prev: FormState, form: FormData): Promis
   await expireSiteCaches(own.slug);
   refresh();
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Where a photo is shown: Best picks and the service pages ("Add to...")
+// ---------------------------------------------------------------------------
+
+export interface PlaceResult {
+  /** Every place the photo is in now, sorted. */
+  places?: string[];
+  error?: string;
+}
+
+/**
+ * Put a photo on a place's list (at the end), or take it off. Plain arguments
+ * rather than a form: the menu on each photo calls it on a click, and the
+ * grid updates from what comes back.
+ *
+ * Only album photos go on: a client photo is published to an album first. The
+ * database decides that too (studio_place_photo); this gives the sentence.
+ */
+export async function placePhoto(galleryId: string, photoId: string, place: string, on: boolean): Promise<PlaceResult> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  if (!isPlace(place) || !/^[0-9a-f-]{36}$/i.test(photoId)) return { error: "invalid" };
+  if (on && own.kind !== "album") return { error: "notAlbum" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_place_photo", {
+    p_photo_id: photoId,
+    p_place: place,
+    p_on: on,
+  });
+  if (error) {
+    // PGRST202: the function is not in the database: the migration is not run yet.
+    return { error: error.code === "PGRST202" ? "placesNotSetUp" : reasonOf(error) };
+  }
+
+  // Best picks and the service pages are cached under "albums", here and on
+  // the live site.
+  await expireSiteCaches(own.slug);
+  return { places: data ?? [] };
 }

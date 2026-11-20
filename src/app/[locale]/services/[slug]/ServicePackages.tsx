@@ -232,9 +232,16 @@ export default function ServicePackages({
                   </span>
 
                   <span className="min-w-0 flex-1">
+                    {/* A name given in the Studio is the title, and the length
+                        moves to the line under it. Without one the length is
+                        the title, as before. */}
                     <span className="block truncate text-[13px] font-bold text-foreground">
-                      {pkg.duration}
-                      {pkg.note ? ` · ${pkg.note}` : ''}
+                      {pkg.name || (
+                        <>
+                          {pkg.duration}
+                          {pkg.note ? ` · ${pkg.note}` : ''}
+                        </>
+                      )}
                     </span>
                     {/* THE FRAME COUNT, ON EVERY ROW.
 
@@ -252,7 +259,7 @@ export default function ServicePackages({
                         is the one place it matters most. The long form with
                         its noun stays in the open panel below. */}
                     <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">
-                      {pkg.photosShort}
+                      {pkg.name ? `${pkg.duration}, ${pkg.photosShort}` : pkg.photosShort}
                     </span>
                     {pkg.highlight && (
                       <span
@@ -283,6 +290,9 @@ export default function ServicePackages({
                     className="space-y-1.5 border-t px-3.5 py-3"
                     style={{ borderColor: `${accentColor}44` }}
                   >
+                    {pkg.description && (
+                      <li className="pb-1 text-xs leading-relaxed text-foreground/80">{pkg.description}</li>
+                    )}
                     {/* The long form — "25–40 обработанных портретов" — where
                         there is room for the noun. The short one is on the row
                         above and visible whether or not this panel is open;

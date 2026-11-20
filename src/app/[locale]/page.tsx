@@ -12,18 +12,21 @@
 import type { Metadata } from "next";
 import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { businessSchema, pageMetadata } from "@/src/lib/seo";
-import { getAlbumPhotos, getAllAlbums, getPhotosByPaths, getPortfolioPhotos, type AlbumData } from "@/src/lib/albums";
+import { getAlbumPhotos, getAllAlbums, getPhotosByPaths, getPlacements, getPortfolioPhotos, type AlbumData } from "@/src/lib/albums";
+import { bunnyUrl } from "@/src/lib/bunny-url";
+import { BEST_PICKS_PLACE, servicePlace } from "@/src/lib/placements";
 import { getGalleryIndex } from "@/src/lib/client-galleries";
 import { sessionSummaries } from "@/src/lib/session-summaries";
 import { formatSom } from "@/src/lib/packages";
 import { entryPackage, getServiceBySlug, offeredPackages, pickLocale } from "@/src/lib/services";
+import { getLiveServices } from "@/src/lib/live-services";
 import { formatDelivery, formatPhotoCountShort, packageDuration } from "@/src/lib/service-format";
 import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
 import type { ShelfAlbum } from "@/src/components/home/AlbumShelf";
 import type { PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
 import { BEST_PICKS, HOME_PHOTO_PATHS, SESSION_PHOTOS } from "./about/photos";
 import { PICKS_WANTED } from "./about/best-picks";
-import HomeContent, { type ExtraPick } from "./HomeContent";
+import HomeContent, { type ChosenPick, type ExtraPick } from "./HomeContent";
 
 // Localised per locale. A static `metadata` object cannot be, because it is
 // evaluated once with no access to params — which is why /ru and /uz were
@@ -78,30 +81,63 @@ export default async function HomePage({
   const schema = businessSchema(locale);
   const L = (v: Parameters<typeof pickLocale>[0]) => pickLocale(v, locale);
 
-  const service = getServiceBySlug(PITCH_SERVICE);
-  const pitchPaths = (service?.galleryPaths ?? []).slice(0, PITCH_PHOTOS);
+  // galleryPaths is the code's (the rail before the placements migration).
+  const pitchPaths = (getServiceBySlug(PITCH_SERVICE)?.galleryPaths ?? []).slice(0, PITCH_PHOTOS);
 
-  const [albums, photoIndex, portfolio, galleries] = await Promise.all([
+  const [albums, photoIndex, portfolio, galleries, placements, liveServices] = await Promise.all([
     getAllAlbums(),
     getPhotosByPaths([...HOME_PHOTO_PATHS, ...pitchPaths]),
     getPortfolioPhotos(),
     getGalleryIndex(),
+    getPlacements(),
+    getLiveServices(),
   ]);
 
-  const sessions = sessionSummaries(locale, (slug) => {
-    const path = SESSION_PHOTOS[slug];
-    return path ? photoIndex[path] : undefined;
-  });
+  // As the site shows them: the Studio's titles and prices. A service turned
+  // off is not listed, and the pitch goes when Portraits is off.
+  const live = liveServices.find((s) => s.slug === PITCH_SERVICE);
+  const service = live && !live.off ? live : undefined;
 
-  // Best picks are chosen by hand. While there are fewer than the grid holds,
-  // the rest come from the portfolio, the same ones all day.
+  const sessions = sessionSummaries(
+    locale,
+    (slug) => {
+      const path = SESSION_PHOTOS[slug];
+      return path ? photoIndex[path] : undefined;
+    },
+    liveServices,
+  );
+
+  // Best picks are chosen by hand: in the Studio ("Add to..." on a photo), or
+  // before the placements migration, in BEST_PICKS. A photo that is also in
+  // BEST_PICKS keeps the caption written there; one added in the Studio is
+  // captioned from its album. While there are fewer than the grid holds, the
+  // rest come from the portfolio, the same ones all day.
+  const written = new Map(BEST_PICKS.map((p) => [p.path, p]));
+  const chosenPicks: ChosenPick[] = placements
+    ? (placements[BEST_PICKS_PLACE] ?? []).map((placed) => {
+        const caption = written.get(placed.path);
+        return caption
+          ? { photo: placed.photo, cat: caption.cat, title: caption.title, date: caption.date }
+          : {
+              photo: placed.photo,
+              category: placed.category,
+              title: placed.albumTitle || undefined,
+              date: placed.albumDate || undefined,
+            };
+      })
+    : BEST_PICKS.map((p) => ({
+        photo: photoIndex[p.path] ?? { src: bunnyUrl(p.path) },
+        cat: p.cat,
+        title: p.title,
+        date: p.date,
+      }));
   const visible = portfolio.filter((p) => !p.hidden);
-  const chosen = new Set(BEST_PICKS.map((p) => photoIndex[p.path]?.src).filter(Boolean));
+  const chosen = new Set(chosenPicks.map((p) => p.photo.src));
   const extraPicks: ExtraPick[] = shuffleWithSeed(
     visible.filter((p) => !chosen.has(p.src)),
     daySeed(),
   )
-    .slice(0, Math.max(0, PICKS_WANTED - BEST_PICKS.length))
+    .slice(0, Math.max(0, PICKS_WANTED - chosenPicks.length))
     .map(({ category, hidden: _hidden, ...photo }) => {
       void _hidden;
       return { photo, category };
@@ -139,6 +175,7 @@ export default async function HomePage({
             .map((v) => L(v)),
           tiers: offeredPackages(service).map((pkg) => ({
             id: pkg.id,
+            ...(pkg.name ? { name: L(pkg.name) } : {}),
             duration: packageDuration(pkg, locale),
             photos: formatPhotoCountShort(pkg.photos, locale),
             delivery: formatDelivery(pkg.delivery, locale),
@@ -146,7 +183,11 @@ export default async function HomePage({
             highlight: Boolean(pkg.highlight),
           })),
           from: formatSom(entry.priceUzs, locale),
-          photos: pitchPaths.map((p) => photoIndex[p]).filter((p): p is NonNullable<typeof p> => Boolean(p)),
+          // The first photos of the Portraits page's rail: chosen in the
+          // Studio, or before the migration, its galleryPaths.
+          photos: placements
+            ? (placements[servicePlace(PITCH_SERVICE)] ?? []).slice(0, PITCH_PHOTOS).map((p) => p.photo)
+            : pitchPaths.map((p) => photoIndex[p]).filter((p): p is NonNullable<typeof p> => Boolean(p)),
         }
       : null;
 
@@ -161,7 +202,7 @@ export default async function HomePage({
       />
       <HomeContent
         albums={albums}
-        photoIndex={photoIndex}
+        chosenPicks={chosenPicks}
         extraPicks={extraPicks}
         galleries={galleries}
         sessions={sessions}
