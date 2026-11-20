@@ -2,6 +2,7 @@
   "brand": "Studio",
   "nav": {
     "galleries": "Galleries",
+    "services": "Services",
     "viewSite": "View site",
     "signOut": "Sign out",
     "language": "Language",
@@ -405,5 +406,146 @@
     "otherDevicesOn": "On, phones and other computers can upload",
     "otherDevicesOff": "Off, only this computer can upload",
     "otherDevicesHint": "To upload from a phone, install cloudflared once and restart the worker:"
+  },
+  "services": {
+    "title": "Services",
+    "blurb": "What each service page says and sells. Changes are kept as a draft until you publish them.",
+    "from": "from {price}",
+    "packagesOne": "1 package",
+    "packagesMany": "{n} packages",
+    "draft": "Unpublished changes",
+    "off": "Off the site",
+    "notSetUp": "The Services tab needs a database update: run supabase/migrations/20261120120000_service_content.sql.",
+    "back": "Services",
+    "openPage": "Open the page",
+    "switch": {
+      "label": "On the site",
+      "onHint": "Visitors see the page and can book it.",
+      "offHint": "Off: the page shows Not found, it's gone from Home and About, and it can't be booked."
+    },
+    "lang": {
+      "label": "Language you're editing",
+      "missing": "{n} not written"
+    },
+    "status": {
+      "saved": "Draft saved. Not on the site until you publish.",
+      "saving": "Saving…",
+      "error": "Not saved. It tries again when you type.",
+      "conflict": "Changed in another window.",
+      "upToDate": "No unpublished changes."
+    },
+    "toFinish": "{n} to finish before publishing",
+    "toFinishOne": "1 to finish before publishing",
+    "problems": {
+      "missing": "{field}, {lang}",
+      "empty": "{field}: add at least one",
+      "noPackages": "Packages: show at least one",
+      "invalid": "{field}: check the number",
+      "cover": "Cover: choose a photo from a published album"
+    },
+    "actions": {
+      "preview": "Preview",
+      "discard": "Discard changes",
+      "discardConfirm": "Discard all changes",
+      "publish": "Publish",
+      "publishing": "Publishing…",
+      "reload": "Reload",
+      "published": "Published. The page shows it now.",
+      "discarded": "Changes discarded."
+    },
+    "cover": {
+      "title": "Cover",
+      "hint": "Tap where the subject is. The page keeps that point in view.",
+      "focus": "Cover focus point",
+      "phone": "Phone",
+      "computer": "Computer",
+      "change": "Change photo",
+      "pick": "Choose a cover",
+      "pickHint": "Photos in published albums.",
+      "loading": "Loading photos…",
+      "none": "No published albums yet.",
+      "close": "Close"
+    },
+    "texts": {
+      "title": "Texts",
+      "name": "Service name",
+      "tagline": "Tagline",
+      "taglineHint": "One line under the name.",
+      "description": "Description",
+      "descriptionHint": "The first lines on the page. Google shows about {n} characters of it.",
+      "google": "In Google"
+    },
+    "includes": {
+      "title": "What's included",
+      "add": "Add a line",
+      "item": "Line {n}"
+    },
+    "prepare": {
+      "title": "How to prepare",
+      "add": "Add a step",
+      "item": "Step {n}"
+    },
+    "faqs": {
+      "title": "Questions",
+      "add": "Add a question",
+      "question": "Question {n}",
+      "answer": "Answer {n}"
+    },
+    "list": {
+      "up": "Move up",
+      "down": "Move down",
+      "remove": "Remove"
+    },
+    "packages": {
+      "title": "Packages",
+      "blurb": "Prices and what each one includes. A deleted package stays on record for the bookings made with it.",
+      "groupTitle": "Tab name",
+      "groupBlurb": "Text above the packages",
+      "untitled": "New package",
+      "name": "Name",
+      "nameHint": "Optional. Without a name, the length is the title.",
+      "price": "Price, so'm",
+      "minutes": "Length, minutes",
+      "days": "Ready in, days",
+      "photosMin": "Photos, from",
+      "photosMax": "Photos, up to",
+      "photosMaxHint": "Empty: no upper limit",
+      "description": "Description",
+      "descriptionHint": "Optional. A sentence at the top of the opened package.",
+      "perks": "Features",
+      "perksAdd": "Add a feature",
+      "perk": "Feature {n}",
+      "popular": "Most popular",
+      "shown": "Shown",
+      "hidden": "Hidden",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "add": "Add a package",
+      "full": "{n} packages at most",
+      "deleted": "Deleted ({n})",
+      "deletedHint": "Off the site. A restored one comes back hidden.",
+      "restore": "Restore"
+    },
+    "rail": {
+      "title": "Photos on this page",
+      "hint": "Live: changes here are on the site at once. To add a photo, open its album and use Add to… in the photo's menu.",
+      "first": "The page shows the first {n}.",
+      "empty": "None chosen: the page picks some from the portfolio.",
+      "left": "Move left",
+      "right": "Move right",
+      "remove": "Take off this page",
+      "notSetUp": "This needs a database update: run supabase/migrations/20261119120000_photo_placements.sql."
+    },
+    "errors": {
+      "failed": "That didn't work and nothing was changed. Try again.",
+      "notFound": "This service doesn't exist.",
+      "invalid": "Something in the draft wasn't accepted. Reload and try again.",
+      "conflict": "This service was changed in another window. Reload to see the latest.",
+      "stale": "The photos were changed in another window. Reload and try again.",
+      "nothingToPublish": "There's nothing new to publish.",
+      "incomplete": "Finish the marked fields first.",
+      "coverNotPublic": "The cover isn't in a published album. Choose another, or publish its album.",
+      "notSetUp": "This needs a database update: run supabase/migrations/20261120120000_service_content.sql."
+    }
   }
 }

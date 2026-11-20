@@ -5,7 +5,7 @@
 
 import type { MetadataRoute } from "next";
 import { getAllAlbumSlugs } from "@/src/lib/albums";
-import { getAllServiceSlugs } from "@/src/lib/services";
+import { getLiveServices } from "@/src/lib/live-services";
 import { locales, localeHreflang } from "@/src/lib/i18n/config";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://saycheeeeeze.studio";
@@ -45,9 +45,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     localised(`/albums/${slug}`, "monthly", 0.7, now)
   );
 
-  const serviceRoutes = getAllServiceSlugs().flatMap((slug) =>
-    localised(`/services/${slug}`, "monthly", 0.8, now)
-  );
+  // A service turned off in the Studio has no page, so it is not listed.
+  const serviceRoutes = (await getLiveServices())
+    .filter((s) => !s.off)
+    .flatMap((s) => localised(`/services/${s.slug}`, "monthly", 0.8, now));
 
   return [...staticRoutes, ...albumRoutes, ...serviceRoutes];
 }

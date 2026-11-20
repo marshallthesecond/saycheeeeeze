@@ -19,6 +19,7 @@ import { getGalleryIndex } from "@/src/lib/client-galleries";
 import { sessionSummaries } from "@/src/lib/session-summaries";
 import { formatSom } from "@/src/lib/packages";
 import { entryPackage, getServiceBySlug, offeredPackages, pickLocale } from "@/src/lib/services";
+import { getLiveServices } from "@/src/lib/live-services";
 import { formatDelivery, formatPhotoCountShort, packageDuration } from "@/src/lib/service-format";
 import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
 import type { ShelfAlbum } from "@/src/components/home/AlbumShelf";
@@ -80,21 +81,31 @@ export default async function HomePage({
   const schema = businessSchema(locale);
   const L = (v: Parameters<typeof pickLocale>[0]) => pickLocale(v, locale);
 
-  const service = getServiceBySlug(PITCH_SERVICE);
-  const pitchPaths = (service?.galleryPaths ?? []).slice(0, PITCH_PHOTOS);
+  // galleryPaths is the code's (the rail before the placements migration).
+  const pitchPaths = (getServiceBySlug(PITCH_SERVICE)?.galleryPaths ?? []).slice(0, PITCH_PHOTOS);
 
-  const [albums, photoIndex, portfolio, galleries, placements] = await Promise.all([
+  const [albums, photoIndex, portfolio, galleries, placements, liveServices] = await Promise.all([
     getAllAlbums(),
     getPhotosByPaths([...HOME_PHOTO_PATHS, ...pitchPaths]),
     getPortfolioPhotos(),
     getGalleryIndex(),
     getPlacements(),
+    getLiveServices(),
   ]);
 
-  const sessions = sessionSummaries(locale, (slug) => {
-    const path = SESSION_PHOTOS[slug];
-    return path ? photoIndex[path] : undefined;
-  });
+  // As the site shows them: the Studio's titles and prices. A service turned
+  // off is not listed, and the pitch goes when Portraits is off.
+  const live = liveServices.find((s) => s.slug === PITCH_SERVICE);
+  const service = live && !live.off ? live : undefined;
+
+  const sessions = sessionSummaries(
+    locale,
+    (slug) => {
+      const path = SESSION_PHOTOS[slug];
+      return path ? photoIndex[path] : undefined;
+    },
+    liveServices,
+  );
 
   // Best picks are chosen by hand: in the Studio ("Add to..." on a photo), or
   // before the placements migration, in BEST_PICKS. A photo that is also in
@@ -164,6 +175,7 @@ export default async function HomePage({
             .map((v) => L(v)),
           tiers: offeredPackages(service).map((pkg) => ({
             id: pkg.id,
+            ...(pkg.name ? { name: L(pkg.name) } : {}),
             duration: packageDuration(pkg, locale),
             photos: formatPhotoCountShort(pkg.photos, locale),
             delivery: formatDelivery(pkg.delivery, locale),

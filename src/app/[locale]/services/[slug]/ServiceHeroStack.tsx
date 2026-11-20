@@ -32,6 +32,8 @@ export interface HeroImage {
   webp: string;
   fallback: string;
   thumbhash?: string;
+  /** CSS object-position: where the subject sits ("50% 30%"). Absent: the middle. */
+  position?: string;
 }
 
 export interface HeroFrame extends HeroImage {
@@ -126,7 +128,7 @@ export default function ServiceHeroStack({
               fetchPriority="high"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
-              style={{ opacity: 0.55, filter: 'saturate(0.8)' }}
+              style={{ opacity: 0.55, filter: 'saturate(0.8)', objectPosition: ground.position }}
             />
           </picture>
         </span>

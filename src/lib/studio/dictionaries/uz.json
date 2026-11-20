@@ -2,6 +2,7 @@
   "brand": "Studiya",
   "nav": {
     "galleries": "Galereyalar",
+    "services": "Xizmatlar",
     "viewSite": "Saytni ochish",
     "signOut": "Chiqish",
     "language": "Til",
@@ -405,5 +406,146 @@
     "otherDevicesOn": "Yoqilgan, telefon va boshqa kompyuterlardan yuklash mumkin",
     "otherDevicesOff": "O'chirilgan, faqat shu kompyuterdan yuklash mumkin",
     "otherDevicesHint": "Telefondan yuklash uchun cloudflared'ni bir marta o'rnating va ishlovchini qayta ishga tushiring:"
+  },
+  "services": {
+    "title": "Xizmatlar",
+    "blurb": "Har bir xizmat sahifasi nima deydi va nima sotadi. O'zgarishlar chop etilmaguncha qoralamada saqlanadi.",
+    "from": "{price} dan",
+    "packagesOne": "1 ta paket",
+    "packagesMany": "{n} ta paket",
+    "draft": "Chop etilmagan o'zgarishlar bor",
+    "off": "Saytda yo'q",
+    "notSetUp": "\"Xizmatlar\" bo'limi uchun bazani yangilash kerak: supabase/migrations/20261120120000_service_content.sql ni ishga tushiring.",
+    "back": "Xizmatlar",
+    "openPage": "Sahifani ochish",
+    "switch": {
+      "label": "Saytda",
+      "onHint": "Tashrif buyuruvchilar sahifani ko'radi va yozila oladi.",
+      "offHint": "O'chirilgan: sahifa \"Topilmadi\" deydi, bosh sahifada va \"Men haqimda\"da yo'q, yozilib bo'lmaydi."
+    },
+    "lang": {
+      "label": "Tahrirlanayotgan til",
+      "missing": "yozilmagan: {n}"
+    },
+    "status": {
+      "saved": "Qoralama saqlandi. Chop etilgach saytda ko'rinadi.",
+      "saving": "Saqlanmoqda…",
+      "error": "Saqlanmadi. Yozishni davom ettirsangiz, yana urinadi.",
+      "conflict": "Boshqa oynada o'zgartirildi.",
+      "upToDate": "Chop etilmagan o'zgarishlar yo'q."
+    },
+    "toFinish": "Chop etishdan oldin to'ldirish kerak: {n}",
+    "toFinishOne": "Chop etishdan oldin to'ldirish kerak: 1",
+    "problems": {
+      "missing": "{field}, {lang}",
+      "empty": "{field}: kamida bittasini qo'shing",
+      "noPackages": "Paketlar: kamida bittasini ko'rsating",
+      "invalid": "{field}: raqamni tekshiring",
+      "cover": "Muqova: chop etilgan albomdan rasm tanlang"
+    },
+    "actions": {
+      "preview": "Oldindan ko'rish",
+      "discard": "Qoralamani o'chirish",
+      "discardConfirm": "Ha, barcha o'zgarishlarni o'chirish",
+      "publish": "Chop etish",
+      "publishing": "Chop etilmoqda…",
+      "reload": "Yangilash",
+      "published": "Chop etildi. Sahifa endi yangisini ko'rsatadi.",
+      "discarded": "O'zgarishlar o'chirildi."
+    },
+    "cover": {
+      "title": "Muqova",
+      "hint": "Asosiy narsa turgan joyni bosing. Sahifa o'sha nuqtani kesib tashlamaydi.",
+      "focus": "Muqovaning asosiy nuqtasi",
+      "phone": "Telefon",
+      "computer": "Kompyuter",
+      "change": "Rasmni almashtirish",
+      "pick": "Muqova tanlang",
+      "pickHint": "Chop etilgan albomlardagi rasmlar.",
+      "loading": "Rasmlar yuklanmoqda…",
+      "none": "Hali chop etilgan albom yo'q.",
+      "close": "Yopish"
+    },
+    "texts": {
+      "title": "Matnlar",
+      "name": "Xizmat nomi",
+      "tagline": "Qisqa jumla",
+      "taglineHint": "Nom ostidagi bitta qator.",
+      "description": "Tavsif",
+      "descriptionHint": "Sahifadagi birinchi qatorlar. Google taxminan {n} belgisini ko'rsatadi.",
+      "google": "Google'da"
+    },
+    "includes": {
+      "title": "Nimalar kiradi",
+      "add": "Qator qo'shish",
+      "item": "{n}-qator"
+    },
+    "prepare": {
+      "title": "Qanday tayyorlanish kerak",
+      "add": "Qadam qo'shish",
+      "item": "{n}-qadam"
+    },
+    "faqs": {
+      "title": "Savollar",
+      "add": "Savol qo'shish",
+      "question": "{n}-savol",
+      "answer": "{n}-javob"
+    },
+    "list": {
+      "up": "Yuqoriga",
+      "down": "Pastga",
+      "remove": "Olib tashlash"
+    },
+    "packages": {
+      "title": "Paketlar",
+      "blurb": "Narxlar va har biriga nimalar kiradi. O'chirilgan paket u bilan qilingan yozilishlar uchun saqlanib qoladi.",
+      "groupTitle": "Tab nomi",
+      "groupBlurb": "Paketlar ustidagi matn",
+      "untitled": "Yangi paket",
+      "name": "Nomi",
+      "nameHint": "Ixtiyoriy. Nomsiz bo'lsa, sarlavha davomiylik bo'ladi.",
+      "price": "Narx, so'm",
+      "minutes": "Davomiyligi, daqiqa",
+      "days": "Tayyor bo'ladi, kun",
+      "photosMin": "Rasmlar, dan",
+      "photosMax": "Rasmlar, gacha",
+      "photosMaxHint": "Bo'sh: yuqori chegara yo'q",
+      "description": "Tavsif",
+      "descriptionHint": "Ixtiyoriy. Ochilgan paket boshidagi bitta jumla.",
+      "perks": "Nimalar kiradi",
+      "perksAdd": "Band qo'shish",
+      "perk": "{n}-band",
+      "popular": "Eng mashhur",
+      "shown": "Ko'rsatilgan",
+      "hidden": "Yashirin",
+      "duplicate": "Nusxa olish",
+      "delete": "O'chirish",
+      "add": "Paket qo'shish",
+      "full": "Ko'pi bilan {n} ta paket",
+      "deleted": "O'chirilganlar ({n})",
+      "deletedHint": "Saytda yo'q. Tiklangan paket yashirin holda qaytadi.",
+      "restore": "Tiklash"
+    },
+    "rail": {
+      "title": "Shu sahifadagi rasmlar",
+      "hint": "Darhol saytda: bu yerdagi o'zgarishlar chop etmasdan ko'rinadi. Rasm qo'shish uchun uning albomini oching va rasm menyusidan \"Qo'shish…\"ni tanlang.",
+      "first": "Sahifa birinchi {n} tasini ko'rsatadi.",
+      "empty": "Tanlanmagan: sahifa portfoliodan rasm oladi.",
+      "left": "Chapga",
+      "right": "O'ngga",
+      "remove": "Shu sahifadan olib tashlash",
+      "notSetUp": "Bazani yangilash kerak: supabase/migrations/20261119120000_photo_placements.sql ni ishga tushiring."
+    },
+    "errors": {
+      "failed": "Bo'lmadi, hech narsa o'zgarmadi. Yana urinib ko'ring.",
+      "notFound": "Bunday xizmat yo'q.",
+      "invalid": "Qoralamadagi nimadir qabul qilinmadi. Sahifani yangilab, qayta urinib ko'ring.",
+      "conflict": "Bu xizmat boshqa oynada o'zgartirildi. Oxirgisini ko'rish uchun sahifani yangilang.",
+      "stale": "Rasmlar boshqa oynada o'zgartirildi. Sahifani yangilab, qayta urinib ko'ring.",
+      "nothingToPublish": "Chop etadigan yangi narsa yo'q.",
+      "incomplete": "Avval belgilangan maydonlarni to'ldiring.",
+      "coverNotPublic": "Muqova chop etilgan albomda emas. Boshqasini tanlang yoki uning albomini chop eting.",
+      "notSetUp": "Bazani yangilash kerak: supabase/migrations/20261120120000_service_content.sql ni ishga tushiring."
+    }
   }
 }

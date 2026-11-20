@@ -27,10 +27,12 @@ export function offeredGroups(service: ServiceData): ServicePackageGroup[] {
   return (service.packageGroups ?? []).filter((g) => !g.retired);
 }
 
-/** Every package a service still offers — allPackages minus the retired groups. */
+/** Every package a service still offers: allPackages minus retired groups and packages. */
 export function offeredPackages(service: ServiceData): ServicePackage[] {
-  if (service.packageGroups?.length) return offeredGroups(service).flatMap((g) => g.packages);
-  return service.packages ?? [];
+  if (service.packageGroups?.length) {
+    return offeredGroups(service).flatMap((g) => g.packages.filter((p) => !p.retired));
+  }
+  return (service.packages ?? []).filter((p) => !p.retired);
 }
 
 /**
@@ -161,6 +163,20 @@ export interface ServicePackage {
    * sell a fixed-size session.
    */
   groupSize?: number;
+  /**
+   * A name set in the Studio ("Classic", "Group"). The card's title when
+   * present, with the length under it; absent, the length is the title, as
+   * it always was. Never set in code.
+   */
+  name?: Localized;
+  /** A sentence set in the Studio, at the top of the opened package. */
+  description?: Localized;
+  /**
+   * Hidden or deleted in the Studio: off the page and not bookable, but still
+   * found by its id, so a booking made before keeps its name and price. The
+   * same rule as `retired` on ServicePackageGroup, for one package.
+   */
+  retired?: boolean;
 }
 
 /**
@@ -209,7 +225,11 @@ export interface ServicePackageGroup {
 
 /** The same, after pickLocale() has run — what the client components receive. */
 export interface ResolvedPackage
-  extends Omit<ServicePackage, 'perks' | 'note' | 'duration' | 'photos' | 'delivery'> {
+  extends Omit<ServicePackage, 'perks' | 'note' | 'duration' | 'photos' | 'delivery' | 'name' | 'description'> {
+  /** The Studio's name; the card's title when present. */
+  name?: string;
+  /** The Studio's sentence, at the top of the opened package. */
+  description?: string;
   /** Rendered from durationMinutes (or the override) in the page's locale. */
   duration: string;
   photos: string;
@@ -445,6 +465,17 @@ export interface ServiceData {
    *  through accentText() in services/[slug]/accent.ts — a raw accent as text
    *  fails AA on the dark ground. */
   accentColor: string;
+  /**
+   * Where the subject of the cover sits, in percent from the left and the top.
+   * The hero crops the photograph to its own shape; this keeps the subject in
+   * the crop. Set in the Studio; absent means the middle.
+   */
+  coverFocus?: { x: number; y: number };
+  /**
+   * Turned off in the Studio: no page, not on the lists, not bookable. Never
+   * set in code. See service-content.ts.
+   */
+  off?: boolean;
 }
 
 /**

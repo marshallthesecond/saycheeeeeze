@@ -36,7 +36,7 @@ import {
   pickList,
 } from "@/src/lib/packages";
 import {
-  findCatalogItem,
+  createCatalog,
   type CatalogItem,
 } from "@/src/lib/booking-catalog";
 import {
@@ -51,9 +51,10 @@ import {
   BOOKING_LOCATIONS, EXTRA_LOCATION_FEE_UZS, INCLUDED_LOCATIONS, MAX_LOCATIONS,
   getLocation, locationSurchargeUzs, needsConsult,
 } from "@/src/lib/locations";
-import { pickLocale } from "@/src/lib/services";
+import { pickLocale, servicesData } from "@/src/lib/services";
+import { applyOverlay, type ServiceOverlay } from "@/src/lib/service-content";
 import {
-  formatDelivery, formatPhotoCount, packageDuration,
+  formatDelivery, formatPhotoCount, packageDuration, packageTitle,
 } from "@/src/lib/service-format";
 import { CalendarPicker, EventSlotPicker, StartTimePicker } from "./CalendarPicker";
 
@@ -129,6 +130,11 @@ interface Props {
   /** Start times already sold on the fixed-slot event day. */
   eventSlots: string[];
   availability: AvailabilityConfig;
+  /**
+   * What was published and turned off in the Studio. Applied here exactly as
+   * the server applies it, so the prices shown are the prices charged.
+   */
+  overlay: ServiceOverlay;
 }
 
 export default function BookingClient(props: Props) {
@@ -139,9 +145,14 @@ export default function BookingClient(props: Props) {
   );
 }
 
-function BookingInner({ packages, taken, blackouts, eventSlots, availability }: Props) {
+function BookingInner({ packages, taken, blackouts, eventSlots, availability, overlay }: Props) {
   const { t, locale } = useT();
   const searchParams = useSearchParams();
+
+  // The services as the site shows them, and their price list. Built once per
+  // overlay, which is once for the life of the page.
+  const services = useMemo(() => applyOverlay(servicesData, overlay), [overlay]);
+  const catalog = useMemo(() => createCatalog(services), [services]);
 
   // A "Book this" click from a service page lands here pre-filled.
   const slugParam = searchParams.get("service");
@@ -157,12 +168,17 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // nothing to fall back to now: a service whose tiers we cannot name leaves
   // the client on the generic ladder below, which is the same three prices its
   // page just showed them.
-  const presetPackage = useMemo(
-    () =>
-      (packageParam && findCatalogItem(packageParam) ? packageParam : null) ??
-      (packages.some((p) => p.id === packageParam) ? packageParam : null),
-    [packageParam, packages],
-  );
+  //
+  // A tier that is withdrawn (hidden or deleted in the Studio, or its service
+  // turned off) is not preselected: the server would refuse it, and the list
+  // in step 1 does not show it.
+  const presetPackage = useMemo(() => {
+    const item = packageParam ? catalog.findCatalogItem(packageParam) : undefined;
+    return (
+      (item && !item.retired ? packageParam : null) ??
+      (packages.some((p) => p.id === packageParam) ? packageParam : null)
+    );
+  }, [packageParam, packages, catalog]);
 
   const today = useMemo(() => todayInTashkent(), []);
   const todayISO = useMemo(() => toISODate(today), [today]);
@@ -177,8 +193,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
    * the event.
    */
   const options = useMemo(
-    () => offeredServices(todayISO, slugParam),
-    [todayISO, slugParam],
+    () => offeredServices(todayISO, slugParam, services, catalog),
+    [todayISO, slugParam, services, catalog],
   );
 
   /**
@@ -188,10 +204,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
    * knows its own service. Then `?service=`. Then nothing, and step 1 asks.
    */
   const presetService = useMemo(() => {
-    const fromPackage = packageParam ? findCatalogItem(packageParam)?.serviceSlug : null;
+    const fromPackage = packageParam ? catalog.findCatalogItem(packageParam)?.serviceSlug : null;
     const candidate = fromPackage ?? slugParam;
     return candidate && options.some((o) => o.id === candidate) ? candidate : null;
-  }, [packageParam, slugParam, options]);
+  }, [packageParam, slugParam, options, catalog]);
 
   /**
    * The month the calendar opens on — the first one with a bookable day in it,
@@ -212,7 +228,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // answered this already, so it's preselected rather than asked again —
   // still changeable.
   const presetLocation =
-    (presetPackage ? findCatalogItem(presetPackage)?.locationIds[0] : null) ?? null;
+    (presetPackage ? catalog.findCatalogItem(presetPackage)?.locationIds[0] : null) ?? null;
 
   // A function initialiser, not an object literal. The literal was built on
   // every render and thrown away on all but the first — cheap in isolation,
@@ -285,8 +301,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
 
   /** The tiers for step 1. */
   const offered = useMemo(
-    () => catalogForBooking(state.serviceId),
-    [state.serviceId],
+    () => catalogForBooking(state.serviceId, catalog),
+    [state.serviceId, catalog],
   );
 
   /**
@@ -313,8 +329,8 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // The tier the client actually clicked on the service page, when there was
   // one. Wins over the generic four.
   const catalogItem = useMemo(
-    () => (state.packageId ? findCatalogItem(state.packageId) ?? null : null),
-    [state.packageId]
+    () => (state.packageId ? catalog.findCatalogItem(state.packageId) ?? null : null),
+    [state.packageId, catalog]
   );
 
   /**
@@ -332,7 +348,10 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
         id: catalogItem.id,
         // pickLocale, not a bare interpolation: a Localized dropped into a
         // template literal type-checks perfectly and prints "[object Object]".
-        name: `${pickLocale(catalogItem.serviceTitle, locale)} · ${durationLabel}`,
+        // A package named in the Studio is called by its name.
+        name: `${pickLocale(catalogItem.serviceTitle, locale)} · ${
+          catalogItem.name ? packageTitle(catalogItem, locale) : durationLabel
+        }`,
         durationLabel,
         durationMinutes: catalogItem.durationMinutes,
         photos: formatPhotoCount(catalogItem.photos, locale),
@@ -389,7 +408,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
       // or any pick that isn't simply the previous package's default, is an
       // answer and must not be overwritten.
       const previousDefault = prev.packageId
-        ? findCatalogItem(prev.packageId)?.locationIds[0] ?? null
+        ? catalog.findCatalogItem(prev.packageId)?.locationIds[0] ?? null
         : null;
       const untouched =
         prev.locationIds.length === 0 ||
@@ -404,7 +423,7 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
         locationIds: moveLocation ? [item.locationIds[0]] : prev.locationIds,
       };
     });
-  }, []);
+  }, [catalog]);
 
   const selectDate = useCallback((iso: string) => {
     setError(null);
@@ -463,13 +482,16 @@ function BookingInner({ packages, taken, blackouts, eventSlots, availability }: 
   // Display only. The server recomputes with the SAME function and wins.
   const quote = useMemo(
     () =>
-      quoteBooking({
-        packageId: state.packageId,
-        sessionPackages: packages,
-        peopleCount: state.peopleCount,
-        locationIds: state.locationIds,
-      }),
-    [state.packageId, state.peopleCount, state.locationIds, packages]
+      quoteBooking(
+        {
+          packageId: state.packageId,
+          sessionPackages: packages,
+          peopleCount: state.peopleCount,
+          locationIds: state.locationIds,
+        },
+        catalog,
+      ),
+    [state.packageId, state.peopleCount, state.locationIds, packages, catalog]
   );
 
   /**
@@ -1549,7 +1571,12 @@ const SingleTier = memo(function SingleTier({ item, peopleCount, onPeople }: {
   return (
     <div className="rounded-2xl border border-accent-warm bg-accent-warm/8 p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="font-semibold text-base">{packageDuration(item, locale)}</p>
+        <div className="min-w-0">
+          <p className="font-semibold text-base">
+            {item.name ? pickLocale(item.name, locale) : packageDuration(item, locale)}
+          </p>
+          {item.name && <p className="mt-0.5 text-xs text-muted-foreground">{packageDuration(item, locale)}</p>}
+        </div>
         <p className="text-sm font-bold shrink-0 tabular-nums">
           {isFrom
             ? t("book.priceFrom").replace("{price}", formatSom(shown, locale))
@@ -1622,10 +1649,10 @@ const CatalogPicker = memo(function CatalogPicker(
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-semibold text-base">
-                      {packageDuration(item, locale)}
-                      {item.note ? ` · ${pickLocale(item.note, locale)}` : ""}
-                    </p>
+                    <p className="font-semibold text-base">{packageTitle(item, locale)}</p>
+                    {item.name && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{packageDuration(item, locale)}</p>
+                    )}
                     {item.highlight && (
                       <p className="text-[10px] font-bold uppercase tracking-wider text-accent-warm mt-0.5">
                         {t("service.mostPopular")}
@@ -1637,8 +1664,13 @@ const CatalogPicker = memo(function CatalogPicker(
                   </p>
                 </div>
 
+                {active && item.description && (
+                  <p className="mt-3 pt-3 border-t border-border text-xs leading-relaxed text-muted-foreground">
+                    {pickLocale(item.description, locale)}
+                  </p>
+                )}
                 {active && (
-                  <ul className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
+                  <ul className={`flex flex-col gap-1.5 ${item.description ? "mt-2" : "mt-3 pt-3 border-t border-border"}`}>
                     {[
                       formatPhotoCount(item.photos, locale),
                       formatDelivery(item.delivery, locale),

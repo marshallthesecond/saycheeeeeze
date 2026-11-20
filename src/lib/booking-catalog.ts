@@ -1,9 +1,14 @@
 // What a service page advertises, in the shape the booking form needs.
 //
 // Deliberately not server-only: the API route and the form both import it, so
-// there is one price list instead of two that disagree. Prices stay in
-// services.ts rather than the database for the same reason — the cost is that
-// changing one needs a deploy.
+// there is one price list instead of two that disagree.
+//
+// Prices are in services.ts, and since the Studio's Services tab
+// (2026-11-20) also in what was published there. createCatalog() builds a
+// catalogue from a list of services: the route builds one from
+// getLiveServices(), the form from the same overlay handed down by its page.
+// The functions exported at the bottom are the code-only catalogue, for what
+// does not need the Studio's prices.
 
 // One-off events. mini-sessions.ts takes only the CatalogItem TYPE back from
 // here, with `import type`, so this pair is not a runtime cycle.
@@ -38,6 +43,10 @@ export interface CatalogItem {
   highlight: boolean;
   perks: Localized[];
   note: Localized | null;
+  /** The Studio's name for it, when it has one. See ServicePackage.name. */
+  name?: Localized;
+  /** The Studio's sentence about it. */
+  description?: Localized;
   /** First is preselected, rest are the short list; empty means offer all. */
   locationIds: string[];
   /**
@@ -109,6 +118,8 @@ function toItem(
     highlight: pkg.highlight ?? false,
     perks: pkg.perks ?? [],
     note: pkg.note ?? null,
+    ...(pkg.name !== undefined ? { name: pkg.name } : {}),
+    ...(pkg.description !== undefined ? { description: pkg.description } : {}),
     locationIds,
     asksPeople: pkg.asksPeople ?? null,
   };
@@ -165,68 +176,21 @@ export function genericCatalog(): CatalogItem[] {
   return genericCache;
 }
 
-/**
- * Every individually bookable tier, in display order. Empty when a service's
- * packages have no `id` — those are marketing tiers and still route through
- * SERVICE_TO_PACKAGE. Adding an id is what makes a tier bookable.
- *
- * MEMOISED, and the reason is not micro-optimisation. `servicesData` is a
- * frozen module-level literal, so the answer for a slug can never change
- * within a process — but this used to run a `.find` over every service and
- * rebuild every CatalogItem object on EVERY call, and findCatalogItem() below
- * called it once per service per lookup. The booking form calls
- * findCatalogItem() during render, so a visitor arriving on
- * `/book?package=portraits-90m` rebuilt the entire catalogue of four services
- * on every keystroke they typed into the name field.
- *
- * Returning the cached array also makes the result REFERENTIALLY STABLE, which
- * is what lets `useMemo` and `React.memo` in the form actually hold.
- */
-const serviceCache = new Map<string, CatalogItem[]>();
-
-export function catalogForService(slug: string): CatalogItem[] {
-  const hit = serviceCache.get(slug);
-  if (hit) return hit;
-
-  const built = buildCatalogForService(slug);
-  serviceCache.set(slug, built);
-  return built;
-}
-
-/**
- * WHAT IS OFFERED. Retired groups are not in here, which is what takes them
- * off the service page's price list and out of the booking form.
- */
-function buildCatalogForService(slug: string): CatalogItem[] {
-  return buildForService(slug, { includeRetired: false });
-}
-
-/**
- * WHAT CAN BE PRICED — the offered tiers plus the withdrawn ones.
- *
- * Read only by buildLiveIndex() below, so findCatalogItem() keeps resolving a
- * retired id while nothing that renders a choice ever sees one. Exactly the
- * miniCatalog() / miniPriceableItems() split, applied to service groups.
- */
-function priceableForService(slug: string): CatalogItem[] {
-  return buildForService(slug, { includeRetired: true });
-}
-
-function buildForService(slug: string, opts: { includeRetired: boolean }): CatalogItem[] {
-  const service = servicesData.find((s) => s.slug === slug);
-  if (!service) return [];
-
-  if (service.packageGroups?.length) {
-    const groups = opts.includeRetired ? service.packageGroups : offeredGroups(service);
-    return groups.flatMap((g) =>
-      g.packages
-        .filter((p) => p.id)
-        .map((p) => toItem(service, p, g.key, g.title, g.locationIds ?? [], g.retired === true)),
-    );
-  }
-  return allPackages(service)
-    .filter((p) => p.id)
-    .map((p) => toItem(service, p, null, null, []));
+/** A price list built from one set of services. */
+export interface Catalog {
+  /**
+   * Every individually bookable tier of a service, in display order: retired
+   * groups and packages left out, and nothing at all for a service turned off
+   * in the Studio. Referentially stable per slug, which is what lets `useMemo`
+   * and `React.memo` in the form hold.
+   */
+  catalogForService(slug: string): CatalogItem[];
+  /**
+   * One tier by id, across every service, the one-off events and the generic
+   * ladder, retired or not (`retired` on the item says which).
+   */
+  findCatalogItem(id: string): CatalogItem | undefined;
+  isCatalogPackage(id: string | null | undefined): boolean;
 }
 
 /**
@@ -273,63 +237,118 @@ function rewriteRetiredId(id: string): string | undefined {
 }
 
 /**
- * One tier by id, across every service, the one-off events and the generic
- * ladder.
+ * Every tier of a service, offered or (with includeRetired) withdrawn too.
  *
- * This is the function the API route prices a booking with, so anything the
- * form can offer MUST be findable here or the booking is rejected with
- * "package". That is why the mini-sessions are checked too: they have no
- * service page and would otherwise be unpriceable.
- *
- * The generic ids are checked LAST and by exact match, so a service that ever
- * takes the slug "session" shadows nothing. Retired ids are checked after
- * those, so a live tier always wins over a rewritten one.
+ * A service turned off in the Studio offers nothing, and every one of its
+ * tiers is retired: still priceable, so its bookings keep their name, and
+ * refused by the API route as new ones.
  */
-let liveIndex: Map<string, CatalogItem> | null = null;
+function buildForService(service: ServiceData, opts: { includeRetired: boolean }): CatalogItem[] {
+  const off = service.off === true;
+  if (off && !opts.includeRetired) return [];
 
-/**
- * One id -> tier index, built once.
- *
- * Insertion order is the resolution order the doc comment above promises, and
- * `Map.set` keeps the FIRST writer when guarded — so services win over the
- * event, and the event over the generic ladder, exactly as the sequential
- * version did. Spelt out with an explicit `has` check rather than relying on
- * insertion order, because `set` overwrites and the quiet version of this bug
- * is a generic `session-90m` shadowing a real service tier.
- */
-function buildLiveIndex(): Map<string, CatalogItem> {
-  const index = new Map<string, CatalogItem>();
-  const add = (item: CatalogItem) => {
-    if (!index.has(item.id)) index.set(item.id, item);
-  };
-  // priceableForService(), not catalogForService(): a withdrawn tier must stay
-  // resolvable so its bookings can still be named and an old link still
-  // prices. `retired` on the item is what stops it being SOLD again.
-  for (const service of servicesData) for (const item of priceableForService(service.slug)) add(item);
-  // miniPriceableItems(), not miniCatalog(): a finished event's tier must stay
-  // priceable so its bookings can still be named and an old link still works.
-  for (const item of miniPriceableItems()) add(item);
-  for (const item of genericCatalog()) add(item);
-  return index;
+  if (service.packageGroups?.length) {
+    const groups = opts.includeRetired ? service.packageGroups : offeredGroups(service);
+    return groups.flatMap((g) =>
+      g.packages
+        .filter((p) => p.id && (opts.includeRetired || !p.retired))
+        .map((p) =>
+          toItem(service, p, g.key, g.title, g.locationIds ?? [], off || g.retired === true || p.retired === true),
+        ),
+    );
+  }
+  return allPackages(service)
+    .filter((p) => p.id && (opts.includeRetired || !p.retired))
+    .map((p) => toItem(service, p, null, null, [], off || p.retired === true));
 }
 
-function findLiveItem(id: string): CatalogItem | undefined {
-  liveIndex ??= buildLiveIndex();
-  return liveIndex.get(id);
+/**
+ * A catalogue for these services.
+ *
+ * Every answer is MEMOISED, and the reason is not micro-optimisation. The
+ * booking form calls findCatalogItem() during render, so without it a visitor
+ * arriving on `/book?package=portraits-90m` rebuilt the entire catalogue on
+ * every keystroke they typed into the name field. A catalogue is built for one
+ * list of services and never sees another, so nothing it caches goes stale.
+ */
+export function createCatalog(services: readonly ServiceData[]): Catalog {
+  const bySlug = new Map(services.map((s) => [s.slug, s]));
+  const offered = new Map<string, CatalogItem[]>();
+
+  const catalogForService = (slug: string): CatalogItem[] => {
+    const hit = offered.get(slug);
+    if (hit) return hit;
+    const service = bySlug.get(slug);
+    const built = service ? buildForService(service, { includeRetired: false }) : [];
+    offered.set(slug, built);
+    return built;
+  };
+
+  /**
+   * One id -> tier index, built once.
+   *
+   * Insertion order is the resolution order: services win over the event, and
+   * the event over the generic ladder. Spelt out with an explicit `has` check
+   * rather than relying on insertion order, because `set` overwrites and the
+   * quiet version of this bug is a generic `session-90m` shadowing a real
+   * service tier. The generic ids are checked LAST and by exact match, so a
+   * service that ever takes the slug "session" shadows nothing.
+   */
+  let index: Map<string, CatalogItem> | null = null;
+  const buildIndex = (): Map<string, CatalogItem> => {
+    const out = new Map<string, CatalogItem>();
+    const add = (item: CatalogItem) => {
+      if (!out.has(item.id)) out.set(item.id, item);
+    };
+    // includeRetired: a withdrawn tier must stay resolvable so its bookings
+    // can still be named and an old link still prices. `retired` on the item
+    // is what stops it being SOLD again.
+    for (const service of services) for (const item of buildForService(service, { includeRetired: true })) add(item);
+    // miniPriceableItems(), not miniCatalog(): a finished event's tier must stay
+    // priceable so its bookings can still be named and an old link still works.
+    for (const item of miniPriceableItems()) add(item);
+    for (const item of genericCatalog()) add(item);
+    return out;
+  };
+  const findLive = (id: string) => (index ??= buildIndex()).get(id);
+
+  /**
+   * This is what the API route prices a booking with, so anything the form
+   * can offer MUST be findable here or the booking is rejected with "package".
+   * Retired service ids are tried after everything else, so a live tier always
+   * wins over a rewritten one.
+   */
+  const findCatalogItem = (id: string): CatalogItem | undefined => {
+    const live = findLive(id);
+    if (live) return live;
+    // Exactly one hop, by construction rather than by comment: the rewritten
+    // id goes to findLive, not back through here, so a retired slug pointing
+    // at another retired slug resolves to nothing instead of looping for ever.
+    const rewritten = rewriteRetiredId(id);
+    return rewritten ? findLive(rewritten) : undefined;
+  };
+
+  return {
+    catalogForService,
+    findCatalogItem,
+    isCatalogPackage: (id) => !!id && findCatalogItem(id) !== undefined,
+  };
+}
+
+/**
+ * The catalogue of the code alone, before anything published in the Studio.
+ * For callers that only need a tier's identity, not its current price.
+ */
+export const codeCatalog: Catalog = createCatalog(servicesData);
+
+export function catalogForService(slug: string): CatalogItem[] {
+  return codeCatalog.catalogForService(slug);
 }
 
 export function findCatalogItem(id: string): CatalogItem | undefined {
-  const live = findLiveItem(id);
-  if (live) return live;
-
-  // Exactly one hop, by construction rather than by comment: the rewritten id
-  // goes to findLiveItem, not back through here, so a retired slug pointing at
-  // another retired slug resolves to nothing instead of looping for ever.
-  const rewritten = rewriteRetiredId(id);
-  return rewritten ? findLiveItem(rewritten) : undefined;
+  return codeCatalog.findCatalogItem(id);
 }
 
-/** Is this id something the catalogue can price? */
 export function isCatalogPackage(id: string | null | undefined): boolean {
-  return !!id && findCatalogItem(id) !== undefined;
+  return codeCatalog.isCatalogPackage(id);
 }

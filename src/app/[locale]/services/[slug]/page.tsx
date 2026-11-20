@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -7,12 +8,13 @@ import {
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import {
-  getServiceBySlug,
   getAllServiceSlugs,
   offeredGroups,
   pickLocale,
   pickLocaleOpt,
 } from '@/src/lib/services';
+import { getLiveService } from '@/src/lib/live-services';
+import { previewService } from '@/src/lib/studio/services';
 import type {
   Localized,
   ResolvedAudience,
@@ -48,6 +50,7 @@ import ServicePackages from './ServicePackages';
 import ServiceNotice from './ServiceNotice';
 import ServiceHero from './ServiceHero';
 import ServiceHeroStack from './ServiceHeroStack';
+import PreviewBar from './PreviewBar';
 import type { HeroFrame, HeroImage } from './ServiceHeroStack';
 import {
   AudienceOnly,
@@ -69,14 +72,37 @@ export function generateStaticParams() {
   return getAllServiceSlugs().map((slug) => ({ slug }));
 }
 
+/**
+ * The service this page shows: as published, with the Studio's content laid
+ * over the code (see live-services.ts). None when it is turned off.
+ *
+ * In preview (draft mode, from the Studio's Preview button) and signed in to
+ * the Studio: the draft, shown even when the service is off.
+ */
+async function serviceFor(slug: string): Promise<{ service: ServiceData; preview: boolean } | null> {
+  if ((await draftMode()).isEnabled) {
+    const draft = await previewService(slug);
+    if (draft) return { service: draft, preview: true };
+  }
+  const live = await getLiveService(slug);
+  return live && !live.off ? { service: live, preview: false } : null;
+}
+
+/** CSS object-position for the cover's focus point. */
+function focusOf(service: ServiceData): string | undefined {
+  const f = service.coverFocus;
+  return f && (f.x !== 50 || f.y !== 50) ? `${f.x}% ${f.y}%` : undefined;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
   const { slug, locale } = await params;
-  const service = getServiceBySlug(slug);
-  if (!service) return { title: 'Service not found' };
+  const found = await serviceFor(slug);
+  if (!found) return { title: 'Service not found' };
+  const { service } = found;
 
   // Metadata is part of the page. A Russian search result with an English
   // title is the same bug as an English heading, except it happens before
@@ -238,8 +264,9 @@ export default async function ServicePage({
   params: Promise<{ slug: string; locale: string }>;
 }) {
   const { slug, locale } = await params;
-  const service = getServiceBySlug(slug);
-  if (!service) notFound();
+  const found = await serviceFor(slug);
+  if (!found) notFound();
+  const { service, preview } = found;
 
   // Validated once. `locale` off the params is a string the router happens to
   // have matched; everything below that needs a real Locale — the dictionary,
@@ -295,10 +322,12 @@ export default async function ServicePage({
   );
   // Falls back to the cover when no ground is named — the cover is the one
   // photograph every service is guaranteed to have.
-  const heroGround = ladderSources(
+  const coverPosition = focusOf(service);
+  const groundSources = ladderSources(
     photoRows[groundPath ?? service.coverPath],
     HERO_GROUND_MAX,
   );
+  const heroGround = groundSources && coverPosition ? { ...groundSources, position: coverPosition } : groundSources;
 
   // packageGroups wins where both exist; a flat list is wrapped in one unnamed
   // group so the render path below is the same either way.
@@ -400,6 +429,11 @@ export default async function ServicePage({
         // so this fallback has to tolerate its absence rather than assume it.
       : [{ key: 'default', title: '', blurb: '', packages: service.packages ?? [] }]
   ).map((g) => ({
+    ...g,
+    // Hidden or deleted in the Studio: off the page, still bookable by id for
+    // the bookings already made (see `retired` on ServicePackage).
+    packages: g.packages.filter((p) => !p.retired),
+  })).map((g) => ({
     key: g.key,
     title: L(g.title),
     blurb: L(g.blurb),
@@ -416,6 +450,8 @@ export default async function ServicePage({
       delivery: formatDelivery(pkg.delivery, locale),
       perks: pkg.perks?.map((perk) => L(perk)),
       note: pickLocaleOpt(pkg.note, locale),
+      name: pickLocaleOpt(pkg.name, locale),
+      description: pickLocaleOpt(pkg.description, locale),
     })),
   }));
 
@@ -506,7 +542,7 @@ export default async function ServicePage({
   const offers = packageGroups.flatMap((g) =>
     g.packages.map((pkg) => ({
       '@type': 'Offer',
-      name: [g.title, pkg.duration].filter(Boolean).join(' · '),
+      name: [g.title, pkg.name ?? pkg.duration].filter(Boolean).join(' · '),
       price: String(pkg.priceUzs),
       priceCurrency: 'UZS',
       availability: 'https://schema.org/InStock',
@@ -535,7 +571,8 @@ export default async function ServicePage({
   // One <script> holding an array, rather than two tags. Both are valid
   // JSON-LD and parsers read either; one tag is one place to look when a
   // Rich Results test disagrees with the page.
-  const pageSchema = [faqSchema, serviceSchema];
+  // No FAQPage without questions: an empty one is a worse signal than none.
+  const pageSchema = faqs.length > 0 ? [faqSchema, serviceSchema] : [serviceSchema];
 
   return (
     // Everything inside stays a server component: a client provider can take
@@ -597,6 +634,7 @@ export default async function ServicePage({
               fetchPriority="high"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
+              style={coverPosition ? { objectPosition: coverPosition } : undefined}
             />
           </picture>
         ) : (
@@ -607,6 +645,7 @@ export default async function ServicePage({
             sizes="100vw"
             unoptimized
             className="object-cover"
+            style={coverPosition ? { objectPosition: coverPosition } : undefined}
             priority
           />
         )}
@@ -922,6 +961,14 @@ export default async function ServicePage({
         </div>
 
       </main>
+      {preview && (
+        <PreviewBar
+          label={s.previewBar}
+          offNote={service.off ? s.previewOff : undefined}
+          exitLabel={s.previewExit}
+          exitHref={`/api/studio/preview?exit=1&slug=${encodeURIComponent(slug)}`}
+        />
+      )}
     </div>
     </AudienceProvider>
   );

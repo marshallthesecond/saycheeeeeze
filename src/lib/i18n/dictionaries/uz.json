@@ -232,7 +232,10 @@
     "close": "Yopish",
     "privateGalleryTitle": "Faqat sizniki bo‘lgan shaxsiy galereya",
     "privateGalleryBody": "Har bir paketda — kirish kodi bilan himoyalangan havola, faqat sizniki, umumiy disk papkasi emas.",
-    "photoAlt": "{title} — namuna {n}"
+    "photoAlt": "{title} — namuna {n}",
+    "previewBar": "Chop etilmagan o'zgarishlar ko'rinishi",
+    "previewOff": "Xizmat o'chirilgan: tashrif buyuruvchilar «Topilmadi» sahifasini ko'radi",
+    "previewExit": "Studiyaga qaytish"
   },
   "notFound": {
     "title": "Bu sahifa mavjud emas",

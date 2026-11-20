@@ -11,6 +11,7 @@ import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { pageMetadata } from "@/src/lib/seo";
 import { getAllAlbums, getPhotosByPaths, getPortfolioPhotos } from "@/src/lib/albums";
 import { sessionSummaries } from "@/src/lib/session-summaries";
+import { getLiveServices } from "@/src/lib/live-services";
 import { ABOUT_PER_VIEW, workPreview } from "@/src/lib/work-preview";
 import AboutContent from "./AboutContent";
 import { ABOUT_PHOTO_PATHS, SESSION_PHOTOS } from "./photos";
@@ -38,16 +39,22 @@ export default async function AboutPage({
 
   // Resolved server-side so the client gets real dimensions, ThumbHashes and
   // derivative URLs in the first render payload (the session thumbnails).
-  const [albums, portfolio, photoIndex] = await Promise.all([
+  const [albums, portfolio, photoIndex, liveServices] = await Promise.all([
     getAllAlbums(),
     getPortfolioPhotos(),
     getPhotosByPaths(ABOUT_PHOTO_PATHS),
+    getLiveServices(),
   ]);
 
-  const sessions = sessionSummaries(locale, (slug) => {
-    const path = SESSION_PHOTOS[slug];
-    return path ? photoIndex[path] : undefined;
-  });
+  // The Studio's titles and prices; a service turned off is not listed.
+  const sessions = sessionSummaries(
+    locale,
+    (slug) => {
+      const path = SESSION_PHOTOS[slug];
+      return path ? photoIndex[path] : undefined;
+    },
+    liveServices,
+  );
 
   return (
     <AboutContent

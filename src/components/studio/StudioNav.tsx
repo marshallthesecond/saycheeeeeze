@@ -4,17 +4,17 @@
 // section is read from the address; everything around it renders on the
 // server.
 //
-// Galleries and Uploads today. Bookings, Services and prices, Profile and
-// Settings are added to ITEMS as each is built, and nothing else here changes.
+// Galleries, Services and Uploads today. Bookings, Profile and Settings are
+// added to ITEMS as each is built, and nothing else here changes.
 //
 // Two looks: a list with names in the sidebar, icons only in the phone's top
 // bar.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CloudUpload, Images, type LucideIcon } from "lucide-react";
+import { CloudUpload, Images, Tags, type LucideIcon } from "lucide-react";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
-import { STUDIO_HOME, STUDIO_UPLOADS } from "@/src/lib/studio/config";
+import { STUDIO_HOME, STUDIO_SERVICES, STUDIO_UPLOADS } from "@/src/lib/studio/config";
 
 interface Item {
   href: string;
@@ -31,6 +31,12 @@ const ITEMS: Item[] = [
     label: "nav.galleries",
     Icon: Images,
     matches: (p) => p === STUDIO_HOME || p === `${STUDIO_HOME}/new` || p.startsWith(`${STUDIO_HOME}/g/`),
+  },
+  {
+    href: STUDIO_SERVICES,
+    label: "nav.services",
+    Icon: Tags,
+    matches: (p) => p === STUDIO_SERVICES || p.startsWith(`${STUDIO_SERVICES}/`),
   },
   {
     href: STUDIO_UPLOADS,
