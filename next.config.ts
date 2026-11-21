@@ -68,6 +68,11 @@ const nextConfig: NextConfig = {
       { source: "/services/wedding-love-story", destination: "/book", permanent: true },
       { source: "/:locale(en|ru|uz)/services/events-corporate", destination: "/:locale/book", permanent: true },
       { source: "/services/events-corporate", destination: "/book", permanent: true },
+
+      // The Portfolio page was removed on 2026-11-22: its galleries and
+      // photographs are on the About page now.
+      { source: "/:locale(en|ru|uz)/portfolio", destination: "/:locale/about", permanent: true },
+      { source: "/portfolio", destination: "/about", permanent: true },
     ];
   },
   images: {

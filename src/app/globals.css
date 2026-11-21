@@ -738,3 +738,9 @@ textarea {
   outline-offset: 2px;
   border-radius: 4px;
 }
+/* The About page is black (Marshall, 2026-11-22); everything else keeps its
+   colours. On the whole document, so the sticky header's fade, the nav's and
+   the overscroll are black on that page too. AboutContent sets the marker. */
+html:has([data-page="about"]) {
+  --background: oklch(0 0 0);
+}

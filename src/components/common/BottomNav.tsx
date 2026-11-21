@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
-import { ArrowUp, Briefcase, Camera, House, User } from 'lucide-react';
+import { ArrowUp, Camera, House, User } from 'lucide-react';
 import NavPerimeterGlow from "@/src/components/common/NavPerimeterGlow";
 import { useNavLoading } from "@/src/lib/nav-loading";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
@@ -147,12 +147,13 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
   const pathname = usePathname();
   const { t, locale } = useT();
 
-  // Routes are locale-prefixed (/en/about, /ru/portfolio), so strip the locale
+  // Routes are locale-prefixed (/en/about, /ru/book), so strip the locale
   // segment before matching — otherwise nothing ever highlights.
   const rest = '/' + pathname.split('/').filter(Boolean).slice(1).join('/');
   const isHome      = rest === '/';
-  const isAbout     = rest === '/about';
-  const isPortfolio = rest.startsWith('/portfolio') || rest.startsWith('/albums');
+  // The galleries and the portfolio are on About since 2026-11-22, so an
+  // album is under About too.
+  const isAbout     = rest === '/about' || rest.startsWith('/albums');
   const isBook      = rest.startsWith('/book');
 
   // The landing page opens on a full-screen 3D scene with its own header, and a
@@ -176,7 +177,7 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
         <div
           aria-hidden={!shown}
           // `invisible` alongside the fade, not instead of it: opacity 0 plus
-          // pointer-events: none still leaves four links in the tab order, so a
+          // pointer-events: none still leaves three links in the tab order, so a
           // keyboard reader landing on the homepage tabbed straight into a nav
           // nobody can see. visibility transitions discretely — it holds
           // `visible` for the whole fade-out and only flips at the end — so
@@ -201,12 +202,6 @@ export default function BottomNav({ loading }: { loading?: boolean }) {
             label={t("nav.home")}
             href={`/${locale}`}
             active={isHome}
-          />
-          <BottomNavItem
-            icon={<Briefcase className="w-5 h-5" />}
-            label={t("nav.portfolio")}
-            href={`/${locale}/portfolio`}
-            active={isPortfolio}
           />
           <BottomNavItem
             icon={<Camera className="w-5 h-5" />}

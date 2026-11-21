@@ -2,27 +2,37 @@
 
 // The portfolio, condensed into a side column — About's left column.
 //
-// Title, the counts, category chips on ONE line, a two-column grid of the first
-// photographs and a link to the full page. The chips scroll sideways rather
-// than wrap, however many categories the portfolio grows.
+// Title, the three gallery doors (2026-11-22, from the Portfolio page, which
+// was removed), the counts, category chips on ONE line and a two-column grid
+// of the first photographs. The chips scroll sideways rather than wrap,
+// however many categories the portfolio grows. id="portfolio" is where the
+// site's "portfolio" links land now.
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import PhotoGrid from "@/src/components/common/PhotoGrid";
 import ChipRow from "@/src/components/common/ChipRow";
+import GalleryDoors, { type Door } from "@/src/components/common/GalleryDoors";
+import { CARD_SHAPE } from "@/src/components/profile/RailCards";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
+import type { AlbumData } from "@/src/lib/albums";
+import type { GalleryListing } from "@/src/lib/client-galleries";
 import { ABOUT_PER_VIEW, workView, type WorkPhoto, type WorkPreview } from "@/src/lib/work-preview";
 
 export default function PortfolioPanel({
   work,
-  albumsCount,
+  albums,
+  galleries,
+  onDoor,
   onOpen,
 }: {
   work: WorkPreview;
-  albumsCount: number;
+  albums: AlbumData[];
+  galleries: GalleryListing[];
+  onDoor: (door: Door) => void;
   onOpen: (photos: WorkPhoto[], index: number) => void;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const albumsCount = albums.length;
   const [filter, setFilter] = useState("All");
 
   const chips = useMemo(
@@ -38,11 +48,14 @@ export default function PortfolioPanel({
   );
 
   return (
-    <section aria-labelledby="panel-portfolio" className="flex flex-col gap-3 rounded-2xl bg-card p-4">
-      <div className="flex flex-col gap-1">
-        <h2 id="panel-portfolio" className="text-xl font-bold tracking-tight">{t("portfolio.title")}</h2>
-        <p className="text-[13px] leading-snug text-muted-foreground">{t("portfolio.subtitle")}</p>
-      </div>
+    <section
+      id="portfolio"
+      aria-labelledby="panel-portfolio"
+      className={`flex scroll-mt-[calc(4rem+env(safe-area-inset-top))] flex-col gap-3 ${CARD_SHAPE} bg-card p-4`}
+    >
+      <h2 id="panel-portfolio" className="text-xl font-bold tracking-tight">{t("portfolio.title")}</h2>
+
+      <GalleryDoors albums={albums} galleries={galleries} onOpen={onDoor} />
 
       <div className="grid grid-cols-2 gap-2">
         <p className="flex flex-col rounded-xl bg-background px-3 py-2">
@@ -64,13 +77,6 @@ export default function PortfolioPanel({
       ) : (
         <p className="py-6 text-center text-[13px] text-muted-foreground">{t("portfolio.emptyFilter")}</p>
       )}
-
-      <Link
-        href={`/${locale}/portfolio`}
-        className="text-[13px] font-semibold text-accent-warm underline-offset-2 hover:underline"
-      >
-        {t("aboutPage.openPortfolio")} →
-      </Link>
     </section>
   );
 }

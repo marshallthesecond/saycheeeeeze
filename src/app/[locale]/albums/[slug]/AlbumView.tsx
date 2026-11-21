@@ -594,7 +594,7 @@ export default function AlbumView({
       <StickyHeader
         title={album.title}
         fadeOver={260}
-        backHref={`/${locale}/portfolio`}
+        backHref={`/${locale}/about`}
       />
 
       {/* Header, after the service pages' photo hero: the cover as a faded

@@ -1,8 +1,10 @@
 "use client";
 
 //
-// Opens from "Galleries", "Client galleries" and "Private gallery" on
-// /portfolio, and from the private-gallery card on Home. Same bottom-sheet
+// Opens from "Galleries", "Client galleries" and "Private gallery" in the
+// About page's Portfolio section (the Portfolio page until 2026-11-22), from
+// the Galleries stack's Private galleries button, and from the
+// private-gallery card on Home. Same bottom-sheet
 // shape as GalleryRequestSheet.
 //
 // "albums" (2026-11-14) lists the portfolio's own albums, the same list as the

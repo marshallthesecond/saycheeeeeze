@@ -23,6 +23,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { pfps } from "@/src/lib/pfps";
 import { PROFILE } from "@/src/lib/profile";
+import { CARD_SHAPE } from "@/src/components/profile/RailCards";
 import ProfilePhotos from "@/src/components/common/ProfilePhotos";
 import BioTypewriter from "@/src/components/common/BioTypewriter";
 import SocialLinks from "@/src/components/common/SocialLinks";
@@ -65,7 +66,7 @@ export default function ProfilePanel({
       aria-label={t("profile.name")}
       className={
         // Phone: two columns, one row that is at most 40% of the screen.
-        "grid max-h-[40dvh] grid-cols-[minmax(0,36%)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-3 rounded-2xl bg-card p-3 sm:p-4 " +
+        `grid max-h-[40dvh] grid-cols-[minmax(0,36%)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-3 ${CARD_SHAPE} bg-card p-3 sm:p-4 ` +
         // 768px and up: as it was.
         "md:max-h-none md:grid-rows-[auto] md:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] md:gap-6 md:p-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]"
       }

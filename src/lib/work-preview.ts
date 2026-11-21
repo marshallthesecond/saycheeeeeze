@@ -61,12 +61,19 @@ export interface WorkPhoto {
   ladder?: LadderSources;
   thumbhash?: string;
   category: string;
+  /** Other categories it is filed under: its tags from the Studio (2026-11-21). */
+  tags?: string[];
+}
+
+/** Under this category: its album's, or one of its tags. */
+function inCategory(p: { category: string; tags?: string[] }, name: string): boolean {
+  return p.category === name || (p.tags?.includes(name) ?? false);
 }
 
 export interface WorkPreview {
   /** First `perView` of "All", then each category's first `perView`, deduplicated. */
   photos: WorkPhoto[];
-  /** Filterable categories with their real totals, alphabetical like /portfolio. */
+  /** Filterable categories (albums' and tags) with their real totals, alphabetical. */
   categories: { name: string; count: number }[];
   /** Every portfolio photograph, hidden categories included — what "All" counts. */
   total: number;
@@ -81,24 +88,28 @@ function lite(p: PortfolioPhoto): WorkPhoto {
     ladder: p.ladder,
     thumbhash: p.thumbhash,
     category: p.category,
+    ...(p.tags?.length ? { tags: p.tags } : {}),
   };
 }
 
 /**
- * The same rules as /portfolio: "All" is every photograph in the day's order;
- * a category hidden by portfolio-exclude.json still appears under All but gets
- * no tab of its own.
+ * "All" is every photograph in the day's order; a category hidden by
+ * portfolio-exclude.json still appears under All but gets no tab of its own.
+ * A photo is under its album's category and each of its tags. (The same rules
+ * the Portfolio page had until it was removed on 2026-11-22.)
  */
 export function workPreview(all: PortfolioPhoto[], perView: number): WorkPreview {
   const shuffled = shuffleWithSeed(all, daySeed());
-  const names = Array.from(new Set(all.filter((p) => !p.hidden).map((p) => p.category))).sort();
+  const names = Array.from(
+    new Set(all.filter((p) => !p.hidden).flatMap((p) => [p.category, ...(p.tags ?? [])])),
+  ).sort();
 
   const keep = new Map<string, WorkPhoto>();
   for (const p of shuffled.slice(0, perView)) keep.set(p.src, lite(p));
   for (const name of names) {
     let n = 0;
     for (const p of shuffled) {
-      if (p.category !== name) continue;
+      if (!inCategory(p, name)) continue;
       if (!keep.has(p.src)) keep.set(p.src, lite(p));
       if (++n >= perView) break;
     }
@@ -108,7 +119,7 @@ export function workPreview(all: PortfolioPhoto[], perView: number): WorkPreview
     photos: Array.from(keep.values()),
     categories: names.map((name) => ({
       name,
-      count: all.filter((p) => p.category === name).length,
+      count: all.filter((p) => inCategory(p, name)).length,
     })),
     total: all.length,
   };
@@ -116,6 +127,6 @@ export function workPreview(all: PortfolioPhoto[], perView: number): WorkPreview
 
 /** One view of a preview: "All" or a category, in the day's order, capped. */
 export function workView(preview: WorkPreview, filter: string, perView: number): WorkPhoto[] {
-  const list = filter === "All" ? preview.photos : preview.photos.filter((p) => p.category === filter);
+  const list = filter === "All" ? preview.photos : preview.photos.filter((p) => inCategory(p, filter));
   return list.slice(0, perView);
 }

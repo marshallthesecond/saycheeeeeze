@@ -105,7 +105,7 @@ export default function GalleryGate({
         title="saycheeeeeze"
         fadeOver={200}
         variant="wordmark"
-        backHref={`/${locale}/portfolio`}
+        backHref={`/${locale}/about`}
       />
 
       <div

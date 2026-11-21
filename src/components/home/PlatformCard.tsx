@@ -47,7 +47,8 @@ export default function PlatformCard({ className = "" }: { className?: string })
       </section>
       <Link
         href="/studio"
-        className="btn-glass-primary inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap px-4 text-[13px] font-semibold"
+        // As wide as the card above it, on a phone too (CARD_SHAPE).
+        className="btn-glass-primary -mx-2 inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap px-4 text-[13px] font-semibold sm:mx-0"
         style={{ "--btn-tint": STUDIO_TINT } as CSSProperties}
       >
         <LayoutDashboard aria-hidden className="size-4" />

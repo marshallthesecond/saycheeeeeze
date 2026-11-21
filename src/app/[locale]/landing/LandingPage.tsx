@@ -142,7 +142,7 @@ function Page() {
   });
 
   const bookHref = `/${locale}/book`;
-  const portfolioHref = `/${locale}/portfolio`;
+  const portfolioHref = `/${locale}/about`;
   const phase = PHASE_BY_INDEX[active] ?? null;
 
   return (

@@ -36,7 +36,7 @@ export default function NotFound() {
         {/* Links keep the visitor in their own language. */}
         <div className="flex flex-col gap-2 w-full max-w-xs">
           <Link
-            href={`/${locale}/portfolio`}
+            href={`/${locale}/about`}
             className="btn-glass-primary w-full min-h-12 flex items-center justify-center text-sm font-bold"
           >
             {t("notFound.browse")}

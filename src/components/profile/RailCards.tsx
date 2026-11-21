@@ -12,7 +12,12 @@ import type { AlbumData, AlbumPhoto } from "@/src/lib/albums";
 import type { SessionSummary } from "@/src/lib/session-summaries";
 import { blurStyle, fallbackSrc, hasLadder, srcSet } from "@/src/lib/ladder";
 
-export const CARD = "rounded-2xl bg-card p-4";
+/**
+ * A card's shape. On a phone (2026-11-22) it is wider, 8px from the screen's
+ * edges, and less round; from 640px as before.
+ */
+export const CARD_SHAPE = "-mx-2 rounded-lg sm:mx-0 sm:rounded-2xl";
+export const CARD = `${CARD_SHAPE} bg-card p-4`;
 export const CARD_TITLE = "text-lg font-bold tracking-tight";
 
 /** A small square thumbnail from the ladder when there is one. */
@@ -82,7 +87,7 @@ export function GalleriesCard({ albums, limit = 4 }: { albums: AlbumData[]; limi
       </ul>
       {albums.length > limit && (
         <Link
-          href={`/${locale}/portfolio`}
+          href={`/${locale}/about#portfolio`}
           className="text-[13px] font-semibold text-accent-warm hover:underline underline-offset-2"
         >
           {t("home.allAlbums", { n: albums.length })} →

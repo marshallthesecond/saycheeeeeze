@@ -20,6 +20,7 @@ import PhotoFrame from "@/src/components/common/PhotoFrame";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { PROFILE } from "@/src/lib/profile";
 import type { AlbumPhoto } from "@/src/lib/albums";
+import { CARD_SHAPE } from "@/src/components/profile/RailCards";
 
 export interface PitchTier {
   /** Bookable at this price when set. */
@@ -52,7 +53,7 @@ export default function PortraitsPitch({ pitch }: { pitch: PortraitsPitchData })
   return (
     <section
       aria-labelledby="pitch-h"
-      className="@container overflow-hidden rounded-2xl bg-card ring-1 ring-border"
+      className={`@container overflow-hidden ${CARD_SHAPE} bg-card ring-1 ring-border`}
     >
       <div className="@3xl:grid @3xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       {/* The work first: one large frame and two beside it. */}

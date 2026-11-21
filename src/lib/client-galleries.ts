@@ -48,7 +48,7 @@ const REVALIDATE_SECONDS = 300;
 
 export type GalleryVisibility = "public" | "private";
 
-/** What the picker sheet on /portfolio needs, and nothing more. */
+/** What the gallery picker sheet (About, Home) needs, and nothing more. */
 export interface GalleryListing {
   slug: string;
   /** list_label if set, else the gallery title. Private ones can be renamed

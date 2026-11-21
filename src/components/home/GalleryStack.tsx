@@ -1,6 +1,7 @@
 "use client";
 
-// The albums on Home as a stack you flick through (2026-11-17): one album
+// The albums as a stack you flick through (2026-11-17; on Home until
+// 2026-11-22, on About since): one album
 // faces you in the middle, and the ones before and after it stand on either
 // side like books on a shelf, turned edge-on. Scrolling turns the middle one
 // away into the shelf while the next one steps forward, grows and turns to
@@ -139,11 +140,14 @@ export default function GalleryStack({
   albums,
   onPrivate,
   className = "",
+  headingId = "stack-h",
 }: {
   albums: AlbumData[];
   /** Opens the list of private galleries. */
   onPrivate: () => void;
   className?: string;
+  /** For a page that has the stack twice (one hidden at each width). */
+  headingId?: string;
 }) {
   const { t, locale } = useT();
   const n = albums.length;
@@ -276,9 +280,9 @@ export default function GalleryStack({
   if (n === 0) return null;
 
   return (
-    <section aria-labelledby="stack-h" className={`flex flex-col gap-1 ${className}`}>
+    <section aria-labelledby={headingId} className={`flex flex-col gap-1 ${className}`}>
       <div className="flex items-center justify-between gap-3 px-4 xl:px-1">
-        <h2 id="stack-h" className="text-xl font-bold tracking-tight sm:text-2xl xl:text-xl">
+        <h2 id={headingId} className="text-xl font-bold tracking-tight sm:text-2xl xl:text-xl">
           {t("about.galleries")}
         </h2>
         <div className="flex items-center gap-1.5">
@@ -510,7 +514,7 @@ export default function GalleryStack({
           <Lock aria-hidden className="size-3.5" />
           {t("home.privateGalleries")}
         </button>
-        <Link href={`/${locale}/portfolio`} className={GLASS_BUTTON}>
+        <Link href={`/${locale}/about#portfolio`} className={GLASS_BUTTON}>
           {t("home.viewPortfolio")}
           <ArrowRight aria-hidden className="size-3.5" />
         </Link>

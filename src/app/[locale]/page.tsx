@@ -1,9 +1,8 @@
-// The site root: the Home page. Rebuilt 2026-11-17: eight quick-access tiles
-// (the left column), Best picks, one album to look through (a different one
-// each visit) and the Portraits session pitched properly (the middle), the
-// albums, private-gallery and sessions cards (the right). See HomeContent.tsx
-// for the layout. The profile panel that used to be the left column is the
-// About page's main section now.
+// The site root: the Home page. Rebuilt 2026-11-17 with three columns; on
+// 2026-11-22 its middle column (Best picks, one album to look through, the
+// Portraits pitch) and its Galleries stack moved to the About page, at
+// Marshall's request, leaving the private-gallery door, the session types and
+// the platform card. See HomeContent.tsx.
 //
 // Until 2026-11-10 this rendered the About page, and /about canonicalised to
 // here because the two were the same page on two URLs. They are different
@@ -12,21 +11,12 @@
 import type { Metadata } from "next";
 import { isLocale, type Locale } from "@/src/lib/i18n/config";
 import { businessSchema, pageMetadata } from "@/src/lib/seo";
-import { getAlbumPhotos, getAllAlbums, getPhotosByPaths, getPlacements, getPortfolioPhotos, type AlbumData } from "@/src/lib/albums";
-import { bunnyUrl } from "@/src/lib/bunny-url";
-import { BEST_PICKS_PLACE, servicePlace } from "@/src/lib/placements";
+import { getAllAlbums, getPhotosByPaths } from "@/src/lib/albums";
 import { getGalleryIndex } from "@/src/lib/client-galleries";
 import { sessionSummaries } from "@/src/lib/session-summaries";
-import { formatSom } from "@/src/lib/packages";
-import { entryPackage, getServiceBySlug, offeredPackages, pickLocale } from "@/src/lib/services";
 import { getLiveServices } from "@/src/lib/live-services";
-import { formatDelivery, formatPhotoCountShort, packageDuration } from "@/src/lib/service-format";
-import { daySeed, shuffleWithSeed } from "@/src/lib/work-preview";
-import type { ShelfAlbum } from "@/src/components/home/AlbumShelf";
-import type { PortraitsPitchData } from "@/src/components/home/PortraitsPitch";
-import { BEST_PICKS, HOME_PHOTO_PATHS, SESSION_PHOTOS } from "./about/photos";
-import { PICKS_WANTED } from "./about/best-picks";
-import HomeContent, { type ChosenPick, type ExtraPick } from "./HomeContent";
+import { HOME_PHOTO_PATHS, SESSION_PHOTOS } from "./about/photos";
+import HomeContent from "./HomeContent";
 
 // Localised per locale. A static `metadata` object cannot be, because it is
 // evaluated once with no access to params — which is why /ru and /uz were
@@ -41,35 +31,8 @@ export async function generateMetadata({
   return pageMetadata("home", locale as Locale);
 }
 
-/**
- * Five minutes. The photographs are cached for an hour underneath (and
- * /api/sync refreshes them at once). It also rotates the albums the shelf can
- * pick from, below.
- */
+/** Five minutes, like the About page. */
 export const revalidate = 300;
-
-/** Albums the shelf chooses between in the browser; one is shown per visit. */
-const SHELF_CANDIDATES = 4;
-/** An album with fewer photographs than this is not worth a shelf. */
-const SHELF_MIN_PHOTOS = 4;
-/** Photographs per shelf; a longer album ends with a card to the album. */
-const SHELF_MAX_PHOTOS = 24;
-/** The Portraits pitch: its session type and how many of its photographs. */
-const PITCH_SERVICE = "portraits";
-const PITCH_PHOTOS = 3;
-
-/**
- * `n` of `items`, in a random order. A fresh draw each time the page is
- * rebuilt (every five minutes at most), which is the point: the shelf's
- * choice of albums moves on through the day.
- */
-function pickAtRandom<T>(items: readonly T[], n: number): T[] {
-  return items
-    .map((item) => ({ item, r: Math.random() }))
-    .sort((x, y) => x.r - y.r)
-    .slice(0, n)
-    .map((x) => x.item);
-}
 
 export default async function HomePage({
   params,
@@ -79,25 +42,16 @@ export default async function HomePage({
   const { locale: raw } = await params;
   const locale: Locale = isLocale(raw) ? (raw as Locale) : "ru";
   const schema = businessSchema(locale);
-  const L = (v: Parameters<typeof pickLocale>[0]) => pickLocale(v, locale);
 
-  // galleryPaths is the code's (the rail before the placements migration).
-  const pitchPaths = (getServiceBySlug(PITCH_SERVICE)?.galleryPaths ?? []).slice(0, PITCH_PHOTOS);
-
-  const [albums, photoIndex, portfolio, galleries, placements, liveServices] = await Promise.all([
+  const [albums, photoIndex, galleries, liveServices] = await Promise.all([
     getAllAlbums(),
-    getPhotosByPaths([...HOME_PHOTO_PATHS, ...pitchPaths]),
-    getPortfolioPhotos(),
+    getPhotosByPaths(HOME_PHOTO_PATHS),
     getGalleryIndex(),
-    getPlacements(),
     getLiveServices(),
   ]);
 
   // As the site shows them: the Studio's titles and prices. A service turned
-  // off is not listed, and the pitch goes when Portraits is off.
-  const live = liveServices.find((s) => s.slug === PITCH_SERVICE);
-  const service = live && !live.off ? live : undefined;
-
+  // off is not listed.
   const sessions = sessionSummaries(
     locale,
     (slug) => {
@@ -106,90 +60,6 @@ export default async function HomePage({
     },
     liveServices,
   );
-
-  // Best picks are chosen by hand: in the Studio ("Add to..." on a photo), or
-  // before the placements migration, in BEST_PICKS. A photo that is also in
-  // BEST_PICKS keeps the caption written there; one added in the Studio is
-  // captioned from its album. While there are fewer than the grid holds, the
-  // rest come from the portfolio, the same ones all day.
-  const written = new Map(BEST_PICKS.map((p) => [p.path, p]));
-  const chosenPicks: ChosenPick[] = placements
-    ? (placements[BEST_PICKS_PLACE] ?? []).map((placed) => {
-        const caption = written.get(placed.path);
-        return caption
-          ? { photo: placed.photo, cat: caption.cat, title: caption.title, date: caption.date }
-          : {
-              photo: placed.photo,
-              category: placed.category,
-              title: placed.albumTitle || undefined,
-              date: placed.albumDate || undefined,
-            };
-      })
-    : BEST_PICKS.map((p) => ({
-        photo: photoIndex[p.path] ?? { src: bunnyUrl(p.path) },
-        cat: p.cat,
-        title: p.title,
-        date: p.date,
-      }));
-  const visible = portfolio.filter((p) => !p.hidden);
-  const chosen = new Set(chosenPicks.map((p) => p.photo.src));
-  const extraPicks: ExtraPick[] = shuffleWithSeed(
-    visible.filter((p) => !chosen.has(p.src)),
-    daySeed(),
-  )
-    .slice(0, Math.max(0, PICKS_WANTED - chosenPicks.length))
-    .map(({ category, hidden: _hidden, ...photo }) => {
-      void _hidden;
-      return { photo, category };
-    });
-
-  // The shelf: a few albums picked at random each time the page is rebuilt;
-  // the browser then shows one of them, a different one from last visit.
-  const worth = albums.filter((a) => a.photoCount >= SHELF_MIN_PHOTOS);
-  const picked = pickAtRandom(worth, SHELF_CANDIDATES);
-  const shelf: ShelfAlbum[] = (
-    await Promise.all(
-      picked.map(async (a: AlbumData) => {
-        const photos = await getAlbumPhotos(a).catch(() => []);
-        return {
-          slug: a.slug,
-          title: a.title,
-          date: a.date || a.year || "",
-          total: Math.max(a.photoCount, photos.length),
-          photos: photos.slice(0, SHELF_MAX_PHOTOS),
-        };
-      }),
-    )
-  ).filter((s) => s.photos.length >= SHELF_MIN_PHOTOS);
-
-  // The Portraits pitch, resolved here so services.ts stays on the server.
-  const entry = service ? entryPackage(service) : undefined;
-  const pitch: PortraitsPitchData | null =
-    service && entry
-      ? {
-          slug: service.slug,
-          title: L(service.title),
-          includes: [0, 2, 4, 5]
-            .map((i) => service.includes[i])
-            .filter(Boolean)
-            .map((v) => L(v)),
-          tiers: offeredPackages(service).map((pkg) => ({
-            id: pkg.id,
-            ...(pkg.name ? { name: L(pkg.name) } : {}),
-            duration: packageDuration(pkg, locale),
-            photos: formatPhotoCountShort(pkg.photos, locale),
-            delivery: formatDelivery(pkg.delivery, locale),
-            price: formatSom(pkg.priceUzs, locale),
-            highlight: Boolean(pkg.highlight),
-          })),
-          from: formatSom(entry.priceUzs, locale),
-          // The first photos of the Portraits page's rail: chosen in the
-          // Studio, or before the migration, its galleryPaths.
-          photos: placements
-            ? (placements[servicePlace(PITCH_SERVICE)] ?? []).slice(0, PITCH_PHOTOS).map((p) => p.photo)
-            : pitchPaths.map((p) => photoIndex[p]).filter((p): p is NonNullable<typeof p> => Boolean(p)),
-        }
-      : null;
 
   return (
     <>
@@ -200,15 +70,7 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <HomeContent
-        albums={albums}
-        chosenPicks={chosenPicks}
-        extraPicks={extraPicks}
-        galleries={galleries}
-        sessions={sessions}
-        shelf={shelf}
-        pitch={pitch}
-      />
+      <HomeContent albums={albums} galleries={galleries} sessions={sessions} />
     </>
   );
 }

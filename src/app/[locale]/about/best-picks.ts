@@ -23,6 +23,9 @@
 // anything that does not fit falls through to the row below in list order.
 // The feature is always the first entry — that one is a decision, not a fit.
 
+import type { AlbumPhoto } from "@/src/lib/albums";
+import type { WorksCategory } from "./photos";
+
 /** Wider than this is treated as landscape. 1.15 rather than 1, so a 5:4 or
  *  a square counts as portrait-ish and is not squashed into a 3:2 slot. */
 const LANDSCAPE_MIN = 1.15;
@@ -142,4 +145,24 @@ export function formatPickDate(date: string | undefined, locale: string): string
   if (lang === "ru") return `${day} ${MONTHS.ru[month]} ${year}`;
   if (lang === "uz") return `${day}-${MONTHS.uz[month]}, ${year}`;
   return `${day} ${MONTHS.en[month]}, ${year}`;
+}
+
+/**
+ * A Best pick that was chosen: in the Studio, or in the code before the
+ * placements migration. `cat` is a caption written in the code (translated
+ * on the page); a photo added in the Studio has its portfolio `category`.
+ */
+export interface ChosenPick {
+  photo: AlbumPhoto;
+  cat?: WorksCategory;
+  category?: string;
+  title?: string;
+  date?: string;
+}
+
+/** A portfolio photograph that fills a Best picks slot nobody chose yet. */
+export interface ExtraPick {
+  photo: AlbumPhoto;
+  /** The portfolio's category label ("Portraits"). */
+  category: string;
 }

@@ -34,7 +34,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes = [
     ...localised("",           "weekly",  1,    now),
-    ...localised("/portfolio", "weekly",  0.9,  now),
     ...localised("/book",      "monthly", 0.8,  now),
     // Back since 2026-11-10: the root became the Home page, so /about is its
     // own page again rather than a duplicate of / that canonicalised there.

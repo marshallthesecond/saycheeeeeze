@@ -96,10 +96,10 @@ export const SESSION_PHOTOS: Record<string, string> = {
   "brand-product": "Random/espressomachine.jpg",
 };
 
-/** What the Home page resolves: best picks and session thumbnails. */
-export const HOME_PHOTO_PATHS: string[] = Array.from(
+/** What the Home page resolves: session thumbnails. */
+export const HOME_PHOTO_PATHS: string[] = Array.from(new Set(Object.values(SESSION_PHOTOS)));
+
+/** What the About page resolves: best picks and session thumbnails. */
+export const ABOUT_PHOTO_PATHS: string[] = Array.from(
   new Set([...BEST_PICKS.map((p) => p.path), ...Object.values(SESSION_PHOTOS)]),
 );
-
-/** What the About page resolves: session thumbnails. */
-export const ABOUT_PHOTO_PATHS: string[] = Array.from(new Set(Object.values(SESSION_PHOTOS)));
