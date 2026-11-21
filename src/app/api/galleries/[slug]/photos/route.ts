@@ -38,12 +38,12 @@ export async function GET(
     }
   }
 
-  const { photos, cover, coverLadder, signedUntil } =
+  const { photos, cover, coverLadder, signedUntil, sets } =
     await getGalleryContent(gallery);
 
   return NextResponse.json(
     // coverLadder carries its own signature and lapses with the rest.
-    { photos, cover, coverLadder, signedUntil },
+    { photos, cover, coverLadder, signedUntil, sets },
     // Never let a shared cache hold these — the next visitor would get
     // someone else's still-valid tokens.
     { headers: { "Cache-Control": "private, no-store" } },

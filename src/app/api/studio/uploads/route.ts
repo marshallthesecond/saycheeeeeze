@@ -2,7 +2,7 @@
 //
 //   GET  /api/studio/uploads[?gallery=<id>]   is the worker on, and recent drops
 //   POST /api/studio/uploads                  tickets for a new drop
-//        { galleryId, files: [{ name, size, type }] }
+//        { galleryId, files: [{ name, size, type }], setId? }
 //     -> 201 { batchId, door: { kind, url, worker }, expiresAt,
 //              uploads: [{ id, name, file, size, token }] }
 //     -> 4xx { error: "<reason>", ... }   reasons in uploads.ts / the migration
@@ -36,8 +36,9 @@ export async function POST(req: Request): Promise<Response> {
   const session = await studioApiSession();
   if (session instanceof Response) return session;
 
-  const body = (await readJson(req)) as { galleryId?: unknown; files?: unknown } | null;
+  const body = (await readJson(req)) as { galleryId?: unknown; files?: unknown; setId?: unknown } | null;
   if (!body || !isUuid(body.galleryId)) return json(400, { error: "gallery" });
+  if (body.setId !== undefined && body.setId !== null && !isUuid(body.setId)) return json(400, { error: "set" });
   if (!Array.isArray(body.files)) return json(400, { error: "files" });
 
   const files: UploadCandidate[] = [];
@@ -49,7 +50,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const started = await startUploadBatch(body.galleryId, files);
+    const started = await startUploadBatch(body.galleryId, files, isUuid(body.setId) ? body.setId : null);
     return json(201, started);
   } catch (err) {
     if (err instanceof UploadRefused) return refusalResponse(err);

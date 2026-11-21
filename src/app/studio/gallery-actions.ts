@@ -20,6 +20,7 @@ import { alsoRefreshLiveSite } from "@/src/lib/studio/live-site";
 import { isPlace } from "@/src/lib/placements";
 import { nextExpiry } from "@/src/lib/bunny-sign";
 import { originalUrl } from "@/src/lib/photo-files";
+import type { GallerySet } from "@/src/lib/gallery-sets";
 import { PASSKEY_MAX, PASSKEY_MIN, generatePasskey } from "@/src/lib/studio/passkey";
 import { requireStudio } from "@/src/lib/studio/session";
 import { categoryProblem, isValidSlug, slugify } from "@/src/lib/studio/slug";
@@ -112,6 +113,11 @@ const REASONS: Record<string, string> = {
   description: "photoDescription",
   tags: "photoTags",
   invalid: "invalid",
+  set_label: "setLabel",
+  set_label_taken: "setLabelTaken",
+  sets_full: "setsFull",
+  set_not_found: "notFound",
+  set_target: "invalid",
 };
 
 /** A Supabase error -> a key under `errors`. */
@@ -745,4 +751,121 @@ export async function originalLink(galleryId: string, photoId: string): Promise<
   if (!row) return { error: "notFound" };
   const url = originalUrl(row.storage_path, nextExpiry());
   return url ? { url } : { error: "failed" };
+}
+
+// ---------------------------------------------------------------------------
+// Sets (20261122120000_gallery_sets.sql): a gallery divided into up to 10
+// sets, tabs on its page. Each answers with the gallery's sets afterwards.
+// ---------------------------------------------------------------------------
+
+export type SetsResult = { ok: true; sets: GallerySet[] } | { ok?: false; error: string };
+
+const SET_LABEL_MAX = 40;
+
+function setsFrom(data: unknown): GallerySet[] {
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((s): s is { id: unknown; label: unknown } => Boolean(s) && typeof s === "object")
+    .map((s) => ({ id: String(s.id), label: String(s.label) }));
+}
+
+/** PGRST202: the function is not in the database, the migration is not run yet. */
+function setsError(error: { message?: string; code?: string }): string {
+  return error.code === "PGRST202" ? "setsNotSetUp" : reasonOf(error);
+}
+
+function cleanLabel(label: unknown): string | null {
+  const v = typeof label === "string" ? label.trim() : "";
+  const control = [...v].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
+  return v.length >= 1 && v.length <= SET_LABEL_MAX && !control ? v : null;
+}
+
+/** The set, if it is one of this gallery's. */
+async function ownSet(galleryId: string, setId: string): Promise<Own | null> {
+  const own = await ownGallery(galleryId);
+  if (!own || !UUID.test(setId)) return null;
+  const supabase = await studioSupabase();
+  const { data } = await supabase.from("gallery_sets").select("id").eq("id", setId).eq("gallery_id", own.id).limit(1);
+  return data?.[0] ? own : null;
+}
+
+async function setsDone(slug: string, data: unknown): Promise<SetsResult> {
+  await expireSiteCaches(slug);
+  refresh();
+  return { ok: true, sets: setsFrom(data) };
+}
+
+/** New sets at the end. The first sets of a gallery take all its photos. */
+export async function createSets(galleryId: string, labels: string[]): Promise<SetsResult> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  if (!Array.isArray(labels) || labels.length === 0 || labels.length > 10) return { error: "invalid" };
+  const clean = labels.map(cleanLabel);
+  if (clean.some((l) => l === null)) return { error: "setLabel" };
+  const lower = clean.map((l) => l!.toLowerCase());
+  if (new Set(lower).size !== lower.length) return { error: "setLabelTaken" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_create_sets", { p_gallery_id: own.id, p_labels: clean as string[] });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, data);
+}
+
+export async function renameSet(galleryId: string, setId: string, label: string): Promise<SetsResult> {
+  const own = await ownSet(galleryId, setId);
+  if (!own) return { error: "notFound" };
+  const clean = cleanLabel(label);
+  if (!clean) return { error: "setLabel" };
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_rename_set", { p_set_id: setId, p_label: clean });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, data);
+}
+
+/** The set to another place in the order, 0 first. */
+export async function moveSet(galleryId: string, setId: string, position: number): Promise<SetsResult> {
+  const own = await ownSet(galleryId, setId);
+  if (!own) return { error: "notFound" };
+  if (!Number.isInteger(position)) return { error: "invalid" };
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_move_set", { p_set_id: setId, p_position: position });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, data);
+}
+
+/** Deletes a set; its photos go to `moveTo` (null: the first of the others). */
+export async function deleteSet(galleryId: string, setId: string, moveTo: string | null): Promise<SetsResult> {
+  const own = await ownSet(galleryId, setId);
+  if (!own) return { error: "notFound" };
+  if (moveTo !== null && (!UUID.test(moveTo) || moveTo === setId)) return { error: "invalid" };
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_delete_set", { p_set_id: setId, p_move_to: moveTo });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, data);
+}
+
+/** Every set goes; the photos stay, as one list. */
+export async function removeSets(galleryId: string): Promise<SetsResult> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  const supabase = await studioSupabase();
+  const { error } = await supabase.rpc("studio_remove_sets", { p_gallery_id: own.id });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, []);
+}
+
+/** Photos of the gallery into one of its sets. */
+export async function movePhotosToSet(galleryId: string, photoIds: string[], setId: string): Promise<SetsResult> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  const ids = [...new Set(Array.isArray(photoIds) ? photoIds : [])].filter((id) => UUID.test(id));
+  if (ids.length === 0 || ids.length > 500 || !UUID.test(setId)) return { error: "invalid" };
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_move_photos_to_set", {
+    p_gallery_id: own.id,
+    p_photo_ids: ids,
+    p_set_id: setId,
+  });
+  if (error) return { error: setsError(error) };
+  return setsDone(own.slug, data);
 }

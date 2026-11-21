@@ -35,6 +35,7 @@ import {
 import { getPhotosByPaths } from "./albums";
 import { parseMark, type PhotoMark } from "./photo-marks";
 import { photoLadder } from "./photo-files";
+import { isSetsMissing, type GallerySet } from "./gallery-sets";
 
 // Untyped clients. Kept even after regenerating database.types.ts: the picker
 // query embeds a `photos(count)` aggregate, whose inferred type fights with the
@@ -107,6 +108,8 @@ export interface ClientGallery {
 export type GalleryPhoto = SignedPhoto & {
   id: string;
   mark: PhotoMark | null;
+  /** The set it is in, when the gallery is divided into sets. */
+  setId?: string | null;
 };
 
 export interface GalleryContent {
@@ -121,6 +124,8 @@ export interface GalleryContent {
   coverThumbhash?: string;
   /** Unix seconds. Always set now: every client gallery is signed. */
   signedUntil: number | null;
+  /** The gallery's sets in order; empty when it is not divided into sets. */
+  sets: GallerySet[];
 }
 
 function isExpired(expiresAt: string | null): boolean {
@@ -325,6 +330,29 @@ export async function getGalleryContent(
     (a, b) => a.sort_order - b.sort_order || String(a.id).localeCompare(String(b.id)),
   );
 
+  // The sets, and each photo's: only when the gallery has some. On a
+  // database without sets (20261122120000_gallery_sets.sql), none.
+  let sets: GallerySet[] = [];
+  const setOf = new Map<string, string | null>();
+  {
+    const found = await untypedAdmin()
+      .from("gallery_sets")
+      .select("id, label")
+      .eq("gallery_id", gallery.id)
+      .order("position", { ascending: true });
+    if (found.error && !isSetsMissing(found.error)) {
+      throw new Error(`Supabase: failed to load sets for "${gallery.slug}": ${found.error.message}`);
+    }
+    if (!found.error && found.data && found.data.length > 0) {
+      sets = found.data.map((s: { id: unknown; label: unknown }) => ({ id: String(s.id), label: String(s.label) }));
+      const assigned = await untypedAdmin().from("photos").select("id, set_id").eq("gallery_id", gallery.id);
+      if (assigned.error) {
+        throw new Error(`Supabase: failed to load sets for "${gallery.slug}": ${assigned.error.message}`);
+      }
+      for (const r of assigned.data ?? []) setOf.set(String(r.id), r.set_id ? String(r.set_id) : null);
+    }
+  }
+
   // A hidden cover is not shown: the first photo stands in, as when none is chosen.
   const coverPath =
     (gallery.coverPath && rows.some((r) => r.storage_path === gallery.coverPath) ? gallery.coverPath : null) ??
@@ -415,11 +443,13 @@ export async function getGalleryContent(
       // unrecognised value means the constraint moved and this code did not.
       // Rendering that photograph as unmarked is the conservative reading.
       mark: parseMark(p.client_mark),
+      ...(sets.length > 0 ? { setId: setOf.get(String(p.id)) ?? null } : {}),
     })),
     cover: coverPath ? signBunnyUrl(coverPath, { expiresAt }) : null,
     coverLadder: heroRow ? ladderFor(heroRow) : undefined,
     coverThumbhash: (heroRow?.thumbhash as string | null) ?? undefined,
     signedUntil: expiresAt,
+    sets,
   };
 }
 

@@ -5,6 +5,7 @@
 //   Details              opens the photo panel
 //   Add to...            Best picks and the service pages (albums)
 //   Move to album...     (albums) / Publish to album... (client galleries)
+//   Move to set...       (a gallery divided into sets)
 //   Rename...
 //   Set as cover
 //   Hide from the gallery / Show in the gallery
@@ -27,6 +28,7 @@ import {
   Eye,
   EyeOff,
   FolderInput,
+  Layers,
   ImageIcon,
   Info,
   Link2,
@@ -41,6 +43,7 @@ import PhotoFrame from "@/src/components/common/PhotoFrame";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { BEST_PICKS_PLACE } from "@/src/lib/placements";
 import type { AlbumTarget, StudioPhoto } from "@/src/lib/studio/gallery";
+import type { GallerySet } from "@/src/lib/gallery-sets";
 import { copyText, shareLink } from "./photo-info";
 import type { PhotoOps } from "./photo-ops";
 
@@ -76,9 +79,12 @@ interface Props {
   onToggle: (place: string, on: boolean) => Promise<string | undefined>;
   onOpenDetails: () => void;
   ops: PhotoOps;
+  /** The gallery's sets, when it is divided into sets, and the one the photo is in. */
+  sets: GallerySet[];
+  setId: string | null;
 }
 
-type View = "main" | "places" | "move" | "rename" | "delete";
+type View = "main" | "places" | "move" | "sets" | "rename" | "delete";
 
 const ITEM =
   "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-foreground outline-none transition " +
@@ -112,6 +118,8 @@ export default function PhotoActions({
   onToggle,
   onOpenDetails,
   ops,
+  sets,
+  setId,
 }: Props) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -387,6 +395,16 @@ export default function PhotoActions({
           opens="move"
           onClick={() => setView("move")}
         />
+        {sets.length > 1 && (
+          <MenuItem
+            icon={<Layers aria-hidden className={ICON} />}
+            label={t("gallery.sets.moveTo")}
+            sub
+            disabled={busy !== null}
+            opens="sets"
+            onClick={() => setView("sets")}
+          />
+        )}
         <MenuItem
           icon={<Pencil aria-hidden className={ICON} />}
           label={t("gallery.photos.actions.rename")}
@@ -524,6 +542,43 @@ export default function PhotoActions({
           })
         }
       />
+    );
+  } else if (view === "sets") {
+    content = (
+      <>
+        {back(t("gallery.sets.moveTo"))}
+        {sets.map((s) => {
+          const here = s.id === setId;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={here}
+              aria-disabled={busy !== null ? true : undefined}
+              onClick={() =>
+                !here &&
+                run("set", async () => {
+                  const error = await ops.toSet([photo.id], s.id);
+                  if (error) fail(error);
+                  else close(false);
+                })
+              }
+              className={ITEM}
+            >
+              <span className="min-w-0 flex-1 break-words">{s.label}</span>
+              {here && <Check aria-hidden className="size-4 shrink-0" />}
+            </button>
+          );
+        })}
+        {busy === "set" ? (
+          <p role="status" className="min-h-4 px-3 pt-1 text-xs leading-snug text-muted-foreground">
+            {t("gallery.photos.actions.working")}
+          </p>
+        ) : (
+          statusLine
+        )}
+      </>
     );
   } else if (view === "rename") {
     content = (

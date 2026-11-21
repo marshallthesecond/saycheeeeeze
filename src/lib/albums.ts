@@ -12,6 +12,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import type { PhotoMark } from "./photo-marks";
+import { isSetsMissing, type GallerySet } from "./gallery-sets";
 import {
   getExcludeManifest,
   isAlbumHidden,
@@ -67,6 +68,8 @@ export interface AlbumPhoto {
    * (a portfolio album); `null` means it has one and it is unset.
    */
   mark?: PhotoMark | null;
+  /** The set it is in, on a gallery divided into sets. See gallery-sets.ts. */
+  setId?: string | null;
 }
 
 export interface AlbumData {
@@ -94,6 +97,9 @@ export interface AlbumData {
   /** Total photos in the gallery. Populated even when `photos` is empty, so
    *  card grids can show "12 photos" without loading 12 rows. */
   photoCount: number;
+  /** The gallery's sets, in order, when it is divided into sets: tabs on its
+   *  page. Absent or empty: one list, as before. */
+  sets?: GallerySet[];
 }
 
 type GalleryRow = Database["public"]["Tables"]["galleries"]["Row"];
@@ -225,6 +231,7 @@ function toAlbum(
   photos: PhotoRow[],
   count?: number,
   coverRow?: CoverRow,
+  sets?: { sets: GallerySet[]; setOf: Map<string, string | null> },
 ): AlbumData {
   const ordered = [...photos].sort(
     (a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id),
@@ -254,8 +261,35 @@ function toAlbum(
     coverThumbhash: heroRow?.thumbhash ?? undefined,
     // Sorted above rather than in the query so this doesn't depend on which
     // spelling of the nested-order option your supabase-js minor uses.
-    photos: ordered.map(toPhoto),
+    photos: sets
+      ? ordered.map((p) => ({ ...toPhoto(p), setId: sets.setOf.get(p.id) ?? null }))
+      : ordered.map(toPhoto),
     photoCount: count ?? photos.length,
+    ...(sets ? { sets: sets.sets } : {}),
+  };
+}
+
+/**
+ * A gallery's sets and the set of each photo a visitor can see, or undefined
+ * when it is not divided into sets (or the database has no sets yet).
+ */
+async function readSets(galleryId: string): Promise<{ sets: GallerySet[]; setOf: Map<string, string | null> } | undefined> {
+  const { data, error } = await supabaseRead()
+    .from("gallery_sets")
+    .select("id, label")
+    .eq("gallery_id", galleryId)
+    .order("position", { ascending: true });
+  if (isSetsMissing(error)) return undefined;
+  if (error) throw new Error(`Supabase: failed to load sets: ${error.message}`);
+  if (!data || data.length === 0) return undefined;
+  const { data: rows, error: rowsError } = await supabaseRead()
+    .from("photos")
+    .select("id, set_id")
+    .eq("gallery_id", galleryId);
+  if (rowsError) throw new Error(`Supabase: failed to load sets: ${rowsError.message}`);
+  return {
+    sets: data.map((s) => ({ id: s.id, label: s.label })),
+    setOf: new Map((rows ?? []).map((r) => [r.id, r.set_id])),
   };
 }
 
@@ -369,7 +403,7 @@ async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
   if (all.length > 0 && visible.length === 0) return undefined;
 
   gallery.cover_path = coverAfterCuration(gallery.cover_path, visible, manifest);
-  return toAlbum(gallery, visible);
+  return toAlbum(gallery, visible, undefined, undefined, await readSets(gallery.id));
 }
 
 /**

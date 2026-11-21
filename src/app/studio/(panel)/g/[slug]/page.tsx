@@ -1,7 +1,8 @@
 // A gallery's Photos tab: uploading into it, what is in it, which photo is
 // the cover, what the client chose, and deleting, publishing or moving some.
 // A photo opens in the photo panel, with its name, description, tags and
-// whether it is shown (2026-11-21).
+// whether it is shown (2026-11-21). A gallery divided into sets shows one set
+// at a time; uploads land in the open one.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -51,7 +52,7 @@ export default async function GalleryPhotosPage({ params }: Props) {
   const session = await requireStudio();
   // Uploading is optional on this page: if the database has not had the
   // uploads migration yet, the photos still show and the panel says nothing.
-  const [{ photos, detailsReady }, pending, worker, targets] = await Promise.all([
+  const [{ photos, detailsReady, sets, setsReady }, pending, worker, targets] = await Promise.all([
     listStudioPhotoDetails(gallery),
     unfinishedUploads(session, gallery.id).catch(() => []),
     getWorkerStatus().catch(() => null),
@@ -65,6 +66,7 @@ export default async function GalleryPhotosPage({ params }: Props) {
       hasPhotos={photos.length > 0}
       pending={pending}
       worker={worker ? { online: worker.online, name: worker.name } : null}
+      sets={sets}
     />
   );
 
@@ -99,6 +101,8 @@ export default async function GalleryPhotosPage({ params }: Props) {
         placements={placements}
         detailsReady={detailsReady}
         siteHref={gallery.href}
+        sets={sets}
+        setsReady={setsReady}
       />
     </>
   );

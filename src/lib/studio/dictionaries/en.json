@@ -210,7 +210,8 @@
         "isCover": "This is the cover",
         "clientChose": "The client chose",
         "details": "Details",
-        "original": "Download original"
+        "original": "Download original",
+        "set": "Set"
       }
     },
     "makePublic": "Add to Portfolio",
@@ -219,7 +220,44 @@
     "makePrivate": "Make private again",
     "makePrivateConfirm": "Yes, make private",
     "makePrivateHint": "It leaves the Portfolio and is a client gallery again, with its passkeys.",
-    "wasPrivate": "Was a client gallery. Its passkeys are kept for if you make it private again."
+    "wasPrivate": "Was a client gallery. Its passkeys are kept for if you make it private again.",
+    "sets": {
+      "divide": "Divide into sets",
+      "divideHint": "Sets become tabs on the gallery's page. Every photo starts in the first set; move them after.",
+      "example1": "Ceremony",
+      "example2": "Party",
+      "nameN": "Set {n}",
+      "dropName": "Remove set {n}",
+      "another": "Another set",
+      "create": "Create sets",
+      "tabs": "Sets",
+      "tab": "{name}, {n} photos",
+      "add": "Set",
+      "newSet": "New set",
+      "addButton": "Add",
+      "options": "Options for {name}",
+      "rename": "Rename",
+      "name": "Set name",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
+      "delete": "Delete set",
+      "deleteLast": "Delete {name}? It is the last set: the gallery goes back to one list of photos.",
+      "deleteEmpty": "Delete {name}? It has no photos.",
+      "deleteAsk": "Delete {name}? Its {n} photos move to:",
+      "deleteAskOne": "Delete {name}? Its photo moves to:",
+      "moveTo": "Move to set",
+      "deleteYes": "Yes, delete",
+      "removeAll": "Remove all sets",
+      "removeAsk": "Remove every set? The photos stay in the gallery, as one list.",
+      "removeYes": "Yes, remove",
+      "movedOne": "Moved to {name}.",
+      "movedMany": "{n} photos moved to {name}.",
+      "dragging": "{n} photos",
+      "moveNTo": "Move {n} to:",
+      "empty": "Nothing in this set yet. Drag photos onto its tab to move them here.",
+      "uploadInto": "New photos go into {name}.",
+      "dropInto": "Drop photos anywhere on this page: they go into {name}."
+    }
   },
   "settings": {
     "details": "Details",
@@ -324,7 +362,12 @@
     "detailsNotSetUp": "Names, descriptions, tags and hiding need a database update: run supabase/migrations/20261121120000_photo_details.sql.",
     "photoName": "A name can't have / or \\ and is at most 200 characters.",
     "photoDescription": "A description is at most 1000 characters.",
-    "photoTags": "Up to 10 categories, each up to 40 characters."
+    "photoTags": "Up to 10 categories, each up to 40 characters.",
+    "setLabel": "A set's name is 1 to 40 characters.",
+    "setLabelTaken": "Two sets cannot have the same name.",
+    "setsFull": "A gallery has at most 10 sets.",
+    "setsNotSetUp": "Sets need a database update: run supabase/migrations/20261122120000_gallery_sets.sql.",
+    "setsTwo": "Name at least two sets."
   },
   "error": {
     "title": "Something went wrong",

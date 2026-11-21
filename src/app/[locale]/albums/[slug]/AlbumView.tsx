@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,6 +16,8 @@ import {
   LayoutDashboard,
   LayoutGrid,
   List,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import PhotoGrid, { type GridLayout } from "@/src/components/common/PhotoGrid";
 import { MARK_ICONS } from "@/src/components/common/MarkButtons";
@@ -25,6 +27,7 @@ import DownloadSheet, { type DownloadChoice } from "@/src/components/common/Down
 import StickyHeader from "@/src/components/common/StickyHeader";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
 import type { AlbumData } from "@/src/lib/albums";
+import { groupBySet, setIndexFromParam, setParam, type GallerySet } from "@/src/lib/gallery-sets";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import {
   downloadPhoto,
@@ -101,6 +104,44 @@ function writeLayout(next: GridLayout): void {
 function subscribeLayout(notify: () => void): () => void {
   layoutListeners.add(notify);
   return () => layoutListeners.delete(notify);
+}
+
+// THE SET. On a gallery divided into sets, which one is open: ?set= in the
+// address (see gallery-sets.ts), so a reload or a shared link opens the same
+// set. Read through useSyncExternalStore for the same reason as the layout:
+// the server renders the first set and the address is read straight after.
+const setListeners = new Set<() => void>();
+
+function readSetParam(): string | null {
+  return new URLSearchParams(window.location.search).get("set");
+}
+
+/** Opens another set: ?set= changes and the photo (?p=) goes. */
+function writeSetParam(value: string): void {
+  const u = new URL(window.location.href);
+  u.searchParams.set("set", value);
+  u.searchParams.delete("p");
+  window.history.replaceState(null, "", u.toString());
+  setListeners.forEach((notify) => notify());
+}
+
+function subscribeSet(notify: () => void): () => void {
+  setListeners.add(notify);
+  window.addEventListener("popstate", notify);
+  return () => {
+    setListeners.delete(notify);
+    window.removeEventListener("popstate", notify);
+  };
+}
+
+/** For a value that never changes after hydration. */
+function subscribeNothing(): () => void {
+  return () => {};
+}
+
+/** A name for the set in a file name: its own letters, or its number. */
+function setFilePart(set: GallerySet, index: number): string {
+  return /[a-z0-9]/i.test(set.label) ? slugify(set.label) : `set-${index + 1}`;
 }
 
 const LAYOUT_ICONS: Record<GridLayout, React.ComponentType<{ className?: string }>> = {
@@ -213,6 +254,16 @@ export default function AlbumView({
   const layout = useSyncExternalStore(subscribeLayout, readLayout, (): GridLayout => "masonry");
   const slideshowTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Sets: the tabs, and the photos of the one that is open. No sets: one list.
+  const setRaw = useSyncExternalStore(subscribeSet, readSetParam, () => null);
+  const grouped = useMemo(() => groupBySet(album.sets, album.photos), [album.sets, album.photos]);
+  const setIndex = setIndexFromParam(setRaw, grouped.sets.length);
+  const activeSet: GallerySet | null = grouped.sets[setIndex] ?? null;
+  const setPhotos = useMemo(
+    () => (activeSet ? grouped.photosOf(activeSet.id) : album.photos),
+    [activeSet, grouped, album.photos],
+  );
+
   /**
    * The photographs the page is currently working with.
    *
@@ -228,27 +279,27 @@ export default function AlbumView({
   const filteredPhotos = useMemo(
     () =>
       markFilter === "all"
-        ? album.photos
-        : album.photos.filter((p) => matchesFilter(p.mark, markFilter)),
-    [album.photos, markFilter],
+        ? setPhotos
+        : setPhotos.filter((p) => matchesFilter(p.mark, markFilter)),
+    [setPhotos, markFilter],
   );
 
   /** How many photographs each filter would show. Counted once per render over
    *  the whole set, rather than filtering five times to find five lengths. */
   const markCounts = useMemo(() => {
     const counts: Record<MarkFilter, number> = {
-      all: album.photos.length,
+      all: setPhotos.length,
       keep: 0,
       publish: 0,
       delete: 0,
       unmarked: 0,
     };
-    for (const p of album.photos) {
+    for (const p of setPhotos) {
       if (p.mark) counts[p.mark]++;
       else counts.unmarked++;
     }
     return counts;
-  }, [album.photos]);
+  }, [setPhotos]);
 
   const visiblePhotos = filteredPhotos.slice(0, visibleCount);
   const hasMore = visibleCount < filteredPhotos.length;
@@ -268,6 +319,14 @@ export default function AlbumView({
    */
   const chooseFilter = useCallback((next: MarkFilter) => {
     setMarkFilter(next);
+    setVisibleCount(PAGE_SIZE);
+    setLightboxIndex(null);
+    setIsSlideshow(false);
+  }, []);
+
+  /** Another set: the same as a filter, the page starts again on it. */
+  const chooseSet = useCallback((index: number) => {
+    writeSetParam(setParam(index));
     setVisibleCount(PAGE_SIZE);
     setLightboxIndex(null);
     setIsSlideshow(false);
@@ -307,17 +366,23 @@ export default function AlbumView({
   );
 
 
-  // Deep link: /albums/sara?p=7 opens on the seventh photo
+  // Deep link: /albums/sara?p=7 opens on the seventh photo (of the set named
+  // by ?set=, on a gallery divided into sets). Not before the address has
+  // been read: the first render after hydration is the server's, with the
+  // first set, and ?p= must neither open a photo of the wrong set nor be
+  // dropped from the address before the right set is there.
+  const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
   useEffect(() => {
+    if (!hydrated) return;
     const index = readDeepLinkIndex(filteredPhotos.length);
     if (index === null) return;
     setVisibleCount((c) => Math.max(c, index + 1));
     setLightboxIndex(index);
-  }, [filteredPhotos.length]);
+  }, [hydrated, filteredPhotos.length]);
 
   useEffect(() => {
-    syncDeepLink(lightboxIndex);
-  }, [lightboxIndex]);
+    if (hydrated) syncDeepLink(lightboxIndex);
+  }, [hydrated, lightboxIndex]);
 
   // Lightbox navigation
   const openLightbox = useCallback((i: number) => setLightboxIndex(i), []);
@@ -440,9 +505,10 @@ export default function AlbumView({
         }
 
         if (choice.asZip) {
+          // The whole set on screen is named after it; anything less is a selection.
           const name =
-            photos.length === album.photos.length
-              ? `${slugify(album.title)}.zip`
+            photos.length === setPhotos.length
+              ? `${slugify(album.title)}${activeSet ? `-${setFilePart(activeSet, setIndex)}` : ""}.zip`
               : `${slugify(album.title)}-selection.zip`;
           await downloadPhotosAsZip(photos, name, choice.tier, downloadTiers, setZip);
           return;
@@ -474,7 +540,7 @@ export default function AlbumView({
         setBatch(null);
       }
     },
-    [album.photos.length, album.title, downloadTiers, say, tx],
+    [setPhotos.length, activeSet, setIndex, album.title, downloadTiers, say, tx],
   );
 
   /**
@@ -618,8 +684,19 @@ export default function AlbumView({
 
       {/* Actions: one small glass bar, in the manner of the BottomNav. Icons
           only on a phone; the words come back from 640px. */}
-      <div className="flex justify-end px-4 pb-4 pt-1 sm:px-8">
-        <div className="sc-glass isolate flex items-center gap-0.5 rounded-2xl p-1">
+      <div className="flex items-center justify-end gap-3 px-4 pb-4 pt-1 sm:px-8">
+        {/* The sets, on a gallery divided into sets: tabs on the left of the
+            same row, plain words rather than buttons. When they do not fit
+            they become one button with the open set's name. */}
+        {grouped.sets.length > 0 && (
+          <SetTabs
+            sets={grouped.sets}
+            active={setIndex}
+            onChoose={chooseSet}
+            label={tx("gallery.sets", "Sets")}
+          />
+        )}
+        <div className="sc-glass isolate flex shrink-0 items-center gap-0.5 rounded-2xl p-1">
           <ActionIcon
             icon={<Share2 className="h-3.5 w-3.5" />}
             label={tx("gallery.share", "Share")}
@@ -708,7 +785,11 @@ export default function AlbumView({
       )}
 
       {/* Photo grid */}
-      <div className="pb-4 pt-3">
+      <div
+        className="pb-4 pt-3"
+        id="gallery-photos"
+        {...(activeSet ? { role: "tabpanel", "aria-label": activeSet.label } : {})}
+      >
         <PhotoGrid
           photos={visiblePhotos}
           onPhotoClick={openLightbox}
@@ -970,5 +1051,177 @@ function BarButton({
       {icon}
       <span className="hidden xs:inline sm:inline">{children}</span>
     </button>
+  );
+}
+/**
+ * The sets as tabs: words with a line under the open one, on the left of the
+ * action bar. When they do not all fit beside it (a phone, many sets, long
+ * names) they become one button with the open set's name, which lists them.
+ * Never a sideways scroll.
+ */
+function SetTabs({
+  sets,
+  active,
+  onChoose,
+  label,
+}: {
+  sets: GallerySet[];
+  active: number;
+  onChoose: (index: number) => void;
+  /** "Sets": the name of the list for screen readers. */
+  label: string;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const natural = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Whether the tabs fit: an invisible copy at its natural width against the
+  // room there is. Measured before the first paint and on every resize.
+  useLayoutEffect(() => {
+    const el = box.current;
+    const copy = natural.current;
+    if (!el || !copy) return;
+    const fit = () => setCompact(copy.offsetWidth > el.clientWidth + 1);
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    ro.observe(copy);
+    return () => ro.disconnect();
+  }, []);
+
+  // The list closes on Esc and on a press anywhere else.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!menu.current?.contains(e.target as Node) && !trigger.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    menu.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const choose = (index: number) => {
+    setOpen(false);
+    if (index !== active) onChoose(index);
+  };
+
+  // Arrow keys move between the tabs, and between the items of the list.
+  const onTabKey = (e: React.KeyboardEvent) => {
+    const last = sets.length - 1;
+    const next =
+      e.key === "ArrowRight" ? (active === last ? 0 : active + 1)
+      : e.key === "ArrowLeft" ? (active === 0 ? last : active - 1)
+      : e.key === "Home" ? 0
+      : e.key === "End" ? last
+      : null;
+    if (next === null) return;
+    e.preventDefault();
+    onChoose(next);
+    tabs.current[next]?.focus();
+  };
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+  };
+
+  const word = "whitespace-nowrap px-2.5 text-[13px] font-semibold";
+
+  return (
+    <div ref={box} className="relative -ml-2.5 min-w-0 flex-1">
+      {/* The tabs at their natural width, never seen: what is measured. */}
+      <div ref={natural} aria-hidden className="pointer-events-none invisible absolute left-0 top-0 flex w-max">
+        {sets.map((s) => (
+          <span key={s.id} className={`${word} h-10`}>
+            {s.label}
+          </span>
+        ))}
+      </div>
+
+      {compact ? (
+        <>
+          <button
+            ref={trigger}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={`${label}: ${sets[active]?.label ?? ""}`}
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-h-10 max-w-full items-center gap-1 px-2.5 text-left text-[13px] font-semibold leading-tight text-foreground transition active:scale-[0.98]"
+          >
+            <span className="min-w-0 break-words">{sets[active]?.label}</span>
+            <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 opacity-70 transition ${open ? "rotate-180" : ""}`} />
+          </button>
+          {open && (
+            <div
+              ref={menu}
+              role="menu"
+              aria-label={label}
+              onKeyDown={onMenuKey}
+              className="absolute left-0 top-full z-30 mt-1 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card p-1 shadow-xl"
+            >
+              {sets.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={i === active}
+                  onClick={() => choose(i)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-foreground transition hover:bg-foreground/8 focus-visible:bg-foreground/8 focus-visible:outline-none"
+                >
+                  <Check aria-hidden className={`h-3.5 w-3.5 shrink-0 ${i === active ? "" : "invisible"}`} />
+                  <span className="min-w-0 break-words">{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div role="tablist" aria-label={label} className="flex overflow-hidden" onKeyDown={onTabKey}>
+          {sets.map((s, i) => {
+            const on = i === active;
+            return (
+              <button
+                key={s.id}
+                ref={(el) => {
+                  tabs.current[i] = el;
+                }}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-controls="gallery-photos"
+                tabIndex={on ? 0 : -1}
+                onClick={() => choose(i)}
+                className={`${word} relative h-10 transition focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${
+                  on ? "text-foreground" : "text-foreground/55 hover:text-foreground/85"
+                }`}
+              >
+                {s.label}
+                <span
+                  aria-hidden
+                  className={`absolute inset-x-2.5 bottom-1 h-0.5 rounded-full transition ${on ? "bg-primary" : "bg-transparent"}`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
