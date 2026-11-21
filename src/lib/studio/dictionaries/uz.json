@@ -210,7 +210,8 @@
         "isCover": "Bu muqova",
         "clientChose": "Mijoz tanlovi",
         "details": "Ma'lumotlar",
-        "original": "Aslini yuklab olish"
+        "original": "Aslini yuklab olish",
+        "set": "Bo'lim"
       }
     },
     "makePublic": "Portfolioga qo'shish",
@@ -219,7 +220,44 @@
     "makePrivate": "Yana yopiq qilish",
     "makePrivateConfirm": "Ha, yopiq qilish",
     "makePrivateHint": "Albom portfoliodan chiqadi va kalitlari bilan yana mijoz galereyasiga aylanadi.",
-    "wasPrivate": "Mijoz galereyasi edi. Uni yana yopiq qilsangiz, kalitlari saqlab qo'yilgan."
+    "wasPrivate": "Mijoz galereyasi edi. Uni yana yopiq qilsangiz, kalitlari saqlab qo'yilgan.",
+    "sets": {
+      "divide": "Bo'limlarga ajratish",
+      "divideHint": "Bo'limlar galereya sahifasida yorliqlar bo'ladi. Avval hamma suratlar birinchi bo'limga tushadi, keyin ularni ko'chirish mumkin.",
+      "example1": "Marosim",
+      "example2": "Bazm",
+      "nameN": "{n}-bo'lim",
+      "dropName": "{n}-bo'limni olib tashlash",
+      "another": "Yana bo'lim",
+      "create": "Bo'limlarni yaratish",
+      "tabs": "Bo'limlar",
+      "tab": "{name}, {n} ta surat",
+      "add": "Bo'lim",
+      "newSet": "Yangi bo'lim",
+      "addButton": "Qo'shish",
+      "options": "{name} bo'limi bilan amallar",
+      "rename": "Nomini o'zgartirish",
+      "name": "Bo'lim nomi",
+      "moveLeft": "Chapga surish",
+      "moveRight": "O'ngga surish",
+      "delete": "Bo'limni o'chirish",
+      "deleteLast": "{name} o'chirilsinmi? Bu oxirgi bo'lim: galereya yana bitta ro'yxat bo'ladi.",
+      "deleteEmpty": "{name} o'chirilsinmi? Unda surat yo'q.",
+      "deleteAsk": "{name} o'chirilsinmi? Undagi {n} ta surat bu yerga ko'chadi:",
+      "deleteAskOne": "{name} o'chirilsinmi? Undagi surat bu yerga ko'chadi:",
+      "moveTo": "Bo'limga ko'chirish",
+      "deleteYes": "Ha, o'chirish",
+      "removeAll": "Hamma bo'limlarni olib tashlash",
+      "removeAsk": "Hamma bo'limlar olib tashlansinmi? Suratlar galereyada bitta ro'yxat bo'lib qoladi.",
+      "removeYes": "Ha, olib tashlash",
+      "movedOne": "{name} bo'limiga ko'chirildi.",
+      "movedMany": "{n} ta surat {name} bo'limiga ko'chirildi.",
+      "dragging": "{n} ta surat",
+      "moveNTo": "{n} tasini ko'chirish:",
+      "empty": "Bu bo'limda hali hech narsa yo'q. Suratlarni bu yerga ko'chirish uchun ularni yorlig'iga torting.",
+      "uploadInto": "Yangi suratlar {name} bo'limiga tushadi.",
+      "dropInto": "Suratlarni sahifaning istalgan joyiga tashlang: ular {name} bo'limiga tushadi."
+    }
   },
   "settings": {
     "details": "Ma'lumotlar",
@@ -324,7 +362,12 @@
     "detailsNotSetUp": "Nomlar, tavsiflar, toifalar va yashirish uchun bazani yangilash kerak: supabase/migrations/20261121120000_photo_details.sql ni ishga tushiring.",
     "photoName": "Nomda / yoki \\ bo'lmasligi kerak va u 200 belgidan oshmaydi.",
     "photoDescription": "Tavsif 1000 belgidan oshmaydi.",
-    "photoTags": "10 tagacha toifa, har biri 40 belgigacha."
+    "photoTags": "10 tagacha toifa, har biri 40 belgigacha.",
+    "setLabel": "Bo'lim nomi 1 dan 40 tagacha belgi.",
+    "setLabelTaken": "Ikki bo'limning nomi bir xil bo'lishi mumkin emas.",
+    "setsFull": "Galereyada ko'pi bilan 10 ta bo'lim bo'ladi.",
+    "setsNotSetUp": "Bo'limlar uchun bazani yangilash kerak: supabase/migrations/20261122120000_gallery_sets.sql ni ishga tushiring.",
+    "setsTwo": "Kamida ikkita bo'limga nom bering."
   },
   "error": {
     "title": "Nimadir xato ketdi",

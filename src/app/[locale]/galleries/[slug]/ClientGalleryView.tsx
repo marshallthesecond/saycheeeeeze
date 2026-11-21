@@ -55,6 +55,7 @@ export default function ClientGalleryView({
   const [photos, setPhotos] = useState(album.photos);
   const [cover, setCover] = useState(album.cover);
   const [coverLadder, setCoverLadder] = useState(album.coverLadder);
+  const [sets, setSets] = useState(album.sets);
   const [expiry, setExpiry] = useState(signedUntil);
   const [markBusy, setMarkBusy] = useState<Set<string>>(new Set());
 
@@ -80,6 +81,7 @@ export default function ClientGalleryView({
       // Always assign: a hero that lost its ladder should stop rendering
       // stale signed derivative URLs, not keep the old ones.
       setCoverLadder(data.coverLadder ?? undefined);
+      if (Array.isArray(data.sets)) setSets(data.sets);
       setExpiry(data.signedUntil ?? null);
     } catch {
       // Offline, most likely. The existing URLs are still good for a while.
@@ -166,7 +168,7 @@ export default function ClientGalleryView({
   // so anything before the hero slides underneath it.
   return (
     <AlbumView
-      album={{ ...album, photos, cover, coverLadder }}
+      album={{ ...album, photos, cover, coverLadder, sets }}
       note={clientNote}
       downloadTiers={downloadTiers}
       downloadEnabled={downloadEnabled}

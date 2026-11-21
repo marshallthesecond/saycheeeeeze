@@ -140,7 +140,12 @@ function toDoor(answer: DoorAnswer): UploadDoor {
  * before anything is created. The rest are put in the order of the names
  * they are stored under, which is the order they will show in.
  */
-export async function startUploadBatch(galleryId: string, files: UploadCandidate[]): Promise<StartedBatch> {
+export async function startUploadBatch(
+  galleryId: string,
+  files: UploadCandidate[],
+  /** The set the files are for, in a gallery divided into sets. */
+  setId: string | null = null,
+): Promise<StartedBatch> {
   if (!Array.isArray(files) || files.length === 0) throw new UploadRefused("files");
   if (files.length > UPLOAD_MAX_FILES) throw new UploadRefused("too_many_files", { max: UPLOAD_MAX_FILES });
 
@@ -170,6 +175,13 @@ export async function startUploadBatch(galleryId: string, files: UploadCandidate
   if (error) throw refusal(error) ?? new Error(`Studio: could not start the upload: ${error.message}`);
 
   const answer = data as unknown as DoorAnswer;
+  // The set, before any file is sent: the photos are made after the files
+  // arrive. Not fatal: without it they land in the first set. PGRST202: a
+  // database without sets.
+  if (setId) {
+    const { error: setError } = await supabase.rpc("studio_set_batch_set", { p_batch_id: answer.batch_id, p_set_id: setId });
+    if (setError && setError.code !== "PGRST202") console.error(`Studio: the upload's set was not kept: ${setError.message}`);
+  }
   return {
     batchId: answer.batch_id,
     door: toDoor(answer),

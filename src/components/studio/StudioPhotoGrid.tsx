@@ -17,28 +17,43 @@
 //
 // Client galleries also show what the client chose for each photo, with
 // chips to see only one kind: pick Publish, Select all, Publish to album.
+//
+// A gallery divided into sets shows one set at a time, with the sets as tabs
+// above (SetBar). A photo, or the photos chosen with it, dragged onto another
+// set's tab moves there; so does "Move to set" in the bar, the menu and the
+// panel. Uploads land in the open set.
 
 import Link from "next/link";
 import { useActionState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleAlert, EyeOff, Star } from "lucide-react";
+import { Check, CircleAlert, EyeOff, Layers, Star } from "lucide-react";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
 import {
+  createSets,
   deletePhotos,
+  deleteSet,
+  movePhotosToSet,
+  moveSet,
   originalLink,
   placePhoto,
+  removeSets,
+  renameSet,
   sendPhotos,
   setCover,
   setPhotosHidden,
   updatePhoto,
   type DeletePhotosState,
   type SendPhotosState,
+  type SetsResult,
 } from "@/src/app/studio/gallery-actions";
+import type { GallerySet } from "@/src/lib/gallery-sets";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import type { GalleryKind } from "@/src/lib/ladder";
 import type { AlbumTarget, ClientMark, PlacementState, StudioPhoto } from "@/src/lib/studio/gallery";
 import { PendingButton } from "./FormFeedback";
 import PhotoActions, { type PlaceOption } from "./PhotoActions";
 import PhotoPanel from "./PhotoPanel";
+import SetBar, { type SetOps } from "./SetBar";
+import { useActiveSet } from "./active-set";
 import { detailRows, detailsText, photoLink, sitePositions } from "./photo-info";
 import type { PhotoOps } from "./photo-ops";
 
@@ -84,6 +99,10 @@ interface Props {
   detailsReady: boolean;
   /** The gallery's page on the site, without the language: "/albums/sara". */
   siteHref: string;
+  /** The gallery's sets in order; empty when it is not divided into sets. */
+  sets: GallerySet[];
+  /** The database has sets (20261122120000_gallery_sets.sql). */
+  setsReady: boolean;
 }
 
 /** The panel's width on a computer, as a share of the window. */
@@ -100,8 +119,15 @@ export default function StudioPhotoGrid({
   placements,
   detailsReady,
   siteHref,
+  sets: setsFromServer,
+  setsReady,
 }: Props) {
   const { t, locale } = useT();
+
+  // The sets as changed here, until the page has been read again.
+  const [setsHere, setSetsHere] = useState<{ from: GallerySet[]; sets: GallerySet[] } | null>(null);
+  const sets = setsHere && setsHere.from === setsFromServer ? setsHere.sets : setsFromServer;
+  const [activeSetId, openSet] = useActiveSet(sets);
 
   // Changes made here show at once, before the page has been read again:
   // details per photo, photos gone (deleted, moved), and the cover.
@@ -122,6 +148,23 @@ export default function StudioPhotoGrid({
     (id: string, change: Partial<StudioPhoto>) => setPatches((m) => ({ ...m, [id]: { ...m[id], ...change } })),
     [],
   );
+
+  // Which set each photo is in: its own, or the first when it names none
+  // the page knows (where the database puts it).
+  const setOf = useCallback(
+    (p: StudioPhoto): string | null =>
+      sets.length === 0 ? null : p.setId && sets.some((s) => s.id === p.setId) ? p.setId : sets[0].id,
+    [sets],
+  );
+  const setCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const p of all) {
+      const id = setOf(p);
+      if (id) c[id] = (c[id] ?? 0) + 1;
+    }
+    return c;
+  }, [all, setOf]);
+  const inSet = useMemo(() => (activeSetId ? all.filter((p) => setOf(p) === activeSetId) : all), [all, activeSetId, setOf]);
 
   // Where each photo is shown, kept here so a change shows at once without
   // reloading the page; the server's answer is what is kept.
@@ -167,16 +210,22 @@ export default function StudioPhotoGrid({
   const [filter, setFilter] = useState<Filter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const lastPicked = useRef<number | null>(null);
+  // Moving to a set: the bar's list of sets is open; a line about the last move.
+  const [settingSet, setSettingSet] = useState(false);
+  const [setNote, setSetNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // Photos being dragged onto a set's tab.
+  const dragIds = useRef<string[]>([]);
+  const [dragging, setDragging] = useState(false);
 
   const isClient = kind === "client";
-  const counts = Object.fromEntries(FILTERS.map((f) => [f, all.filter((p) => matches(p, f)).length])) as Record<
+  const counts = Object.fromEntries(FILTERS.map((f) => [f, inSet.filter((p) => matches(p, f)).length])) as Record<
     Filter,
     number
   >;
-  const anyMarks = isClient && counts.none < all.length;
+  const anyMarks = isClient && counts.none < inSet.length;
   // A filter whose photos all went (deleted, published) falls back to All.
   const shown = anyMarks && counts[filter] > 0 ? filter : "all";
-  const photos = all.filter((p) => matches(p, shown));
+  const photos = inSet.filter((p) => matches(p, shown));
 
   // Photos that went away (deleted, or the page refreshed) or are filtered
   // out are not counted.
@@ -188,8 +237,21 @@ export default function StudioPhotoGrid({
     setChosen(new Set());
     setArmed(false);
     setSending(false);
+    setSettingSet(false);
     lastPicked.current = null;
   }, []);
+
+  /** Another set: what was chosen and the open photo stay with the old one. */
+  const chooseSet = useCallback(
+    (id: string) => {
+      if (id === activeSetId) return;
+      stop();
+      setOpenId(null);
+      setSetNote(null);
+      openSet(id);
+    },
+    [activeSetId, openSet, stop],
+  );
 
   // One message under the bar: whichever of the two was sent last.
   const [last, setLast] = useState<"delete" | "send" | null>(null);
@@ -272,6 +334,116 @@ export default function StudioPhotoGrid({
     return f;
   };
   const openIndex = openId ? photos.findIndex((p) => p.id === openId) : -1;
+
+  /** Photos into another set: shown there at once, put back if the save fails. */
+  async function moveToSet(photoIds: string[], setId: string): Promise<string | undefined> {
+    const moving = all.filter((p) => photoIds.includes(p.id) && setOf(p) !== setId);
+    if (moving.length === 0) return undefined;
+    const before = new Map(moving.map((p) => [p.id, p.setId ?? null]));
+    // The panel goes on to the next photo of this set.
+    if (openId && before.has(openId)) {
+      const rest = photos.filter((p) => !before.has(p.id));
+      const after = photos.slice(openIndex + 1).find((p) => !before.has(p.id));
+      setOpenId(after?.id ?? rest[rest.length - 1]?.id ?? null);
+    }
+    for (const p of moving) patch(p.id, { setId });
+    setSetNote(null);
+    let result: SetsResult;
+    try {
+      result = await movePhotosToSet(galleryId, moving.map((p) => p.id), setId);
+    } catch {
+      result = { error: "failed" };
+    }
+    if (!result.ok) {
+      for (const [id, was] of before) patch(id, { setId: was });
+      setSetNote({ ok: false, text: t(`errors.${result.error}`) });
+      return result.error;
+    }
+    const label = sets.find((x) => x.id === setId)?.label ?? "";
+    setSetNote({
+      ok: true,
+      text: t(moving.length === 1 ? "gallery.sets.movedOne" : "gallery.sets.movedMany", { n: moving.length, name: label }),
+    });
+    return undefined;
+  }
+
+  /** The sets as the server answered, kept until the page is read again. */
+  const keepSets = (result: SetsResult): string | undefined => {
+    if (!result.ok) return result.error;
+    setSetsHere({ from: setsFromServer, sets: result.sets });
+    return undefined;
+  };
+  const setOps: SetOps = {
+    create: async (labels) => {
+      const first = sets.length === 0;
+      const result = await createSets(galleryId, labels).catch((): SetsResult => ({ error: "failed" }));
+      const error = keepSets(result);
+      // The first sets take every photo; open the first.
+      if (!error && result.ok && first && result.sets[0]) {
+        for (const p of all) patch(p.id, { setId: result.sets[0].id });
+        openSet(result.sets[0].id);
+      }
+      return error;
+    },
+    rename: async (setId, label) => keepSets(await renameSet(galleryId, setId, label).catch((): SetsResult => ({ error: "failed" }))),
+    move: async (setId, position) => keepSets(await moveSet(galleryId, setId, position).catch((): SetsResult => ({ error: "failed" }))),
+    remove: async (setId, moveTo) => {
+      const result = await deleteSet(galleryId, setId, moveTo).catch((): SetsResult => ({ error: "failed" }));
+      const error = keepSets(result);
+      if (!error && result.ok) {
+        // Its photos are where the database put them: moveTo, or the first set left.
+        const to = moveTo ?? result.sets[0]?.id ?? null;
+        for (const p of all) if (setOf(p) === setId) patch(p.id, { setId: to });
+        stop();
+        setOpenId(null);
+        if (to) openSet(to);
+      }
+      return error;
+    },
+    removeAll: async () => {
+      const result = await removeSets(galleryId).catch((): SetsResult => ({ error: "failed" }));
+      const error = keepSets(result);
+      if (!error) {
+        for (const p of all) patch(p.id, { setId: null });
+        stop();
+        setOpenId(null);
+      }
+      return error;
+    },
+  };
+
+  /** Dragging a tile: it, or everything chosen when it is one of them. */
+  const startDrag = (e: React.DragEvent, photo: StudioPhoto) => {
+    if (sets.length < 2) return;
+    const ids = chosen.has(photo.id) ? picked.map((p) => p.id) : [photo.id];
+    dragIds.current = ids;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", ids.join(","));
+    if (ids.length > 1) {
+      // A small label in place of the tile's picture: "3 photos".
+      const label = document.createElement("div");
+      label.textContent = t("gallery.sets.dragging", { n: ids.length });
+      label.style.cssText =
+        "position:fixed;top:-100px;left:0;padding:6px 10px;border-radius:8px;font:600 13px system-ui;background:#111;color:#fff";
+      document.body.appendChild(label);
+      e.dataTransfer.setDragImage(label, 12, 12);
+      setTimeout(() => label.remove(), 0);
+    }
+    setDragging(true);
+  };
+  const endDrag = () => {
+    dragIds.current = [];
+    setDragging(false);
+  };
+  const dropOn = (setId: string) => {
+    const ids = dragIds.current;
+    endDrag();
+    if (ids.length > 0) {
+      void moveToSet(ids, setId);
+      if (ids.length > 1) stop();
+    }
+  };
+
   const ops: PhotoOps = {
     update: async (photoId, changes) => {
       const result = await updatePhoto(galleryId, photoId, changes);
@@ -310,9 +482,10 @@ export default function StudioPhotoGrid({
       const r = await originalLink(galleryId, photoId);
       return "url" in r ? { url: r.url } : { error: r.error };
     },
+    toSet: (photoIds, setId) => moveToSet(photoIds, setId),
   };
 
-  const positions = useMemo(() => sitePositions(all), [all]);
+  const positions = useMemo(() => sitePositions(all, sets), [all, sets]);
   const linkOf = (photo: StudioPhoto) => photoLink(siteHref, photo, positions.get(photo.id) ?? null);
 
   // Tags to offer: the Portfolio's categories and every tag used in this gallery.
@@ -352,6 +525,18 @@ export default function StudioPhotoGrid({
 
   return (
     <div ref={gridBox}>
+      {(
+        <SetBar
+          sets={sets}
+          counts={setCounts}
+          activeId={activeSetId}
+          onChoose={chooseSet}
+          ready={setsReady}
+          dragging={dragging}
+          onDropPhotos={dropOn}
+          ops={setOps}
+        />
+      )}
       {anyMarks && (
         <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("gallery.photos.marksLabel")}>
           {FILTERS.filter((f) => f === "all" || counts[f] > 0).map((f) => (
@@ -435,10 +620,29 @@ export default function StudioPhotoGrid({
                       disabled={busy}
                       aria-expanded={sending}
                       className={sending ? SMALL_QUIET : SMALL_MAIN}
-                      onClick={() => setSending((v) => !v)}
+                      onClick={() => {
+                        setSettingSet(false);
+                        setSending((v) => !v);
+                      }}
                     >
                       {t(isClient ? "gallery.photos.publish" : "gallery.photos.move")}
                     </button>
+                    {sets.length > 1 && (
+                      <button
+                        key="toset"
+                        type="button"
+                        disabled={busy}
+                        aria-expanded={settingSet}
+                        className={SMALL_QUIET}
+                        onClick={() => {
+                          setSending(false);
+                          setSettingSet((v) => !v);
+                        }}
+                      >
+                        <Layers aria-hidden className="size-3.5" />
+                        {t("gallery.sets.moveTo")}
+                      </button>
+                    )}
                     <button
                       key="delete"
                       type="button"
@@ -463,6 +667,30 @@ export default function StudioPhotoGrid({
           )}
         </form>
 
+        {selecting && settingSet && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label={t("gallery.sets.moveNTo", { n })}>
+            <span className="mr-1 text-sm text-muted-foreground">{t("gallery.sets.moveNTo", { n })}</span>
+            {sets
+              .filter((x) => x.id !== activeSetId)
+              .map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  className={`${SMALL} border border-border text-foreground hover:border-foreground/40`}
+                  onClick={async () => {
+                    const error = await moveToSet(
+                      picked.map((p) => p.id),
+                      x.id,
+                    );
+                    if (!error) stop();
+                  }}
+                >
+                  {x.label}
+                </button>
+              ))}
+          </div>
+        )}
+
         {selecting && sending && (
           <SendForm
             key={kind}
@@ -479,7 +707,17 @@ export default function StudioPhotoGrid({
         )}
       </div>
 
-      <p role={error ? "alert" : "status"} className="mt-2 min-h-5 text-sm">
+      <p role={error || (setNote && !setNote.ok) ? "alert" : "status"} className="mt-2 min-h-5 text-sm">
+        {setNote && !error && (
+          <span className={`flex items-start gap-1.5 ${setNote.ok ? "text-muted-foreground" : "text-destructive"}`}>
+            {setNote.ok ? (
+              <Check aria-hidden className="mt-0.5 size-4 shrink-0" />
+            ) : (
+              <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+            )}
+            <span>{setNote.text}</span>
+          </span>
+        )}
         {error && (
           <span className="flex items-start gap-2 text-destructive">
             <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -519,7 +757,7 @@ export default function StudioPhotoGrid({
             <span>{t(done === 1 ? "gallery.photos.deletedOne" : "gallery.photos.deletedMany", { n: done })}</span>
           </span>
         )}
-        {selecting && !error && <span className="text-muted-foreground">{t("gallery.photos.selectHint")}</span>}
+        {selecting && !error && !setNote && <span className="text-muted-foreground">{t("gallery.photos.selectHint")}</span>}
       </p>
 
       <ul className="mt-2 grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-x-3 lg:grid-cols-5 2xl:grid-cols-6">
@@ -530,6 +768,9 @@ export default function StudioPhotoGrid({
           return (
             <li key={photo.id} className="min-w-0">
               <div
+                draggable={sets.length > 1}
+                onDragStart={(e) => startDrag(e, photo)}
+                onDragEnd={endDrag}
                 className={`relative overflow-hidden rounded-lg ring-1 ${
                   on ? "ring-2 ring-accent-warm" : isOpen ? "ring-2 ring-foreground" : "ring-border"
                 }`}
@@ -591,6 +832,8 @@ export default function StudioPhotoGrid({
                     onToggle={(place, isOn) => toggle(photo.id, place, isOn)}
                     onOpenDetails={() => setOpenId(photo.id)}
                     ops={ops}
+                    sets={sets}
+                    setId={setOf(photo)}
                   />
                 )}
 
@@ -659,6 +902,10 @@ export default function StudioPhotoGrid({
         })}
       </ul>
 
+      {activeSetId && photos.length === 0 && (
+        <p className="py-12 text-center text-sm text-muted-foreground">{t("gallery.sets.empty")}</p>
+      )}
+
       {open && (
         <PhotoPanel
           photo={open}
@@ -677,6 +924,8 @@ export default function StudioPhotoGrid({
           counts={placeCounts}
           onToggle={(place, isOn) => toggle(open.id, place, isOn)}
           ops={ops}
+          sets={sets}
+          setId={setOf(open)}
           onPrev={() => openIndex > 0 && setOpenId(photos[openIndex - 1].id)}
           onNext={() => openIndex < photos.length - 1 && setOpenId(photos[openIndex + 1].id)}
           onClose={() => setOpenId(null)}

@@ -35,6 +35,8 @@ import {
   type WorkerState,
 } from "@/src/lib/studio/upload-client";
 import { BUTTON_PRIMARY, BUTTON_QUIET } from "./fields";
+import type { GallerySet } from "@/src/lib/gallery-sets";
+import { useActiveSet } from "./active-set";
 
 const ACCEPT = ".jpg,.jpeg,.png,image/jpeg,image/png";
 
@@ -63,6 +65,7 @@ export default function UploadPanel({
   hasPhotos,
   pending,
   worker,
+  sets = [],
 }: {
   galleryId: string;
   /** The gallery has a storage folder of its own. */
@@ -72,6 +75,8 @@ export default function UploadPanel({
   pending: ServerBatch[];
   /** null when it could not be read. */
   worker: WorkerState | null;
+  /** The gallery's sets: files land in the one open below. */
+  sets?: GallerySet[];
 }) {
   const { t, locale } = useT();
   const router = useRouter();
@@ -80,6 +85,13 @@ export default function UploadPanel({
   const pick = useRef<HTMLInputElement>(null);
   const pickAgain = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [activeSetId] = useActiveSet(sets);
+  const activeSet = sets.find((s) => s.id === activeSetId) ?? null;
+
+  // New drops are for the set open below.
+  useEffect(() => {
+    uploads.setTargetSet(activeSetId);
+  }, [uploads, activeSetId]);
 
   // What the server knew when the page was drawn.
   useEffect(() => {
@@ -248,8 +260,12 @@ export default function UploadPanel({
             </button>
             {workerLine}
           </div>
-          {!hasPhotos || items.length > 0 ? null : (
-            <p className="text-[13px] text-muted-foreground">{t("upload.dropAnywhere")}</p>
+          {!hasPhotos || items.length > 0 ? (
+            activeSet && <p className="text-[13px] text-muted-foreground">{t("gallery.sets.uploadInto", { name: activeSet.label })}</p>
+          ) : (
+            <p className="text-[13px] text-muted-foreground">
+              {activeSet ? t("gallery.sets.dropInto", { name: activeSet.label }) : t("upload.dropAnywhere")}
+            </p>
           )}
         </div>
       )}

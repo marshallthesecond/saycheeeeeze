@@ -30,6 +30,7 @@ import PhotoFrame from "@/src/components/common/PhotoFrame";
 import { useT } from "@/src/lib/i18n/LanguageProvider";
 import { BEST_PICKS_PLACE } from "@/src/lib/placements";
 import type { AlbumTarget, StudioPhoto } from "@/src/lib/studio/gallery";
+import type { GallerySet } from "@/src/lib/gallery-sets";
 import type { PlaceOption, Placed } from "./PhotoActions";
 import { copyText, detailsText, shareLink, type DetailRow } from "./photo-info";
 import type { PhotoOps } from "./photo-ops";
@@ -68,6 +69,9 @@ export interface PhotoPanelProps {
   counts: Record<string, number>;
   onToggle: (place: string, on: boolean) => Promise<string | undefined>;
   ops: PhotoOps;
+  /** The gallery's sets, when it is divided into sets, and the one the photo is in. */
+  sets: GallerySet[];
+  setId: string | null;
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
@@ -157,6 +161,8 @@ function PanelBody({
   counts,
   onToggle,
   ops,
+  sets,
+  setId,
 }: PhotoPanelProps) {
   const { t } = useT();
   const [name, setName] = useState(photo.name);
@@ -424,6 +430,35 @@ function PanelBody({
           </div>
           {noteLine("cover")}
         </div>
+
+        {/* The set it is in: another one moves it there */}
+        {sets.length > 1 && (
+          <div className="border-t border-border pt-4">
+            <p className={HEADING}>{t("gallery.photos.panel.set")}</p>
+            <div role="radiogroup" aria-label={t("gallery.photos.panel.set")} className="mt-2 flex flex-wrap gap-1.5">
+              {sets.map((s) => {
+                const here = s.id === setId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={here}
+                    disabled={busy !== null}
+                    onClick={() => !here && run("set", () => ops.toSet([photo.id], s.id))}
+                    className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border px-2.5 text-xs font-medium transition disabled:opacity-60 ${
+                      here ? "border-foreground bg-foreground text-background" : "border-border text-foreground hover:border-foreground/40"
+                    }`}
+                  >
+                    {here && <Check aria-hidden className="size-3" strokeWidth={3} />}
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            {noteLine("set")}
+          </div>
+        )}
 
         {/* Best picks and the service pages */}
         {!isClient && (

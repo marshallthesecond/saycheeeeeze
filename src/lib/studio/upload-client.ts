@@ -275,6 +275,12 @@ export class GalleryUploads {
 
   // ------------------------------------------------------------ a new drop
 
+  /** The set new drops are for (a gallery divided into sets), or null. */
+  private targetSet: string | null = null;
+  setTargetSet(setId: string | null) {
+    this.targetSet = setId;
+  }
+
   async add(list: File[]) {
     if (list.length === 0) return;
     this.notice = null;
@@ -320,6 +326,7 @@ export class GalleryUploads {
         body: JSON.stringify({
           galleryId: this.galleryId,
           files: wanted.map(({ file }) => ({ name: file.name, size: file.size, type: file.type })),
+          ...(this.targetSet ? { setId: this.targetSet } : {}),
         }),
       });
       body = await answer.json().catch(() => null);

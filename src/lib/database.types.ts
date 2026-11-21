@@ -552,6 +552,38 @@ export type Database = {
         }
         Relationships: []
       }
+      gallery_sets: {
+        Row: {
+          created_at: string
+          gallery_id: string
+          id: string
+          label: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          gallery_id: string
+          id?: string
+          label: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          gallery_id?: string
+          id?: string
+          label?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_sets_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photo_placements: {
         Row: {
           account_id: string
@@ -615,6 +647,7 @@ export type Database = {
           ladder_rev: number
           name: string | null
           share_bytes: number | null
+          set_id: string | null
           sort_order: number
           source_bytes: number | null
           status: string
@@ -649,6 +682,7 @@ export type Database = {
           ladder_rev?: number
           name?: string | null
           share_bytes?: number | null
+          set_id?: string | null
           sort_order?: number
           source_bytes?: number | null
           status?: string
@@ -683,6 +717,7 @@ export type Database = {
           ladder_rev?: number
           name?: string | null
           share_bytes?: number | null
+          set_id?: string | null
           sort_order?: number
           source_bytes?: number | null
           status?: string
@@ -778,6 +813,7 @@ export type Database = {
           id: string
           ready_count: number
           settled_at: string | null
+          set_id: string | null
           skipped_count: number
           status: string
           total_bytes: number
@@ -796,6 +832,7 @@ export type Database = {
           id?: string
           ready_count?: number
           settled_at?: string | null
+          set_id?: string | null
           skipped_count?: number
           status?: string
           total_bytes: number
@@ -814,6 +851,7 @@ export type Database = {
           id?: string
           ready_count?: number
           settled_at?: string | null
+          set_id?: string | null
           skipped_count?: number
           status?: string
           total_bytes?: number
@@ -1079,6 +1117,34 @@ export type Database = {
       studio_set_gallery_public: {
         Args: { p_category?: string; p_gallery_id: string; p_public: boolean }
         Returns: Json
+      }
+      studio_create_sets: {
+        Args: { p_gallery_id: string; p_labels: string[] }
+        Returns: Json
+      }
+      studio_delete_set: {
+        Args: { p_move_to: string | null; p_set_id: string }
+        Returns: Json
+      }
+      studio_move_photos_to_set: {
+        Args: { p_gallery_id: string; p_photo_ids: string[]; p_set_id: string }
+        Returns: Json
+      }
+      studio_move_set: {
+        Args: { p_position: number; p_set_id: string }
+        Returns: Json
+      }
+      studio_remove_sets: {
+        Args: { p_gallery_id: string }
+        Returns: number
+      }
+      studio_rename_set: {
+        Args: { p_label: string; p_set_id: string }
+        Returns: Json
+      }
+      studio_set_batch_set: {
+        Args: { p_batch_id: string; p_set_id: string | null }
+        Returns: undefined
       }
       studio_set_photos_hidden: {
         Args: { p_gallery_id: string; p_hidden: boolean; p_photo_ids: string[] }

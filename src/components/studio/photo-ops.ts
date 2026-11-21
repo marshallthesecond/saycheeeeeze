@@ -21,4 +21,6 @@ export interface PhotoOps {
   remove(photoId: string): Promise<string | undefined>;
   /** The original file's address. */
   original(photoId: string): Promise<{ url?: string; error?: string }>;
+  /** Into another set of the gallery (one divided into sets). */
+  toSet(photoIds: string[], setId: string): Promise<string | undefined>;
 }

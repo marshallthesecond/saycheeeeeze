@@ -4,26 +4,41 @@
 import { SITE_URL } from "@/src/lib/seo";
 import type { StudioPhoto } from "@/src/lib/studio/gallery";
 import { formatBytes, formatWhen } from "@/src/lib/studio/format";
+import { groupBySet, type GallerySet } from "@/src/lib/gallery-sets";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
-/**
- * The address that opens the gallery on this photo (?p=, as the site's own
- * Share does). Null while the photo is hidden: the site does not show it.
- */
-export function photoLink(siteHref: string, photo: StudioPhoto, position = photo.sitePosition): string | null {
-  if (photo.hidden || position === null) return null;
-  return `${SITE_URL.replace(/\/$/, "")}${siteHref}?p=${position}`;
+/** Where a shown photo is on the site: its set's place among the sets shown (from 1; null without sets) and its own place in that set (from 1). */
+export interface SitePlace {
+  set: number | null;
+  p: number;
 }
 
 /**
- * Each shown photo's place on the site, from 1, from the grid as it is now:
- * a photo hidden or shown a moment ago moves the ones after it.
+ * The address that opens the gallery on this photo (?p=, as the site's own
+ * Share does; ?set=&p= in a gallery divided into sets). Null while the photo
+ * is hidden: the site does not show it.
  */
-export function sitePositions(photos: StudioPhoto[]): Map<string, number> {
-  const out = new Map<string, number>();
-  let n = 0;
-  for (const p of photos) if (!p.hidden) out.set(p.id, ++n);
+export function photoLink(siteHref: string, photo: StudioPhoto, place: SitePlace | null): string | null {
+  if (photo.hidden || !place) return null;
+  const query = place.set === null ? `p=${place.p}` : `set=${place.set}&p=${place.p}`;
+  return `${SITE_URL.replace(/\/$/, "")}${siteHref}?${query}`;
+}
+
+/**
+ * Each shown photo's place on the site, from the grid as it is now: a photo
+ * hidden, shown or moved to another set a moment ago moves the ones after it.
+ * The same grouping as the site's (gallery-sets.ts): only sets with a shown
+ * photo are tabs there.
+ */
+export function sitePositions(photos: StudioPhoto[], sets: readonly GallerySet[] = []): Map<string, SitePlace> {
+  const out = new Map<string, SitePlace>();
+  const grouped = groupBySet(sets, photos.filter((p) => !p.hidden));
+  if (grouped.sets.length === 0) {
+    grouped.photosOf(null).forEach((p, i) => out.set(p.id, { set: null, p: i + 1 }));
+    return out;
+  }
+  grouped.sets.forEach((s, k) => grouped.photosOf(s.id).forEach((p, i) => out.set(p.id, { set: k + 1, p: i + 1 })));
   return out;
 }
 

@@ -11,6 +11,7 @@ import { cache } from "react";
 import { formatDay } from "@/src/lib/format-day";
 import { parseTiers, type DownloadTier, type GalleryKind, type LadderSources } from "@/src/lib/ladder";
 import { nextExpiry } from "@/src/lib/bunny-sign";
+import { isSetsMissing, type GallerySet } from "@/src/lib/gallery-sets";
 import { COVER_COLUMNS, coverLadder, publicPath } from "./galleries";
 import { requireStudio, type StudioSession } from "./session";
 import { studioSupabase } from "./supabase";
@@ -166,6 +167,8 @@ export interface StudioPhoto {
    * opens the gallery on it (?p=). Null while it is hidden.
    */
   sitePosition: number | null;
+  /** The set it is in, when the gallery is divided into sets. */
+  setId?: string | null;
 }
 
 export type ClientMark = "publish" | "keep" | "delete";
@@ -211,10 +214,18 @@ type PhotoListRow = {
  * (20261121120000_photo_details.sql). Before it is run the photos still show,
  * with no names, descriptions, tags or hiding.
  */
-export async function listStudioPhotoDetails(
-  gallery: StudioGalleryDetail,
-): Promise<{ photos: StudioPhoto[]; detailsReady: boolean }> {
+export async function listStudioPhotoDetails(gallery: StudioGalleryDetail): Promise<{
+  photos: StudioPhoto[];
+  detailsReady: boolean;
+  /** The gallery's sets in order; empty when it is not divided into sets. */
+  sets: GallerySet[];
+  /** The database has sets (20261122120000_gallery_sets.sql). */
+  setsReady: boolean;
+}> {
   const supabase = await studioSupabase();
+  const setsRead = readSets(gallery.id);
+  // Awaited below; this only keeps an early failure from going unhandled.
+  setsRead.catch(() => {});
   const query = (columns: string) =>
     supabase
       .from("photos")
@@ -233,6 +244,7 @@ export async function listStudioPhotoDetails(
   if (error) throw new Error(`Studio: could not load the photos: ${error.message}`);
   const rows = (data ?? []) as unknown as PhotoListRow[];
   const published = gallery.kind === "client" ? await albumsHolding(rows.map((r) => r.storage_path)) : new Map();
+  const sets = await setsRead;
 
   // One deadline for every signed thumbnail on the page.
   const expiresAt = nextExpiry();
@@ -261,9 +273,36 @@ export async function listStudioPhotoDetails(
       ...(r.taken_at ? { takenAt: r.taken_at } : {}),
       uploadedAt: r.created_at,
       sitePosition: hidden ? null : ++shown,
+      ...(sets.setOf ? { setId: sets.setOf.get(r.id) ?? null } : {}),
     };
   });
-  return { photos, detailsReady };
+  return { photos, detailsReady, sets: sets.sets, setsReady: sets.ready };
+}
+
+/**
+ * A gallery's sets and the set of each of its photos. On a database without
+ * sets: none, and `ready` false.
+ */
+async function readSets(
+  galleryId: string,
+): Promise<{ sets: GallerySet[]; ready: boolean; setOf?: Map<string, string | null> }> {
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase
+    .from("gallery_sets")
+    .select("id, label")
+    .eq("gallery_id", galleryId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (isSetsMissing(error)) return { sets: [], ready: false };
+  if (error) throw new Error(`Studio: could not load the sets: ${error.message}`);
+  if (!data || data.length === 0) return { sets: [], ready: true };
+  const rows = await supabase.from("photos").select("id, set_id").eq("gallery_id", galleryId);
+  if (rows.error) throw new Error(`Studio: could not load the sets: ${rows.error.message}`);
+  return {
+    sets: data.map((x) => ({ id: x.id, label: x.label })),
+    ready: true,
+    setOf: new Map((rows.data ?? []).map((r) => [r.id, r.set_id])),
+  };
 }
 
 /** File -> the title of an album of this account that shows it too. */

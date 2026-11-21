@@ -87,7 +87,7 @@ export default async function ClientGalleryPage({
     }
   }
 
-  const { photos, cover, coverLadder, coverThumbhash, signedUntil } =
+  const { photos, cover, coverLadder, coverThumbhash, signedUntil, sets } =
     await getGalleryContent(gallery);
 
   return (
@@ -111,6 +111,7 @@ export default async function ClientGalleryPage({
         photographerHandle: gallery.photographerHandle,
         photos,
         photoCount: photos.length,
+        sets,
       }}
     />
   );
