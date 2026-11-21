@@ -18,6 +18,8 @@ import { endOfStudioDay } from "@/src/lib/studio/gallery";
 import { publicPath } from "@/src/lib/studio/galleries";
 import { alsoRefreshLiveSite } from "@/src/lib/studio/live-site";
 import { isPlace } from "@/src/lib/placements";
+import { nextExpiry } from "@/src/lib/bunny-sign";
+import { originalUrl } from "@/src/lib/photo-files";
 import { PASSKEY_MAX, PASSKEY_MIN, generatePasskey } from "@/src/lib/studio/passkey";
 import { requireStudio } from "@/src/lib/studio/session";
 import { categoryProblem, isValidSlug, slugify } from "@/src/lib/studio/slug";
@@ -106,6 +108,10 @@ const REASONS: Record<string, string> = {
   not_album: "notAlbum",
   place: "invalid",
   place_full: "placeFull",
+  name: "photoName",
+  description: "photoDescription",
+  tags: "photoTags",
+  invalid: "invalid",
 };
 
 /** A Supabase error -> a key under `errors`. */
@@ -626,4 +632,117 @@ export async function placePhoto(galleryId: string, photoId: string, place: stri
   // the live site.
   await expireSiteCaches(own.slug);
   return { places: data ?? [] };
+}
+
+// ---------------------------------------------------------------------------
+// One photo's details: name, description, tags, shown or hidden (2026-11-21)
+// ---------------------------------------------------------------------------
+
+/** What a photo's details are after a change. */
+export interface PhotoDetails {
+  /** The name given in the Studio, or null for the file's own. */
+  name: string | null;
+  fileName: string;
+  description: string | null;
+  tags: string[];
+  hidden: boolean;
+}
+
+export type PhotoResult = { ok: true; photo: PhotoDetails } | { ok?: false; error: string };
+
+export interface PhotoChanges {
+  name?: string | null;
+  description?: string | null;
+  tags?: string[];
+  hidden?: boolean;
+}
+
+const UUID = /^[0-9a-f-]{36}$/i;
+
+/** Is the photo in this gallery? The database checks the account; this checks the gallery. */
+async function inGallery(galleryId: string, photoId: string): Promise<{ storage_path: string } | null> {
+  if (!UUID.test(photoId)) return null;
+  const supabase = await studioSupabase();
+  const { data } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .eq("id", photoId)
+    .eq("gallery_id", galleryId)
+    .limit(1);
+  return data?.[0] ?? null;
+}
+
+/**
+ * Renames, describes, tags, hides or shows one photo. Only the keys given
+ * change. Renaming changes the name only: the stored file keeps its address.
+ */
+export async function updatePhoto(galleryId: string, photoId: string, changes: PhotoChanges): Promise<PhotoResult> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  if (!(await inGallery(own.id, photoId))) return { error: "notFound" };
+
+  const patch: Record<string, unknown> = {};
+  if ("name" in changes) patch.name = changes.name ?? null;
+  if ("description" in changes) patch.description = changes.description ?? null;
+  if ("tags" in changes) patch.tags = Array.isArray(changes.tags) ? changes.tags : null;
+  if ("hidden" in changes) patch.hidden = changes.hidden;
+  if (Object.keys(patch).length === 0) return { error: "invalid" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_update_photo", { p_photo_id: photoId, p_changes: patch as never });
+  if (error) {
+    // PGRST202: the function is not in the database: the migration is not run yet.
+    return { error: error.code === "PGRST202" ? "detailsNotSetUp" : reasonOf(error) };
+  }
+
+  await expireSiteCaches(own.slug);
+  refresh();
+  const d = (data ?? {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    photo: {
+      name: typeof d.name === "string" ? d.name : null,
+      fileName: typeof d.fileName === "string" ? d.fileName : "",
+      description: typeof d.description === "string" ? d.description : null,
+      tags: Array.isArray(d.tags) ? d.tags.filter((t): t is string => typeof t === "string") : [],
+      hidden: d.hidden === true,
+    },
+  };
+}
+
+/** Hides or shows many photos of one gallery at once. */
+export async function setPhotosHidden(
+  galleryId: string,
+  photoIds: string[],
+  hidden: boolean,
+): Promise<{ ok: true; changed: number } | { ok?: false; error: string }> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  const ids = [...new Set(photoIds)].filter((id) => UUID.test(id));
+  if (ids.length === 0 || ids.length > 500 || typeof hidden !== "boolean") return { error: "invalid" };
+
+  const supabase = await studioSupabase();
+  const { data, error } = await supabase.rpc("studio_set_photos_hidden", {
+    p_gallery_id: own.id,
+    p_photo_ids: ids,
+    p_hidden: hidden,
+  });
+  if (error) return { error: error.code === "PGRST202" ? "detailsNotSetUp" : reasonOf(error) };
+
+  await expireSiteCaches(own.slug);
+  refresh();
+  return { ok: true, changed: Number(data ?? 0) };
+}
+
+/**
+ * The address of the photo's original file, for Download original. Signed
+ * for a few days when the file is in the private zone.
+ */
+export async function originalLink(galleryId: string, photoId: string): Promise<{ url: string } | { error: string }> {
+  const own = await ownGallery(galleryId);
+  if (!own) return { error: "notFound" };
+  const row = await inGallery(own.id, photoId);
+  if (!row) return { error: "notFound" };
+  const url = originalUrl(row.storage_path, nextExpiry());
+  return url ? { url } : { error: "failed" };
 }

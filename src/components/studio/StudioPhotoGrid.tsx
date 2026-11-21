@@ -1,30 +1,35 @@
 "use client";
 
 // The Photos tab's grid: the photographs, which one is the cover, and
-// choosing some to delete, publish or move.
+// choosing some to hide, delete, publish or move.
 //
-// Select switches the tiles into choosing: a click picks a photo, Shift-click
+// Each tile has a round selector in its top-left corner, always there
+// (Marshall, 2026-11-21: it replaced the Select button). Picking one starts
+// choosing: from then on a click anywhere on a tile picks it, Shift-click
 // picks everything between it and the last one picked. The bar above the
-// grid stays in view while choosing, with the count, Select all, Publish
-// (client galleries) or Move (albums), Delete (which asks once more) and
-// Done. Esc leaves.
+// grid stays in view while anything is picked, with the count, Select all,
+// Hide or Show, Publish (client galleries) or Move (albums), Delete (which
+// asks once more) and Clear. Esc clears.
+//
+// With nothing picked, a click on a photo opens it in the photo panel
+// (PhotoPanel): 2/5 of the screen on the right, a sheet on a phone. Each
+// tile's "..." menu (PhotoActions) has the same actions in a list.
 //
 // Client galleries also show what the client chose for each photo, with
 // chips to see only one kind: pick Publish, Select all, Publish to album.
-//
-// Outside choosing, each tile has a "..." menu (PhotoActions): "Add to..."
-// puts the photo on Best picks or a service page, and the line under the tile
-// says where it is shown (2026-11-19).
 
 import Link from "next/link";
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
-import { Check, CircleAlert, Star } from "lucide-react";
+import { useActionState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Check, CircleAlert, EyeOff, Star } from "lucide-react";
 import PhotoFrame from "@/src/components/common/PhotoFrame";
 import {
   deletePhotos,
+  originalLink,
   placePhoto,
   sendPhotos,
   setCover,
+  setPhotosHidden,
+  updatePhoto,
   type DeletePhotosState,
   type SendPhotosState,
 } from "@/src/app/studio/gallery-actions";
@@ -33,6 +38,9 @@ import type { GalleryKind } from "@/src/lib/ladder";
 import type { AlbumTarget, ClientMark, PlacementState, StudioPhoto } from "@/src/lib/studio/gallery";
 import { PendingButton } from "./FormFeedback";
 import PhotoActions, { type PlaceOption } from "./PhotoActions";
+import PhotoPanel from "./PhotoPanel";
+import { detailRows, detailsText, photoLink, sitePositions } from "./photo-info";
+import type { PhotoOps } from "./photo-ops";
 
 type Filter = "all" | ClientMark | "none";
 const FILTERS: Filter[] = ["all", "publish", "keep", "delete", "none"];
@@ -72,19 +80,48 @@ interface Props {
   places: PlaceOption[];
   /** Where the photos are shown now. Albums only; null for a client gallery. */
   placements: PlacementState | "missing" | "failed" | null;
+  /** The photo details are in the database (20261121120000_photo_details.sql). */
+  detailsReady: boolean;
+  /** The gallery's page on the site, without the language: "/albums/sara". */
+  siteHref: string;
 }
+
+/** The panel's width on a computer, as a share of the window. */
+const PANEL_SHARE = 0.4;
 
 export default function StudioPhotoGrid({
   galleryId,
   galleryTitle,
   kind,
-  photos: all,
+  photos: fromServer,
   albums,
   categories,
   places,
   placements,
+  detailsReady,
+  siteHref,
 }: Props) {
-  const { t } = useT();
+  const { t, locale } = useT();
+
+  // Changes made here show at once, before the page has been read again:
+  // details per photo, photos gone (deleted, moved), and the cover.
+  const [patches, setPatches] = useState<Record<string, Partial<StudioPhoto>>>({});
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const [coverId, setCoverId] = useState<string | null>(null);
+  const all = useMemo(
+    () =>
+      fromServer
+        .filter((p) => !gone.has(p.id))
+        .map((p) => {
+          const patched = patches[p.id] ? { ...p, ...patches[p.id] } : p;
+          return coverId ? { ...patched, isCover: p.id === coverId } : patched;
+        }),
+    [fromServer, gone, patches, coverId],
+  );
+  const patch = useCallback(
+    (id: string, change: Partial<StudioPhoto>) => setPatches((m) => ({ ...m, [id]: { ...m[id], ...change } })),
+    [],
+  );
 
   // Where each photo is shown, kept here so a change shows at once without
   // reloading the page; the server's answer is what is kept.
@@ -119,11 +156,16 @@ export default function StudioPhotoGrid({
     },
     [galleryId],
   );
-  const [selecting, setSelecting] = useState(false);
+  const placedOf = (id: string) =>
+    kind === "client" ? [] : placements === "missing" || placements === "failed" ? placements : (placedBy[id] ?? []);
+
   const [chosen, setChosen] = useState<Set<string>>(() => new Set());
   const [armed, setArmed] = useState(false);
   const [sending, setSending] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const [hideError, setHideError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [openId, setOpenId] = useState<string | null>(null);
   const lastPicked = useRef<number | null>(null);
 
   const isClient = kind === "client";
@@ -136,23 +178,28 @@ export default function StudioPhotoGrid({
   const shown = anyMarks && counts[filter] > 0 ? filter : "all";
   const photos = all.filter((p) => matches(p, shown));
 
-  const stop = () => {
-    setSelecting(false);
+  // Photos that went away (deleted, or the page refreshed) or are filtered
+  // out are not counted.
+  const picked = photos.filter((p) => chosen.has(p.id));
+  const n = picked.length;
+  const selecting = n > 0;
+
+  const stop = useCallback(() => {
     setChosen(new Set());
     setArmed(false);
     setSending(false);
     lastPicked.current = null;
-  };
+  }, []);
 
   // One message under the bar: whichever of the two was sent last.
   const [last, setLast] = useState<"delete" | "send" | null>(null);
 
   const [state, action, pending] = useActionState<DeletePhotosState, FormData>(async (prev, form) => {
+    const ids = form.getAll("photo").map(String);
     const result = await deletePhotos(prev, form);
     if (result.ok) {
-      setSelecting(false);
-      setChosen(new Set());
-      lastPicked.current = null;
+      setGone((g) => new Set([...g, ...ids]));
+      stop();
     }
     setArmed(false);
     setLast("delete");
@@ -160,44 +207,36 @@ export default function StudioPhotoGrid({
   }, {});
 
   const [sent, send, sendPending] = useActionState<SendPhotosState, FormData>(async (prev, form) => {
+    const ids = form.getAll("photo").map(String);
     const result = await sendPhotos(prev, form);
     if (result.ok) {
-      setSelecting(false);
-      setSending(false);
-      setChosen(new Set());
-      lastPicked.current = null;
+      if (!isClient) setGone((g) => new Set([...g, ...ids]));
+      stop();
     }
     setLast("send");
     return result;
   }, {});
 
   useEffect(() => {
-    if (!selecting) return;
+    if (!selecting || openId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setSelecting(false);
-      setChosen(new Set());
-      setArmed(false);
-      setSending(false);
-      lastPicked.current = null;
+      if (e.key === "Escape") stop();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selecting]);
+  }, [selecting, openId, stop]);
 
-  // Photos that went away (deleted, or the page refreshed) or are filtered
-  // out are not counted.
-  const picked = photos.filter((p) => chosen.has(p.id));
-  const n = picked.length;
-  const busy = pending || sendPending;
+  const busy = pending || sendPending || hiding;
 
   function pick(index: number, range: boolean) {
     const id = photos[index].id;
+    // Read now: the updater below can run after lastPicked has moved on.
+    const from = lastPicked.current;
     setArmed(false);
     setChosen((prev) => {
       const next = new Set(prev);
-      if (range && lastPicked.current !== null && lastPicked.current !== index) {
-        const [a, b] = [lastPicked.current, index].sort((x, y) => x - y);
+      if (range && from !== null && from !== index) {
+        const [a, b] = [from, index].sort((x, y) => x - y);
         for (let i = a; i <= b; i++) next.add(photos[i].id);
       } else if (next.has(id)) {
         next.delete(id);
@@ -209,12 +248,110 @@ export default function StudioPhotoGrid({
     lastPicked.current = index;
   }
 
+  // Hide or Show for the chosen ones: Hide while any of them is shown.
+  const anyShown = picked.some((p) => !p.hidden);
+  async function hideChosen() {
+    setHiding(true);
+    setHideError(null);
+    const ids = picked.map((p) => p.id);
+    const result = await setPhotosHidden(galleryId, ids, anyShown).catch(() => ({ error: "failed" }) as const);
+    setHiding(false);
+    if ("error" in result) {
+      setHideError(result.error ?? "failed");
+      return;
+    }
+    for (const id of ids) patch(id, { hidden: anyShown });
+  }
+
+  // ---------------------------------------------------------------- one photo
+  const form = (photoId: string, extra: Record<string, string> = {}) => {
+    const f = new FormData();
+    f.set("galleryId", galleryId);
+    f.append("photo", photoId);
+    for (const [k, v] of Object.entries(extra)) f.set(k, v);
+    return f;
+  };
+  const openIndex = openId ? photos.findIndex((p) => p.id === openId) : -1;
+  const ops: PhotoOps = {
+    update: async (photoId, changes) => {
+      const result = await updatePhoto(galleryId, photoId, changes);
+      if (!result.ok) return result.error;
+      const d = result.photo;
+      const fileName = all.find((p) => p.id === photoId)?.fileName ?? d.fileName;
+      patch(photoId, { name: d.name ?? fileName, description: d.description ?? "", tags: d.tags, hidden: d.hidden });
+      return undefined;
+    },
+    setCover: async (photoId) => {
+      await setCover(form(photoId));
+      setCoverId(photoId);
+      return undefined;
+    },
+    move: async (photoId, target) => {
+      const extra: Record<string, string> = { to: target.to };
+      if (target.title) extra.title = target.title;
+      if (target.category) extra.category = target.category;
+      const result = await sendPhotos({}, form(photoId, extra));
+      if (!result.ok) return { error: result.error ?? "failed" };
+      if (!isClient) {
+        // It left this gallery: the panel goes on to the next photo.
+        if (openId === photoId) setOpenId(photos[openIndex + 1]?.id ?? photos[openIndex - 1]?.id ?? null);
+        setGone((g) => new Set([...g, photoId]));
+      }
+      return { album: result.to?.title };
+    },
+    remove: async (photoId) => {
+      const result = await deletePhotos({}, form(photoId));
+      if (!result.ok) return result.error ?? "failed";
+      if (openId === photoId) setOpenId(photos[openIndex + 1]?.id ?? photos[openIndex - 1]?.id ?? null);
+      setGone((g) => new Set([...g, photoId]));
+      return undefined;
+    },
+    original: async (photoId) => {
+      const r = await originalLink(galleryId, photoId);
+      return "url" in r ? { url: r.url } : { error: r.error };
+    },
+  };
+
+  const positions = useMemo(() => sitePositions(all), [all]);
+  const linkOf = (photo: StudioPhoto) => photoLink(siteHref, photo, positions.get(photo.id) ?? null);
+
+  // Tags to offer: the Portfolio's categories and every tag used in this gallery.
+  const tagOptions = useMemo(
+    () => [...new Set([...categories, ...all.flatMap((p) => p.tags)])].sort((a, b) => a.localeCompare(b)),
+    [categories, all],
+  );
+
+  // On a computer the panel takes the right 2/5 of the window; the grid
+  // makes room for it rather than hiding under it.
+  const gridBox = useRef<HTMLDivElement>(null);
+  const panelOpen = openIndex !== -1;
+  useLayoutEffect(() => {
+    const el = gridBox.current;
+    if (!el) return;
+    const fit = () => {
+      if (!panelOpen || !window.matchMedia("(min-width: 1024px)").matches) {
+        el.style.paddingRight = "";
+        return;
+      }
+      const room = window.innerWidth - el.getBoundingClientRect().right;
+      el.style.paddingRight = `${Math.max(0, window.innerWidth * PANEL_SHARE - room + 16)}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      el.style.paddingRight = "";
+    };
+  }, [panelOpen]);
+
   const done = last === "delete" && !pending && state.ok && state.deleted ? state.deleted : 0;
-  const error = last === "send" ? (!sendPending ? sent.error : undefined) : !pending ? state.error : undefined;
+  const error =
+    hideError ?? (last === "send" ? (!sendPending ? sent.error : undefined) : !pending ? state.error : undefined);
   const moved = last === "send" && !sendPending && sent.ok ? sent : null;
+  const open = panelOpen ? photos[openIndex] : null;
 
   return (
-    <>
+    <div ref={gridBox}>
       {anyMarks && (
         <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("gallery.photos.marksLabel")}>
           {FILTERS.filter((f) => f === "all" || counts[f] > 0).map((f) => (
@@ -247,103 +384,99 @@ export default function StudioPhotoGrid({
             : ""
         }
       >
-      <form
-        action={action}
-        className={
-          selecting
-            ? "flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2"
-            : "flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
-        }
-      >
-        <input type="hidden" name="galleryId" value={galleryId} />
-        {picked.map((p) => (
-          <input key={p.id} type="hidden" name="photo" value={p.id} />
-        ))}
+        <form
+          action={action}
+          className={
+            selecting
+              ? "flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2"
+              : "flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+          }
+        >
+          <input type="hidden" name="galleryId" value={galleryId} />
+          {picked.map((p) => (
+            <input key={p.id} type="hidden" name="photo" value={p.id} />
+          ))}
 
-        {selecting ? (
-          <>
-            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="text-sm font-semibold tabular-nums" aria-live="polite">
-                {t("gallery.photos.selected", { n })}
-              </span>
-              {n < photos.length ? (
-                <button type="button" className={LINK} onClick={() => setChosen(new Set(photos.map((p) => p.id)))}>
-                  {t("gallery.photos.selectAll")}
-                </button>
-              ) : (
-                <button type="button" className={LINK} onClick={() => setChosen(new Set())}>
-                  {t("gallery.photos.selectNone")}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Keyed: without it React would turn the Delete button into the
-                  submit button during its own click, and the click would send
-                  the form before the question was asked. */}
-              {armed && n > 0 ? (
-                <>
-                  <button key="yes" type="submit" disabled={busy} className={SMALL_DANGER}>
-                    {t(n === 1 ? "gallery.photos.deleteConfirmOne" : "gallery.photos.deleteConfirmMany", { n })}
+          {selecting ? (
+            <>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="text-sm font-semibold tabular-nums" aria-live="polite">
+                  {t("gallery.photos.selected", { n })}
+                </span>
+                {n < photos.length && (
+                  <button type="button" className={LINK} onClick={() => setChosen(new Set(photos.map((p) => p.id)))}>
+                    {t("gallery.photos.selectAll")}
                   </button>
-                  <button key="no" type="button" disabled={busy} className={SMALL_QUIET} onClick={() => setArmed(false)}>
-                    {t("common.cancel")}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    key="send"
-                    type="button"
-                    disabled={n === 0 || busy}
-                    aria-expanded={sending}
-                    className={sending ? SMALL_QUIET : SMALL_MAIN}
-                    onClick={() => setSending((v) => !v)}
-                  >
-                    {t(isClient ? "gallery.photos.publish" : "gallery.photos.move")}
-                  </button>
-                  <button
-                    key="delete"
-                    type="button"
-                    disabled={n === 0 || busy}
-                    className={SMALL_DANGER}
-                    onClick={() => {
-                      setSending(false);
-                      setArmed(true);
-                    }}
-                  >
-                    {t("gallery.photos.delete")}
-                  </button>
-                  <button key="done" type="button" className={SMALL_QUIET} onClick={stop}>
-                    {t("gallery.photos.done")}
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="min-w-0 text-sm text-muted-foreground">{t("gallery.photos.coverHint")}</p>
-            <button type="button" className={SMALL_QUIET} onClick={() => setSelecting(true)}>
-              {t("gallery.photos.select")}
-            </button>
-          </>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Keyed: without it React would turn the Delete button into the
+                    submit button during its own click, and the click would send
+                    the form before the question was asked. */}
+                {armed && n > 0 ? (
+                  <>
+                    <button key="yes" type="submit" disabled={busy} className={SMALL_DANGER}>
+                      {t(n === 1 ? "gallery.photos.deleteConfirmOne" : "gallery.photos.deleteConfirmMany", { n })}
+                    </button>
+                    <button key="no" type="button" disabled={busy} className={SMALL_QUIET} onClick={() => setArmed(false)}>
+                      {t("common.cancel")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {detailsReady && (
+                      <button key="hide" type="button" disabled={busy} className={SMALL_QUIET} onClick={hideChosen}>
+                        {t(anyShown ? "gallery.photos.hideN" : "gallery.photos.showN", { n })}
+                      </button>
+                    )}
+                    <button
+                      key="send"
+                      type="button"
+                      disabled={busy}
+                      aria-expanded={sending}
+                      className={sending ? SMALL_QUIET : SMALL_MAIN}
+                      onClick={() => setSending((v) => !v)}
+                    >
+                      {t(isClient ? "gallery.photos.publish" : "gallery.photos.move")}
+                    </button>
+                    <button
+                      key="delete"
+                      type="button"
+                      disabled={busy}
+                      className={SMALL_DANGER}
+                      onClick={() => {
+                        setSending(false);
+                        setArmed(true);
+                      }}
+                    >
+                      {t("gallery.photos.delete")}
+                    </button>
+                    <button key="done" type="button" className={SMALL_QUIET} onClick={stop}>
+                      {t("gallery.photos.selectNone")}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="min-w-0 text-sm text-muted-foreground">{t("gallery.photos.gridHint")}</p>
+          )}
+        </form>
+
+        {selecting && sending && (
+          <SendForm
+            key={kind}
+            action={send}
+            pending={sendPending}
+            galleryId={galleryId}
+            galleryTitle={galleryTitle}
+            isClient={isClient}
+            picked={picked.map((p) => p.id)}
+            albums={albums}
+            categories={categories}
+            onCancel={() => setSending(false)}
+          />
         )}
-      </form>
-
-      {selecting && sending && n > 0 && (
-        <SendForm
-          key={kind}
-          action={send}
-          pending={sendPending}
-          galleryId={galleryId}
-          galleryTitle={galleryTitle}
-          isClient={isClient}
-          picked={picked.map((p) => p.id)}
-          albums={albums}
-          categories={categories}
-          onCancel={() => setSending(false)}
-        />
-      )}
       </div>
 
       <p role={error ? "alert" : "status"} className="mt-2 min-h-5 text-sm">
@@ -386,84 +519,105 @@ export default function StudioPhotoGrid({
             <span>{t(done === 1 ? "gallery.photos.deletedOne" : "gallery.photos.deletedMany", { n: done })}</span>
           </span>
         )}
-        {selecting && n === 0 && !error && (
-          <span className="text-muted-foreground">{t("gallery.photos.selectHint")}</span>
-        )}
+        {selecting && !error && <span className="text-muted-foreground">{t("gallery.photos.selectHint")}</span>}
       </p>
 
       <ul className="mt-2 grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-x-3 lg:grid-cols-5 2xl:grid-cols-6">
         {photos.map((photo, index) => {
           const on = chosen.has(photo.id);
-          const frame = (
-            <div
-              className={`relative overflow-hidden rounded-lg ring-1 ${on ? "ring-2 ring-accent-warm" : "ring-border"}`}
-            >
-              <PhotoFrame
-                ladder={photo.ladder}
-                thumbhash={photo.thumbhash}
-                alt={photo.fileName}
-                sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 17vw, (min-width: 640px) 23vw, 31vw"
-                className={`aspect-square w-full transition ${on ? "scale-[0.94] rounded-md" : ""}`}
-              />
-              {photo.isCover && (
-                <span className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium leading-none text-white">
-                  {t("gallery.photos.cover")}
-                </span>
-              )}
-              {photo.mark && (
-                <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium leading-none text-white">
-                  <span aria-hidden className={`size-1.5 rounded-full ${MARK_DOT[photo.mark]}`} />
-                  {t(`gallery.photos.mark.${photo.mark}`)}
-                </span>
-              )}
-              {!selecting && (
-                <PhotoActions
-                  fileName={photo.fileName}
-                  ladder={photo.ladder}
-                  thumbhash={photo.thumbhash}
-                  canPlace={!isClient}
-                  publishedIn={photo.publishedIn}
-                  places={places}
-                  placed={
-                    isClient
-                      ? []
-                      : placements === "missing" || placements === "failed"
-                        ? placements
-                        : (placedBy[photo.id] ?? [])
-                  }
-                  counts={placeCounts}
-                  onToggle={(place, on) => toggle(photo.id, place, on)}
-                />
-              )}
-              {selecting && (
-                <span
-                  aria-hidden
-                  className={`absolute right-1.5 top-1.5 grid size-5 place-items-center rounded-full border-2 ${
-                    on ? "border-accent-warm bg-accent-warm text-white" : "border-white bg-black/30"
-                  }`}
-                >
-                  {on && <Check className="size-3" strokeWidth={3} />}
-                </span>
-              )}
-            </div>
-          );
+          const isOpen = photo.id === openId;
+          const rows = detailRows(photo, galleryTitle, t, locale);
           return (
             <li key={photo.id} className="min-w-0">
-              {selecting ? (
+              <div
+                className={`relative overflow-hidden rounded-lg ring-1 ${
+                  on ? "ring-2 ring-accent-warm" : isOpen ? "ring-2 ring-foreground" : "ring-border"
+                }`}
+              >
                 <button
                   type="button"
-                  aria-pressed={on}
-                  aria-label={photo.fileName}
-                  onClick={(e) => pick(index, e.shiftKey)}
-                  className="block w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  aria-label={selecting ? photo.name : t("gallery.photos.panel.open", { name: photo.name })}
+                  aria-pressed={selecting ? on : undefined}
+                  onClick={(e) => {
+                    if (selecting) pick(index, e.shiftKey);
+                    else if (e.shiftKey) pick(index, false);
+                    else setOpenId(photo.id);
+                  }}
+                  className="block w-full text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                 >
-                  {frame}
+                  <PhotoFrame
+                    ladder={photo.ladder}
+                    thumbhash={photo.thumbhash}
+                    alt={photo.name}
+                    sizes="(min-width: 1536px) 14vw, (min-width: 1024px) 17vw, (min-width: 640px) 23vw, 31vw"
+                    className={`aspect-square w-full transition ${on ? "scale-[0.94] rounded-md" : ""} ${photo.hidden ? "opacity-40" : ""}`}
+                  />
                 </button>
-              ) : (
-                frame
-              )}
-              <p className="mt-1.5 truncate text-xs text-muted-foreground" title={photo.fileName}>
-                {photo.fileName}
+
+                {/* The selector: always there, in the top-left corner. */}
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  aria-label={t("gallery.photos.choose", { name: photo.name })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pick(index, e.shiftKey);
+                  }}
+                  className="absolute left-1 top-1 z-10 grid size-8 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+                >
+                  <span
+                    aria-hidden
+                    className={`grid size-5 place-items-center rounded-full border-2 shadow-[0_0_0_1px_rgba(0,0,0,.35)] transition ${
+                      on ? "border-accent-warm bg-accent-warm text-white" : "border-white bg-black/25 hover:bg-black/45"
+                    }`}
+                  >
+                    {on && <Check className="size-3" strokeWidth={3} />}
+                  </span>
+                </button>
+
+                {!selecting && (
+                  <PhotoActions
+                    photo={photo}
+                    isClient={isClient}
+                    detailsReady={detailsReady}
+                    link={linkOf(photo)}
+                    details={detailsText(rows)}
+                    albums={albums}
+                    categories={categories}
+                    places={places}
+                    placed={placedOf(photo.id)}
+                    counts={placeCounts}
+                    onToggle={(place, isOn) => toggle(photo.id, place, isOn)}
+                    onOpenDetails={() => setOpenId(photo.id)}
+                    ops={ops}
+                  />
+                )}
+
+                {photo.mark && (
+                  <span className="pointer-events-none absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium leading-none text-white">
+                    <span aria-hidden className={`size-1.5 rounded-full ${MARK_DOT[photo.mark]}`} />
+                    {t(`gallery.photos.mark.${photo.mark}`)}
+                  </span>
+                )}
+                {(photo.isCover || photo.hidden) && (
+                  <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex gap-1">
+                    {photo.hidden && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium leading-none text-white">
+                        <EyeOff aria-hidden className="size-3" />
+                        {t("gallery.photos.hidden")}
+                      </span>
+                    )}
+                    {photo.isCover && (
+                      <span className="rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium leading-none text-white">
+                        {t("gallery.photos.cover")}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 truncate text-xs text-muted-foreground" title={photo.name}>
+                {photo.name}
               </p>
               {photo.publishedIn && (
                 <p className="truncate text-xs text-foreground" title={photo.publishedIn}>
@@ -487,7 +641,12 @@ export default function StudioPhotoGrid({
                 </p>
               )}
               {!selecting && !photo.isCover && (
-                <form action={setCover}>
+                <form
+                  action={async (f) => {
+                    await setCover(f);
+                    setCoverId(photo.id);
+                  }}
+                >
                   <input type="hidden" name="galleryId" value={galleryId} />
                   <input type="hidden" name="photo" value={photo.id} />
                   <PendingButton className="text-left text-[13px] text-accent-warm underline-offset-4 hover:underline disabled:opacity-60">
@@ -499,7 +658,31 @@ export default function StudioPhotoGrid({
           );
         })}
       </ul>
-    </>
+
+      {open && (
+        <PhotoPanel
+          photo={open}
+          index={openIndex}
+          total={photos.length}
+          galleryTitle={galleryTitle}
+          isClient={isClient}
+          detailsReady={detailsReady}
+          link={linkOf(open)}
+          rows={detailRows(open, galleryTitle, t, locale)}
+          tagOptions={tagOptions}
+          albums={albums}
+          categories={categories}
+          places={places}
+          placed={placedOf(open.id)}
+          counts={placeCounts}
+          onToggle={(place, isOn) => toggle(open.id, place, isOn)}
+          ops={ops}
+          onPrev={() => openIndex > 0 && setOpenId(photos[openIndex - 1].id)}
+          onNext={() => openIndex < photos.length - 1 && setOpenId(photos[openIndex + 1].id)}
+          onClose={() => setOpenId(null)}
+        />
+      )}
+    </div>
   );
 }
 

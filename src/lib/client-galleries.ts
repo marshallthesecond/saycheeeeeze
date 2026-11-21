@@ -282,14 +282,36 @@ export async function getClientGallery(
  * not check the cookie — that is the page's job, and keeping the check in one
  * obvious place is worth more than a second one buried down here.
  */
+/**
+ * The name a download is saved under: the Studio's name with the file's own
+ * extension when it has none ("Sara by the window" + ".jpg"), else the file's.
+ */
+function downloadName(name: unknown, fileName: unknown): string | null {
+  const file = typeof fileName === "string" ? fileName : null;
+  if (typeof name !== "string" || !name.trim()) return file;
+  const ext = file?.match(/\.[A-Za-z0-9]{1,5}$/)?.[0] ?? "";
+  return ext && !name.toLowerCase().endsWith(ext.toLowerCase()) ? `${name}${ext}` : name;
+}
+
 export async function getGalleryContent(
   gallery: ClientGallery,
 ): Promise<GalleryContent> {
-  const { data, error } = await untypedAdmin()
-    .from("photos")
-    .select("storage_path, alt, sort_order, id, gallery_id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, client_mark, files_at")
-    .eq("gallery_id", gallery.id)
-    .order("sort_order", { ascending: true });
+  // The service key skips the visitors' rule, so a photo hidden in the Studio
+  // is left out here (20261121120000_photo_details.sql). Before that
+  // migration the columns do not exist: asked for again without them.
+  const query = (details: boolean) => {
+    const q = untypedAdmin()
+      .from("photos")
+      .select(
+        `storage_path, alt, sort_order, id, gallery_id, width, height, file_name, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, client_mark, files_at${details ? ", name, description" : ""}`,
+      )
+      .eq("gallery_id", gallery.id);
+    return (details ? q.eq("hidden", false) : q).order("sort_order", { ascending: true });
+  };
+  let { data, error } = await query(true);
+  if (error && (error.code === "42703" || /column .* does not exist/.test(error.message ?? ""))) {
+    ({ data, error } = await query(false));
+  }
 
   if (error) {
     throw new Error(
@@ -297,11 +319,17 @@ export async function getGalleryContent(
     );
   }
 
-  const rows = [...(data ?? [])].sort(
+  // The untyped client: the rows are as loose as they always were here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = [...((data ?? []) as any[])].sort(
     (a, b) => a.sort_order - b.sort_order || String(a.id).localeCompare(String(b.id)),
   );
 
-  const coverPath = gallery.coverPath ?? rows[0]?.storage_path ?? null;
+  // A hidden cover is not shown: the first photo stands in, as when none is chosen.
+  const coverPath =
+    (gallery.coverPath && rows.some((r) => r.storage_path === gallery.coverPath) ? gallery.coverPath : null) ??
+    rows[0]?.storage_path ??
+    null;
 
   // The row the cover came from, so the hero can use the ladder too. rows is
   // already sorted, so rows[0] is the same photo the cover falls back to.
@@ -369,10 +397,12 @@ export async function getGalleryContent(
 
   return {
     photos: rows.map((p) => ({
-      ...signedPhoto(p.storage_path, p.alt, expiresAt, {
+      // The description written in the Studio, else the automatic text. The
+      // name given in the Studio is what a download is saved as.
+      ...signedPhoto(p.storage_path, p.description || p.alt, expiresAt, {
         width: p.width,
         height: p.height,
-        fileName: p.file_name,
+        fileName: downloadName(p.name, p.file_name),
         sizes: sizesOf(p),
       }),
       ladder: ladderFor(p),

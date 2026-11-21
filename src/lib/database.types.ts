@@ -604,18 +604,22 @@ export type Database = {
           client_marked_at: string | null
           created_at: string
           delivery_bytes: number | null
-          share_bytes: number | null
-          source_bytes: number | null
+          description: string | null
           error: string | null
           file_name: string | null
           files_at: string
           gallery_id: string
           height: number | null
+          hidden: boolean
           id: string
           ladder_rev: number
+          name: string | null
+          share_bytes: number | null
           sort_order: number
+          source_bytes: number | null
           status: string
           storage_path: string
+          tags: string[]
           taken_at: string | null
           thumbhash: string | null
           upload_id: string | null
@@ -634,18 +638,22 @@ export type Database = {
           client_marked_at?: string | null
           created_at?: string
           delivery_bytes?: number | null
-          share_bytes?: number | null
-          source_bytes?: number | null
+          description?: string | null
           error?: string | null
           file_name?: never
           files_at?: string
           gallery_id: string
           height?: number | null
+          hidden?: boolean
           id?: string
           ladder_rev?: number
+          name?: string | null
+          share_bytes?: number | null
           sort_order?: number
+          source_bytes?: number | null
           status?: string
           storage_path: string
+          tags?: string[]
           taken_at?: string | null
           thumbhash?: string | null
           upload_id?: string | null
@@ -664,18 +672,22 @@ export type Database = {
           client_marked_at?: string | null
           created_at?: string
           delivery_bytes?: number | null
-          share_bytes?: number | null
-          source_bytes?: number | null
+          description?: string | null
           error?: string | null
           file_name?: never
           files_at?: string
           gallery_id?: string
           height?: number | null
+          hidden?: boolean
           id?: string
           ladder_rev?: number
+          name?: string | null
+          share_bytes?: number | null
           sort_order?: number
+          source_bytes?: number | null
           status?: string
           storage_path?: string
+          tags?: string[]
           taken_at?: string | null
           thumbhash?: string | null
           upload_id?: string | null
@@ -1056,6 +1068,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      studio_update_photo: {
+        Args: { p_changes: Json; p_photo_id: string }
+        Returns: Json
+      }
       studio_set_cover: {
         Args: { p_gallery_id: string; p_photo_id?: string }
         Returns: undefined
@@ -1063,6 +1079,10 @@ export type Database = {
       studio_set_gallery_public: {
         Args: { p_category?: string; p_gallery_id: string; p_public: boolean }
         Returns: Json
+      }
+      studio_set_photos_hidden: {
+        Args: { p_gallery_id: string; p_hidden: boolean; p_photo_ids: string[] }
+        Returns: number
       }
       studio_set_service_enabled: {
         Args: { p_account: string; p_on: boolean; p_slug: string }
