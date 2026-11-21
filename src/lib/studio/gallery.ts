@@ -137,7 +137,16 @@ export const getStudioGallery = cache(async (slug: string): Promise<StudioGaller
 
 export interface StudioPhoto {
   id: string;
+  /** The file's own name, from its storage path. Never changes. */
   fileName: string;
+  /** What the Studio calls it: the name given in the Studio, else the file's. */
+  name: string;
+  /** Shown under the photo in the gallery viewer. "" for none. */
+  description: string;
+  /** Portfolio categories it is also filed under. */
+  tags: string[];
+  /** Off the site; still here, marked. */
+  hidden: boolean;
   ladder?: LadderSources;
   thumbhash?: string;
   /** The one the gallery shows first: the chosen cover, or else the first photo. */
@@ -146,6 +155,17 @@ export interface StudioPhoto {
   mark?: ClientMark;
   /** Client galleries: the album it is already published in, if any. */
   publishedIn?: string;
+  /** For the details: what the database knows about the file. */
+  width?: number;
+  height?: number;
+  bytes?: number;
+  takenAt?: string;
+  uploadedAt?: string;
+  /**
+   * Where it is in the gallery as the site shows it, from 1, for a link that
+   * opens the gallery on it (?p=). Null while it is hidden.
+   */
+  sitePosition: number | null;
 }
 
 export type ClientMark = "publish" | "keep" | "delete";
@@ -156,17 +176,62 @@ function markOf(value: unknown): ClientMark | undefined {
 
 /** Every photograph in the gallery, in the order the site shows them. */
 export async function listStudioPhotos(gallery: StudioGalleryDetail): Promise<StudioPhoto[]> {
+  return (await listStudioPhotoDetails(gallery)).photos;
+}
+
+const BASE_COLUMNS = `${COVER_COLUMNS}, file_name, sort_order, client_mark, width, height, bytes, source_bytes, taken_at, created_at`;
+/** 20261121120000_photo_details.sql. */
+const DETAIL_COLUMNS = "name, description, tags, hidden";
+
+type PhotoListRow = {
+  id: string;
+  gallery_id: string;
+  storage_path: string;
+  checksum8: string | null;
+  thumbhash: string | null;
+  variants: unknown;
+  ladder_rev: number;
+  files_at: string;
+  file_name: string | null;
+  client_mark: string | null;
+  width: number | null;
+  height: number | null;
+  bytes: number | null;
+  source_bytes: number | null;
+  taken_at: string | null;
+  created_at: string;
+  name?: string | null;
+  description?: string | null;
+  tags?: string[] | null;
+  hidden?: boolean | null;
+};
+
+/**
+ * The photos, and whether the database has the photo details yet
+ * (20261121120000_photo_details.sql). Before it is run the photos still show,
+ * with no names, descriptions, tags or hiding.
+ */
+export async function listStudioPhotoDetails(
+  gallery: StudioGalleryDetail,
+): Promise<{ photos: StudioPhoto[]; detailsReady: boolean }> {
   const supabase = await studioSupabase();
+  const query = (columns: string) =>
+    supabase
+      .from("photos")
+      .select(columns)
+      .eq("gallery_id", gallery.id)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
 
-  const { data, error } = await supabase
-    .from("photos")
-    .select(`${COVER_COLUMNS}, file_name, sort_order, client_mark`)
-    .eq("gallery_id", gallery.id)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
-
+  let detailsReady = true;
+  let { data, error } = await query(`${BASE_COLUMNS}, ${DETAIL_COLUMNS}`);
+  // 42703: a column that does not exist. The migration is not run yet.
+  if (error && (error.code === "42703" || /column .* does not exist/.test(error.message))) {
+    detailsReady = false;
+    ({ data, error } = await query(BASE_COLUMNS));
+  }
   if (error) throw new Error(`Studio: could not load the photos: ${error.message}`);
-  const rows = data ?? [];
+  const rows = (data ?? []) as unknown as PhotoListRow[];
   const published = gallery.kind === "client" ? await albumsHolding(rows.map((r) => r.storage_path)) : new Map();
 
   // One deadline for every signed thumbnail on the page.
@@ -174,15 +239,31 @@ export async function listStudioPhotos(gallery: StudioGalleryDetail): Promise<St
   const named = gallery.coverPath ? rows.findIndex((r) => r.storage_path === gallery.coverPath) : -1;
   const coverIndex = named === -1 ? 0 : named;
 
-  return rows.map((r, i) => ({
-    id: r.id,
-    fileName: r.file_name ?? r.storage_path.split("/").pop() ?? "",
-    ladder: coverLadder(gallery.kind, r, expiresAt),
-    thumbhash: r.thumbhash ?? undefined,
-    isCover: i === coverIndex,
-    mark: gallery.kind === "client" ? markOf(r.client_mark) : undefined,
-    publishedIn: published.get(r.storage_path),
-  }));
+  let shown = 0;
+  const photos = rows.map((r, i) => {
+    const fileName = r.file_name ?? r.storage_path.split("/").pop() ?? "";
+    const hidden = r.hidden === true;
+    return {
+      id: r.id,
+      fileName,
+      name: r.name || fileName,
+      description: r.description ?? "",
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      hidden,
+      ladder: coverLadder(gallery.kind, r, expiresAt),
+      thumbhash: r.thumbhash ?? undefined,
+      isCover: i === coverIndex,
+      mark: gallery.kind === "client" ? markOf(r.client_mark) : undefined,
+      publishedIn: published.get(r.storage_path),
+      ...(r.width ? { width: r.width } : {}),
+      ...(r.height ? { height: r.height } : {}),
+      ...((r.source_bytes ?? r.bytes) ? { bytes: Number(r.source_bytes ?? r.bytes) } : {}),
+      ...(r.taken_at ? { takenAt: r.taken_at } : {}),
+      uploadedAt: r.created_at,
+      sitePosition: hidden ? null : ++shown,
+    };
+  });
+  return { photos, detailsReady };
 }
 
 /** File -> the title of an album of this account that shows it too. */

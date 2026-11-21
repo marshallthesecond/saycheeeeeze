@@ -29,6 +29,11 @@ import type { GalleryListing } from "@/src/lib/client-galleries";
 // laptop alike. Raise it to push the albums further down.
 const PHOTOS_BEFORE_ALBUMS = 6;
 
+/** Filed under this category: its album's, or one of its tags. */
+function inCategory(p: PortfolioPhoto, category: string): boolean {
+  return p.category === category || (p.tags?.includes(category) ?? false);
+}
+
 export default function PortfolioContent({ 
   photos: allPhotos,
   albums, 
@@ -53,15 +58,23 @@ export default function PortfolioContent({
 
   // Pills derived from the top-level folders that exist in Bunny Storage, so
   // there's no hardcoded category list to keep in sync.
+  //
+  // A photo is under its album's category and any category tags given to it
+  // in the Studio (2026-11-21), so one photo can be in two.
   const filters = useMemo(
-    () => ["All", ...Array.from(new Set(allPhotos.filter((p) => !p.hidden).map((p) => p.category))).sort()],
+    () => [
+      "All",
+      ...Array.from(
+        new Set(allPhotos.filter((p) => !p.hidden).flatMap((p) => [p.category, ...(p.tags ?? [])]))
+      ).sort(),
+    ],
     [allPhotos]
   );
 
   const catStats = useMemo(
     () => filters.slice(1).map((cat) => ({
       label: cat,
-      count: allPhotos.filter((p) => p.category === cat).length,
+      count: allPhotos.filter((p) => inCategory(p, cat)).length,
     })),
     [filters, allPhotos]
   );
@@ -76,7 +89,7 @@ export default function PortfolioContent({
     [catStats, allPhotos.length, t]
   );
 
-  const visibleData = filter === "All" ? shuffled : shuffled.filter((p) => p.category === filter);
+  const visibleData = filter === "All" ? shuffled : shuffled.filter((p) => inCategory(p, filter));
   // Spread, not { src, alt }: narrowing here would drop ladder, thumbhash and
   // dimensions and put the portfolio back onto the Optimizer.
   const photos: Photo[] = visibleData.map((p) => ({ ...p, alt: p.alt }));

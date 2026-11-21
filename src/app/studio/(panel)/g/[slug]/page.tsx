@@ -1,5 +1,7 @@
 // A gallery's Photos tab: uploading into it, what is in it, which photo is
 // the cover, what the client chose, and deleting, publishing or moving some.
+// A photo opens in the photo panel, with its name, description, tags and
+// whether it is shown (2026-11-21).
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -10,7 +12,7 @@ import { PICKS_WANTED } from "@/src/app/[locale]/about/best-picks";
 import { BEST_PICKS_PLACE, HERO_STACK_COUNT, PLACES, RAIL_COUNT } from "@/src/lib/placements";
 import { getDictionary } from "@/src/lib/i18n/dictionaries";
 import { getServiceBySlug, pickLocale } from "@/src/lib/services";
-import { albumTargets, getStudioGallery, listStudioPhotos, placementState } from "@/src/lib/studio/gallery";
+import { albumTargets, getStudioGallery, listStudioPhotoDetails, placementState } from "@/src/lib/studio/gallery";
 import { getStudioLocale } from "@/src/lib/studio/locale";
 import { requireStudio } from "@/src/lib/studio/session";
 import { getWorkerStatus, unfinishedUploads } from "@/src/lib/studio/uploads";
@@ -49,8 +51,8 @@ export default async function GalleryPhotosPage({ params }: Props) {
   const session = await requireStudio();
   // Uploading is optional on this page: if the database has not had the
   // uploads migration yet, the photos still show and the panel says nothing.
-  const [photos, pending, worker, targets] = await Promise.all([
-    listStudioPhotos(gallery),
+  const [{ photos, detailsReady }, pending, worker, targets] = await Promise.all([
+    listStudioPhotoDetails(gallery),
     unfinishedUploads(session, gallery.id).catch(() => []),
     getWorkerStatus().catch(() => null),
     albumTargets(session, gallery.id).catch(() => ({ albums: [], categories: [] })),
@@ -95,6 +97,8 @@ export default async function GalleryPhotosPage({ params }: Props) {
         categories={targets.categories}
         places={places}
         placements={placements}
+        detailsReady={detailsReady}
+        siteHref={gallery.href}
       />
     </>
   );

@@ -128,7 +128,33 @@ type PhotoRow = Pick<
   | "delivery_bytes"
   | "source_bytes"
   | "files_at"
->;
+> & {
+  /**
+   * From 20261121120000_photo_details.sql: the description written in the
+   * Studio (the site shows it instead of the automatic alt text) and the
+   * Portfolio categories the photo is also filed under. Absent before it.
+   */
+  description?: string | null;
+  tags?: string[] | null;
+};
+
+/** A column the database does not have: 20261121120000_photo_details.sql is not run yet. */
+function isMissingColumn(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(error && (error.code === "42703" || /column .* does not exist/.test(error.message ?? "")));
+}
+
+/**
+ * The query asking for the photo details, or, on a database without them,
+ * the same query without. Two literals because supabase-js parses the select
+ * at the type level and only understands literals.
+ */
+async function detailsOr<A extends { error: { code?: string; message?: string } | null }, B>(
+  withDetails: () => PromiseLike<A>,
+  without: () => PromiseLike<B>,
+): Promise<A | B> {
+  const first = await withDetails();
+  return isMissingColumn(first.error) ? without() : first;
+}
 
 /**
  * One album cover, as the card-grid query fetches it.
@@ -169,7 +195,7 @@ function ladderFor(p: LadderRow): LadderSources | undefined {
 function toPhoto(p: PhotoRow): AlbumPhoto {
   return {
     src: originalUrl(p.storage_path, publicPageExpiry()),
-    alt: p.alt ?? undefined,
+    alt: p.description || p.alt || undefined,
     width: p.width ?? undefined,
     height: p.height ?? undefined,
     fileName: p.file_name ?? undefined,
@@ -293,18 +319,29 @@ async function fetchAlbumBySlug(slug: string): Promise<AlbumData | undefined> {
 
   const [manifest, { data, error }] = await Promise.all([
     getExcludeManifest(),
-    supabaseRead()
-      .from("galleries")
-      // Explicit column list rather than photos(*), because photos is readable
-      // by the anon role and photos(*) shipped the worker's operational columns —
-      // status, attempts, claimed_at and the error text — to every browser that
-      // opened an album page. One string literal: supabase-js parses this at the
-      // type level and its parser only understands literals.
-      .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at)")
-      .eq("kind", "album")
-      .ilike("slug", pattern)
-      .limit(1)
-      .maybeSingle(),
+    detailsOr(
+      () =>
+        supabaseRead()
+          .from("galleries")
+          // Explicit column list rather than photos(*), because photos is readable
+          // by the anon role and photos(*) shipped the worker's operational columns —
+          // status, attempts, claimed_at and the error text — to every browser that
+          // opened an album page. One string literal: supabase-js parses this at the
+          // type level and its parser only understands literals.
+          .select("*, photos(id, gallery_id, storage_path, file_name, alt, description, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at)")
+          .eq("kind", "album")
+          .ilike("slug", pattern)
+          .limit(1)
+          .maybeSingle(),
+      () =>
+        supabaseRead()
+          .from("galleries")
+          .select("*, photos(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at)")
+          .eq("kind", "album")
+          .ilike("slug", pattern)
+          .limit(1)
+          .maybeSingle(),
+    ),
   ]);
 
   if (error) throw new Error(`Supabase: failed to load album "${slug}": ${error.message}`);
@@ -593,6 +630,8 @@ function categoryOf(path: string, folder: string | null | undefined): string {
 export interface PortfolioPhoto extends AlbumPhoto {
   /** Top-level folder — "WIUT", "Portraits" — or "Other" for root files. */
   category: string;
+  /** Categories given in the Studio as tags: it is filed under these too. */
+  tags?: string[];
   /** In a category hidden by portfolio-exclude.json. */
   hidden: boolean;
 }
@@ -609,11 +648,20 @@ const loadPortfolioPhotos = unstable_cache(
   async (): Promise<PortfolioPhoto[]> => {
     const [manifest, { data, error }] = await Promise.all([
       getExcludeManifest(),
-      supabaseRead()
-        .from("photos")
-        .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(kind, bunny_folder)")
-        .eq("galleries.kind", "album")
-        .order("sort_order", { ascending: true }),
+      detailsOr(
+        () =>
+          supabaseRead()
+            .from("photos")
+            .select("id, gallery_id, storage_path, file_name, alt, description, tags, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(kind, bunny_folder)")
+            .eq("galleries.kind", "album")
+            .order("sort_order", { ascending: true }),
+        () =>
+          supabaseRead()
+            .from("photos")
+            .select("id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(kind, bunny_folder)")
+            .eq("galleries.kind", "album")
+            .order("sort_order", { ascending: true }),
+      ),
     ]);
 
     if (error) {
@@ -635,9 +683,12 @@ const loadPortfolioPhotos = unstable_cache(
 
       const { galleries: _g, ...photo } = row;
       void _g;
+      const category = manifest.categoryLabels[rawCategory] ?? rawCategory;
+      const tags = ("tags" in photo && Array.isArray(photo.tags) ? photo.tags : []).filter((t) => t !== category);
       out.push({
         ...toPhoto(photo),
-        category: manifest.categoryLabels[rawCategory] ?? rawCategory,
+        category,
+        ...(tags.length ? { tags } : {}),
         hidden: manifest.hiddenCategories.includes(rawCategory),
       });
     }
@@ -745,13 +796,24 @@ const loadPlacements = unstable_cache(
   async (): Promise<Placements | null> => {
     const [manifest, { data, error }] = await Promise.all([
       getExcludeManifest(),
-      supabaseRead()
-        .from("photo_placements")
-        .select(
-          "place, position, photos!inner(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(title, date_label, year, bunny_folder))",
-        )
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: true }),
+      detailsOr(
+        () =>
+          supabaseRead()
+            .from("photo_placements")
+            .select(
+              "place, position, photos!inner(id, gallery_id, storage_path, file_name, alt, description, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(title, date_label, year, bunny_folder))",
+            )
+            .order("position", { ascending: true })
+            .order("created_at", { ascending: true }),
+        () =>
+          supabaseRead()
+            .from("photo_placements")
+            .select(
+              "place, position, photos!inner(id, gallery_id, storage_path, file_name, alt, width, height, aspect_ratio, bytes, taken_at, sort_order, created_at, checksum8, thumbhash, variants, ladder_rev, share_bytes, delivery_bytes, source_bytes, files_at, galleries!inner(title, date_label, year, bunny_folder))",
+            )
+            .order("position", { ascending: true })
+            .order("created_at", { ascending: true }),
+      ),
     ]);
 
     if (error) {
